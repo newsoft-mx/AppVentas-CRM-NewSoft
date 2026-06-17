@@ -45,13 +45,11 @@ export default function ClienteForm({
   const validate = (): FormErrors => {
     const errs: FormErrors = {};
     if (!form.nombre.trim()) errs.nombre = "Nombre requerido";
-    if (!form.rfc.trim()) errs.rfc = "RFC requerido";
-    else if (form.rfc.trim().length < 12)
+    if (form.rfc?.trim() && form.rfc.trim().length < 12)
       errs.rfc = "RFC inválido (mínimo 12 caracteres)";
     if (!form.contacto.trim()) errs.contacto = "Contacto requerido";
     if (!form.ciudad.trim()) errs.ciudad = "Ciudad requerida";
-    if (!form.email.trim()) errs.email = "Email requerido";
-    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email))
+    if (form.email?.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email))
       errs.email = "Email inválido";
     if (!form.condicion_pago_id) errs.condicion_pago_id = "Selecciona una condición";
     return errs;
@@ -76,10 +74,10 @@ export default function ClienteForm({
 
       const payload: ClienteInput = {
         nombre: form.nombre.trim(),
-        rfc: form.rfc.trim().toUpperCase(),
+        rfc: form.rfc?.trim().toUpperCase() || null,
         contacto: form.contacto.trim(),
         ciudad: form.ciudad.trim(),
-        email: form.email.trim().toLowerCase(),
+        email: form.email?.trim().toLowerCase() || null,
         telefono: form.telefono?.trim() || null,
         condicion_pago_id: form.condicion_pago_id,
         notas: form.notas?.trim() || null,
@@ -142,10 +140,12 @@ export default function ClienteForm({
         </div>
 
         <div>
-          <label className="label">RFC *</label>
+          <label className="label">
+            RFC <span className="text-gray-400 font-normal">(opcional)</span>
+          </label>
           <input
             className={`input uppercase font-mono tracking-wider ${errors.rfc ? "border-red-400 focus:ring-red-400" : ""}`}
-            value={form.rfc}
+            value={form.rfc ?? ""}
             onChange={(e) => set("rfc", e.target.value.toUpperCase())}
             placeholder="TCM210501AB3"
             maxLength={13}
@@ -180,11 +180,13 @@ export default function ClienteForm({
       {/* ── Email y Teléfono ── */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div>
-          <label className="label">Email *</label>
+          <label className="label">
+            Email <span className="text-gray-400 font-normal">(opcional)</span>
+          </label>
           <input
             type="email"
             className={`input ${errors.email ? "border-red-400 focus:ring-red-400" : ""}`}
-            value={form.email}
+            value={form.email ?? ""}
             onChange={(e) => set("email", e.target.value)}
             placeholder="contacto@empresa.com"
           />
@@ -245,11 +247,11 @@ export default function ClienteForm({
       </div>
 
       {/* ── Acciones ── */}
-      <div className="flex justify-end gap-3 pt-2 border-t border-surface-border">
-        <button type="button" onClick={onCancel} className="btn-secondary">
+      <div className="grid grid-cols-1 gap-3 border-t border-surface-border pt-2 sm:flex sm:justify-end">
+        <button type="button" onClick={onCancel} className="btn-secondary justify-center">
           Cancelar
         </button>
-        <button type="submit" disabled={isSaving} className="btn-primary">
+        <button type="submit" disabled={isSaving} className="btn-primary justify-center">
           <Save size={15} />
           {isSaving
             ? "Guardando..."

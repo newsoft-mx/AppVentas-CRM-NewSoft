@@ -6,26 +6,37 @@ import { serializeOrden } from "@/lib/serializers";
 import { OrdenUpdateSchema } from "@/lib/validations/ordenes";
 import type { ZodIssue } from "zod";
 import Decimal from "decimal.js";
+import { canWrite, requireAuth } from "@/lib/session";
+import { canAccessOrden, canMutateOrden } from "@/lib/access-control";
+import { logger } from "@/lib/logger";
 
 // ── GET /api/ordenes/:id ──────────────────────────────────────
 
 export async function GET(
-  _req: NextRequest,
-  { params }: { params: { id: string } }
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
+  const session = await requireAuth(req);
+  if (!session) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+
   try {
     const orden = await prisma.ordenVenta.findUnique({
-      where: { id: params.id },
+      where: { id },
       include: {
         cliente: { select: { id: true, nombre: true, rfc: true, contacto: true, email: true, ciudad: true } },
         tipo_cotizacion: { select: { id: true, nombre: true } },
         condicion_pago: { select: { id: true, nombre: true } },
+        vendedor: { select: { id: true, nombre: true } },
         partidas: { orderBy: { orden_display: "asc" } },
       },
     });
 
     if (!orden) {
       return NextResponse.json({ error: "Orden no encontrada" }, { status: 404 });
+    }
+    if (!canAccessOrden(session, orden)) {
+      return NextResponse.json({ error: "Sin permisos" }, { status: 403 });
     }
 
     return NextResponse.json(serializeOrden(orden));
@@ -38,8 +49,13 @@ export async function GET(
 
 export async function PUT(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
+  const session = await requireAuth(req);
+  if (!session) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+  if (!canWrite(session)) return NextResponse.json({ error: "Sin permisos" }, { status: 403 });
+
   let body: unknown;
   try {
     body = await req.json();
@@ -61,20 +77,28 @@ export async function PUT(
   try {
     // Verificar que la orden exista
     const ordenExistente = await prisma.ordenVenta.findUnique({
-      where: { id: params.id },
+      where: { id },
       include: { partidas: true },
     });
 
     if (!ordenExistente) {
       return NextResponse.json({ error: "Orden no encontrada" }, { status: 404 });
     }
+    if (!canMutateOrden(session, ordenExistente)) {
+      return NextResponse.json({ error: "Sin permisos" }, { status: 403 });
+    }
 
-    // No se puede editar una orden VENTA (solo cambiar estatus)
-    if (ordenExistente.estatus === "VENTA" && data.estatus !== "COTIZADO") {
-      return NextResponse.json(
-        { error: "Las órdenes con estatus VENTA solo pueden revertirse a COTIZADO" },
-        { status: 409 }
-      );
+    if (session.rol === "VENDEDOR") {
+      data.vendedor_id = session.vendedorId ?? undefined;
+    }
+
+    if (data.vendedor_id) {
+      const vendedor = await prisma.vendedor.findFirst({
+        where: { id: data.vendedor_id, activo: true },
+      });
+      if (!vendedor) {
+        return NextResponse.json({ error: "Vendedor no encontrado" }, { status: 404 });
+      }
     }
 
     // Determinar partidas a usar para calcular
@@ -98,10 +122,10 @@ export async function PUT(
     const orden = await prisma.$transaction(async (tx) => {
       // Actualizar partidas si se enviaron
       if (data.partidas) {
-        await tx.partida.deleteMany({ where: { orden_id: params.id } });
+        await tx.partida.deleteMany({ where: { orden_id: id } });
         await tx.partida.createMany({
           data: data.partidas.map((p) => ({
-            orden_id: params.id,
+            orden_id: id,
             descripcion: p.descripcion,
             cantidad: new Decimal(p.cantidad),
             precio_unitario: new Decimal(p.precio_unitario),
@@ -113,11 +137,12 @@ export async function PUT(
 
       // Actualizar la orden
       const actualizada = await tx.ordenVenta.update({
-        where: { id: params.id },
+        where: { id },
         data: {
           ...(data.cliente_id && { cliente_id: data.cliente_id }),
           ...(data.tipo_cotizacion_id && { tipo_cotizacion_id: data.tipo_cotizacion_id }),
           ...(data.condicion_pago_id && { condicion_pago_id: data.condicion_pago_id }),
+          ...(data.vendedor_id !== undefined && { vendedor_id: data.vendedor_id }),
           ...(data.descripcion !== undefined && { descripcion: data.descripcion }),
           ...(data.estatus && { estatus: data.estatus }),
           ...(data.moneda && { moneda: data.moneda }),
@@ -127,7 +152,9 @@ export async function PUT(
           fecha_venta: data.fecha_venta !== undefined
             ? (data.fecha_venta ? new Date(data.fecha_venta) : null)
             : undefined,
-          ...(data.vigencia !== undefined && { vigencia: data.vigencia ?? null }),
+          ...(data.vigencia !== undefined && {
+            vigencia: data.vigencia ? new Date(data.vigencia) : null,
+          }),
           ...(data.aplica_iva !== undefined && { aplica_iva: data.aplica_iva }),
           tasa_iva: data.tasa_iva !== undefined
             ? (data.tasa_iva ? new Decimal(data.tasa_iva) : null)
@@ -148,11 +175,12 @@ export async function PUT(
           cliente: { select: { id: true, nombre: true, rfc: true, contacto: true, email: true, ciudad: true } },
           tipo_cotizacion: { select: { id: true, nombre: true } },
           condicion_pago: { select: { id: true, nombre: true } },
+          vendedor: { select: { id: true, nombre: true } },
         },
       });
 
       const partidas = await tx.partida.findMany({
-        where: { orden_id: params.id },
+        where: { orden_id: id },
         orderBy: { orden_display: "asc" },
       });
 
@@ -161,7 +189,7 @@ export async function PUT(
 
     return NextResponse.json(serializeOrden(orden));
   } catch (err) {
-    console.error("PUT /api/ordenes/:id", err);
+    logger.error("Error al actualizar orden", "PUT /api/ordenes/:id", err);
     return NextResponse.json({ error: "Error al actualizar la orden" }, { status: 500 });
   }
 }
@@ -169,28 +197,29 @@ export async function PUT(
 // ── DELETE /api/ordenes/:id ───────────────────────────────────
 
 export async function DELETE(
-  _req: NextRequest,
-  { params }: { params: { id: string } }
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
+  const session = await requireAuth(req);
+  if (!session) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+  if (!canWrite(session)) return NextResponse.json({ error: "Sin permisos" }, { status: 403 });
+
   try {
     const orden = await prisma.ordenVenta.findUnique({
-      where: { id: params.id },
-      select: { estatus: true, folio: true },
+      where: { id },
+      select: { estatus: true, folio: true, vendedor_id: true },
     });
 
     if (!orden) {
       return NextResponse.json({ error: "Orden no encontrada" }, { status: 404 });
     }
-
-    if (orden.estatus !== "BORRADOR") {
-      return NextResponse.json(
-        { error: `Solo se pueden eliminar órdenes en BORRADOR. Esta orden está en ${orden.estatus}` },
-        { status: 409 }
-      );
+    if (!canMutateOrden(session, orden)) {
+      return NextResponse.json({ error: "Sin permisos" }, { status: 403 });
     }
 
     // Cascade delete (partidas se eliminan por FK constraint)
-    await prisma.ordenVenta.delete({ where: { id: params.id } });
+    await prisma.ordenVenta.delete({ where: { id } });
 
     return NextResponse.json({ ok: true, folio: orden.folio });
   } catch {

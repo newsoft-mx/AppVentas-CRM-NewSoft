@@ -1,82 +1,37 @@
 "use client";
 
 import { useState, useMemo, useCallback, useEffect, useTransition } from "react";
-import { Plus, AlertTriangle } from "lucide-react";
+import { BarChart3, Plus, AlertTriangle } from "lucide-react";
 import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
-import KpiCard from "./KpiCard";
 import FiltrosBar from "./FiltrosBar";
 import TablaOrdenes from "./TablaOrdenes";
 import Toast, { ToastData } from "@/components/ui/Toast";
-import type { OrdenResumen, KpisData, FiltroOrdenes, EstatusOrden } from "@/types/ordenes";
+import type { OrdenResumen, FiltroOrdenes, EstatusOrden } from "@/types/ordenes";
+import { calcularKpis } from "@/lib/kpis";
+import { appendArrayParams, fechaFiltroOrden, matchPeriod } from "@/lib/filter-utils";
+import { formatMXN } from "@/lib/utils";
+import { netAmountMxn } from "@/lib/net-amounts";
 
 interface VentasClientProps {
   initialOrdenes: OrdenResumen[];
-  initialKpis: KpisData;
   initialFiltros: FiltroOrdenes;
-}
-
-// ── Cálculo de KPIs client-side ───────────────────────────────
-// Fórmula correcta: tasa_conversion = ventas / total_ordenes * 100
-function calcularKpis(ordenes: OrdenResumen[]): KpisData {
-  const total_ordenes = ordenes.length;
-  const borradores = ordenes.filter((o) => o.estatus === "BORRADOR").length;
-  const cotizadas = ordenes.filter((o) => o.estatus === "COTIZADO").length;
-  const ventas = ordenes.filter((o) => o.estatus === "VENTA").length;
-
-  const ventas_mxn = ordenes
-    .filter((o) => o.estatus === "VENTA")
-    .reduce((s, o) => s + o.total_mxn, 0);
-
-  const pipeline_mxn = ordenes
-    .filter((o) => o.estatus === "COTIZADO")
-    .reduce((s, o) => s + o.total_mxn, 0);
-
-  // Doc: (órdenes con estatus VENTA / total órdenes) * 100
-  const tasa_conversion =
-    total_ordenes > 0 ? Math.round((ventas / total_ordenes) * 100) : 0;
-
-  const suma_total_mxn = ordenes
-    .filter((o) => o.moneda === "MXN")
-    .reduce((s, o) => s + o.total, 0);
-
-  const suma_total_usd = ordenes
-    .filter((o) => o.moneda === "USD")
-    .reduce((s, o) => s + o.total, 0);
-
-  return {
-    total_ordenes,
-    borradores,
-    cotizadas,
-    ventas,
-    ventas_mxn,
-    pipeline_mxn,
-    tasa_conversion,
-    suma_total_mxn,
-    suma_total_usd,
-  };
+  tipos: Array<{ id: string; label: string }>;
+  vendedores: Array<{ id: string; label: string }>;
+  canWrite?: boolean;
 }
 
 // ── Filtrado client-side (AND combinable) ─────────────────────
 function filtrarOrdenes(ordenes: OrdenResumen[], filtros: FiltroOrdenes): OrdenResumen[] {
   return ordenes.filter((o) => {
-    if (filtros.estatus && o.estatus !== filtros.estatus) return false;
-
-    if (filtros.ano || filtros.q || filtros.mes) {
-      const fecha = new Date(o.created_at);
-      const year = filtros.ano ?? new Date().getFullYear();
-
-      if (fecha.getFullYear() !== year) return false;
-
-      if (filtros.mes) {
-        if (fecha.getMonth() + 1 !== filtros.mes) return false;
-      } else if (filtros.q) {
-        const mesInicio = (filtros.q - 1) * 3 + 1;
-        const mesFin = mesInicio + 2;
-        const mesActual = fecha.getMonth() + 1;
-        if (mesActual < mesInicio || mesActual > mesFin) return false;
-      }
+    if (filtros.estatus.length && !filtros.estatus.includes(o.estatus)) return false;
+    if (filtros.cliente_id.length && !filtros.cliente_id.includes(o.cliente.id)) return false;
+    if (filtros.tipo_cotizacion_id.length && !filtros.tipo_cotizacion_id.includes(o.tipo_cotizacion.id)) {
+      return false;
     }
+    if (filtros.vendedor_id.length && !filtros.vendedor_id.includes(o.vendedor?.id ?? "")) return false;
+
+    if (!matchPeriod(fechaFiltroOrden(o), filtros)) return false;
 
     return true;
   });
@@ -85,17 +40,22 @@ function filtrarOrdenes(ordenes: OrdenResumen[], filtros: FiltroOrdenes): OrdenR
 // ── Construir query string a partir de filtros ────────────────
 function filtrosToQueryString(filtros: FiltroOrdenes): string {
   const params = new URLSearchParams();
-  if (filtros.ano) params.set("ano", String(filtros.ano));
-  if (filtros.q) params.set("q", String(filtros.q));
-  if (filtros.mes) params.set("mes", String(filtros.mes));
-  if (filtros.estatus) params.set("estatus", filtros.estatus);
+  appendArrayParams(params, "ano", filtros.ano);
+  appendArrayParams(params, "q", filtros.q);
+  appendArrayParams(params, "mes", filtros.mes);
+  appendArrayParams(params, "estatus", filtros.estatus);
+  appendArrayParams(params, "cliente_id", filtros.cliente_id);
+  appendArrayParams(params, "tipo_cotizacion_id", filtros.tipo_cotizacion_id);
+  appendArrayParams(params, "vendedor_id", filtros.vendedor_id);
   return params.toString();
 }
 
 export default function VentasClient({
   initialOrdenes,
-  initialKpis,
   initialFiltros,
+  tipos,
+  vendedores,
+  canWrite = true,
 }: VentasClientProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -108,6 +68,14 @@ export default function VentasClient({
   const [toast, setToast] = useState<ToastData | null>(null);
 
   const closeToast = useCallback(() => setToast(null), []);
+
+  const clientesOptions = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const orden of ordenes) map.set(orden.cliente.id, orden.cliente.nombre);
+    return Array.from(map.entries())
+      .map(([id, label]) => ({ id, label }))
+      .sort((a, b) => a.label.localeCompare(b.label, "es"));
+  }, [ordenes]);
 
   // ── Sincronizar filtros con URL ───────────────────────────────
   // Cuando los filtros cambian, actualizar la URL sin reload
@@ -126,14 +94,8 @@ export default function VentasClient({
     [ordenes, filtros]
   );
 
-  // ── KPIs calculados sobre órdenes filtradas ───────────────────
-  const kpis = useMemo(
-    () =>
-      filtros.ano || filtros.q || filtros.mes || filtros.estatus
-        ? calcularKpis(ordenesFiltradas)
-        : initialKpis,
-    [ordenesFiltradas, filtros, initialKpis]
-  );
+  // ── KPIs calculados siempre del estado actual filtrado ───────
+  const kpis = useMemo(() => calcularKpis(ordenesFiltradas), [ordenesFiltradas]);
 
   // ── Handlers ─────────────────────────────────────────────────
 
@@ -149,8 +111,7 @@ export default function VentasClient({
             ? {
                 ...o,
                 estatus: nuevoEstatus,
-                fecha_venta:
-                  nuevoEstatus === "VENTA" ? (fechaVenta ?? o.fecha_venta) : null,
+                fecha_venta: fechaVenta ?? o.fecha_venta,
               }
             : o
         )
@@ -168,7 +129,7 @@ export default function VentasClient({
     });
   }, []);
 
-  // Eliminar orden BORRADOR
+  // Eliminar orden o cotización
   const handleDeleteConfirm = async () => {
     if (!confirmDelete) return;
     setIsDeleting(true);
@@ -197,24 +158,14 @@ export default function VentasClient({
     }
   };
 
-  // ── Label de desglose para Total Órdenes ─────────────────────
-  const desgloseTotalOrdenes = [
-    kpis.borradores > 0
-      ? `${kpis.borradores} ${kpis.borradores === 1 ? "borrador" : "borradores"}`
-      : null,
-    kpis.cotizadas > 0
-      ? `${kpis.cotizadas} ${kpis.cotizadas === 1 ? "cotizada" : "cotizadas"}`
-      : null,
-  ]
-    .filter(Boolean)
-    .join(" · ");
+  const totalOrdenesMxn = ordenesFiltradas.reduce((sum, orden) => sum + netAmountMxn(orden), 0);
 
   return (
     <>
       {toast && <Toast {...toast} onClose={closeToast} />}
 
       {/* ── Encabezado ── */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-6">
+      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-navy">Ventas</h1>
           <p className="text-sm text-gray-500 mt-0.5">
@@ -225,54 +176,66 @@ export default function VentasClient({
             )}
           </p>
         </div>
-        <Link href="/ventas/nueva" className="btn-primary self-start sm:self-auto">
-          <Plus size={16} />
-          Nueva orden
-        </Link>
+        {canWrite && (
+          <div className="flex w-full flex-wrap gap-2 sm:w-auto">
+            <Link href="/ventas/nueva" className="btn-primary w-full justify-center sm:w-auto">
+              <Plus size={16} />
+              Nueva orden
+            </Link>
+          </div>
+        )}
       </div>
 
-      {/* ── KPIs ── */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        {/* Ventas Cerradas: suma total_mxn de órdenes VENTA */}
-        <KpiCard
-          variant="ventas"
-          value={kpis.ventas_mxn}
-          label="Ventas cerradas"
-          sublabel={`${kpis.ventas} ${kpis.ventas === 1 ? "orden" : "órdenes"} cerrada${kpis.ventas === 1 ? "" : "s"}`}
-        />
-        {/* Pipeline: suma total_mxn de órdenes COTIZADO */}
-        <KpiCard
-          variant="pipeline"
-          value={kpis.pipeline_mxn}
-          label="Pipeline"
-          sublabel={`${kpis.cotizadas} ${kpis.cotizadas === 1 ? "cotización activa" : "cotizaciones activas"}`}
-        />
-        {/* Tasa de conversión: ventas / total_ordenes * 100 */}
-        <KpiCard
-          variant="conversion"
-          value={kpis.tasa_conversion}
-          label="Tasa de conversión"
-          sublabel={`${kpis.ventas} de ${kpis.total_ordenes} órdenes`}
-        />
-        {/* Total Órdenes: desglose borradores + cotizadas + suma por moneda */}
-        <KpiCard
-          variant="totales"
-          value={kpis.total_ordenes}
-          label="Total órdenes"
-          sublabel={desgloseTotalOrdenes || undefined}
-          extraMXN={kpis.suma_total_mxn}
-          extraUSD={kpis.suma_total_usd}
-        />
+      {/* ── Resumen ── */}
+      <div className="mb-6 rounded-xl border border-surface-border bg-white p-4 shadow-sm sm:p-6">
+        <div className="flex flex-col gap-5 md:flex-row md:items-center">
+          <div className="flex min-w-0 flex-1 items-center gap-4">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-green-100 text-green-600">
+              <BarChart3 size={24} />
+            </div>
+            <div className="min-w-0">
+              <p className="break-words text-xl font-bold leading-tight text-green-600 sm:text-2xl">
+                {formatMXN(totalOrdenesMxn)} MXN
+              </p>
+              <p className="mt-0.5 text-sm text-navy">Total órdenes · sin IVA</p>
+            </div>
+          </div>
+
+          <div className="hidden h-12 w-px bg-surface-border md:block" />
+
+          <div className="grid grid-cols-3 gap-3 text-center sm:gap-6 md:text-left">
+            <div>
+              <p className="text-lg font-bold text-navy">{kpis.total_ordenes}</p>
+              <p className="text-xs text-gray-500 sm:text-sm">Órdenes</p>
+            </div>
+            <div>
+              <p className="text-lg font-bold text-green-600">{kpis.ventas}</p>
+              <p className="text-xs text-gray-500 sm:text-sm">Venta</p>
+            </div>
+            <div>
+              <p className="text-lg font-bold text-blue-600">{kpis.cotizadas}</p>
+              <p className="text-xs text-gray-500 sm:text-sm">Cotización</p>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* ── Filtros ── */}
       <div className="mb-4">
-        <FiltrosBar filtros={filtros} onChange={handleFiltrosChange} />
+        <FiltrosBar
+          filtros={filtros}
+          clientes={clientesOptions}
+          tipos={tipos}
+          vendedores={vendedores}
+          onChange={handleFiltrosChange}
+        />
       </div>
 
       {/* ── Tabla agrupada ── */}
       <TablaOrdenes
         ordenes={ordenesFiltradas}
+        defaultCollapsed={clientesOptions.length > 10}
+        canWrite={canWrite}
         onEstatusChanged={handleEstatusChanged}
         onDeleteRequest={setConfirmDelete}
         onDuplicated={handleDuplicated}
@@ -307,18 +270,18 @@ export default function VentasClient({
                 </p>
               </div>
             </div>
-            <div className="flex justify-end gap-3 mt-5">
+            <div className="mt-5 grid grid-cols-2 gap-3">
               <button
                 onClick={() => setConfirmDelete(null)}
                 disabled={isDeleting}
-                className="btn-secondary"
+                className="btn-secondary justify-center"
               >
                 Cancelar
               </button>
               <button
                 onClick={handleDeleteConfirm}
                 disabled={isDeleting}
-                className="btn-danger"
+                className="btn-danger justify-center"
               >
                 {isDeleting ? "Eliminando..." : "Eliminar"}
               </button>

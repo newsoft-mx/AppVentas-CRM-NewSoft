@@ -35,6 +35,9 @@ export default function TabCondiciones({ initialCondiciones }: TabCondicionesPro
 
   const closeToast = useCallback(() => setToast(null), []);
 
+  const normalizeMarkdownText = (value: string) =>
+    value.replace(/<br\s*\/?>/gi, "\n").trim();
+
   const openCreate = () => {
     setEditingCondicion(null);
     setForm(emptyForm);
@@ -129,7 +132,7 @@ export default function TabCondiciones({ initialCondiciones }: TabCondicionesPro
       const body = {
         nombre: form.nombre.trim(),
         dias_credito,
-        descripcion: form.descripcion.trim() || null,
+        descripcion: normalizeMarkdownText(form.descripcion) || null,
         ...(isEditing && { activo: form.activo }),
       };
 
@@ -142,7 +145,10 @@ export default function TabCondiciones({ initialCondiciones }: TabCondicionesPro
       const data = await res.json();
 
       if (!res.ok) {
-        setFormError(data.error || "Error al guardar");
+        const details = Array.isArray(data.details)
+          ? data.details.map((d: { campo: string; mensaje: string }) => d.mensaje).join(". ")
+          : "";
+        setFormError(details || data.error || "Error al guardar");
         return;
       }
 
@@ -172,18 +178,29 @@ export default function TabCondiciones({ initialCondiciones }: TabCondicionesPro
       {toast && <Toast {...toast} onClose={closeToast} />}
 
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-sm text-gray-500">
           Define las condiciones de pago disponibles para clientes y órdenes.
         </p>
-        <button onClick={openCreate} className="btn-primary">
+        <button onClick={openCreate} className="btn-primary w-full justify-center sm:w-auto">
           <Plus size={16} />
           Agregar condición
         </button>
       </div>
 
+      <div className="space-y-3 md:hidden">
+        {condiciones.length === 0 && (
+          <div className="rounded-xl border border-surface-border p-8 text-center text-sm text-gray-400">
+            No hay condiciones comerciales registradas
+          </div>
+        )}
+        {[...activas, ...inactivas].map((condicion) => (
+          <CondicionCard key={condicion.id} condicion={condicion} onEdit={openEdit} onToggle={handleToggleActivo} />
+        ))}
+      </div>
+
       {/* Tabla */}
-      <div className="rounded-xl border border-surface-border overflow-hidden">
+      <div className="hidden overflow-hidden rounded-xl border border-surface-border md:block">
         <table className="w-full text-sm">
           <thead>
             <tr className="bg-gray-50 border-b border-surface-border">
@@ -256,6 +273,7 @@ export default function TabCondiciones({ initialCondiciones }: TabCondicionesPro
               : "Nueva condición comercial"
           }
           onClose={closeModal}
+          size="lg"
         >
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
@@ -278,7 +296,7 @@ export default function TabCondiciones({ initialCondiciones }: TabCondicionesPro
                 <span className="text-gray-400 font-normal ml-1">(vacío = contado)</span>
               </label>
               <input
-                className="input w-40"
+                className="input w-full sm:w-40"
                 type="number"
                 min={0}
                 value={form.dias_credito}
@@ -290,15 +308,18 @@ export default function TabCondiciones({ initialCondiciones }: TabCondicionesPro
             </div>
 
             <div>
-              <label className="label">Descripción</label>
+              <label className="label">Texto / condiciones</label>
+              <p className="mb-2 text-xs text-gray-400">
+                Puedes pegar texto largo desde Notion en formato Markdown. Si pegas saltos como &lt;br&gt;, se convertirán a saltos de línea en el PDF.
+              </p>
               <textarea
-                className="input resize-none"
-                rows={3}
+                className="input min-h-[320px] resize-y font-mono text-sm leading-relaxed"
+                rows={14}
                 value={form.descripcion}
                 onChange={(e) =>
                   setForm((f) => ({ ...f, descripcion: e.target.value }))
                 }
-                placeholder="Descripción opcional de la condición de pago..."
+                placeholder={"Ej:\n## Condiciones comerciales\n- Pago 50% al inicio\n- Pago 50% contra entrega\n\nTexto adicional..."}
               />
             </div>
 
@@ -328,11 +349,11 @@ export default function TabCondiciones({ initialCondiciones }: TabCondicionesPro
               </p>
             )}
 
-            <div className="flex justify-end gap-3 pt-2">
-              <button type="button" onClick={closeModal} className="btn-secondary">
+            <div className="grid grid-cols-1 gap-3 pt-2 sm:flex sm:justify-end">
+              <button type="button" onClick={closeModal} className="btn-secondary justify-center">
                 Cancelar
               </button>
-              <button type="submit" disabled={isSaving} className="btn-primary">
+              <button type="submit" disabled={isSaving} className="btn-primary justify-center">
                 {isSaving
                   ? "Guardando..."
                   : editingCondicion
@@ -344,6 +365,47 @@ export default function TabCondiciones({ initialCondiciones }: TabCondicionesPro
         </Modal>
       )}
     </>
+  );
+}
+
+function CondicionCard({
+  condicion,
+  onEdit,
+  onToggle,
+}: {
+  condicion: CondicionComercial;
+  onEdit: (c: CondicionComercial) => void;
+  onToggle: (c: CondicionComercial) => void;
+}) {
+  const diasLabel =
+    condicion.dias_credito === null || condicion.dias_credito === 0
+      ? "Contado"
+      : `${condicion.dias_credito} días`;
+
+  return (
+    <div className={`rounded-xl border border-surface-border bg-white p-4 ${!condicion.activo ? "opacity-60" : ""}`}>
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="truncate font-medium text-gray-900">{condicion.nombre}</p>
+          <p className="mt-1 line-clamp-2 text-xs text-gray-500">{condicion.descripcion || "Sin descripción"}</p>
+          <span className="mt-2 inline-flex items-center rounded-full bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700">
+            {diasLabel}
+          </span>
+        </div>
+        <span className={`badge shrink-0 ${condicion.activo ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}>
+          {condicion.activo ? "Activa" : "Inactiva"}
+        </span>
+      </div>
+      <div className="mt-4 grid grid-cols-2 gap-2">
+        <button onClick={() => onEdit(condicion)} className="btn-secondary justify-center text-xs">
+          <Pencil size={14} />
+          Editar
+        </button>
+        <button onClick={() => onToggle(condicion)} className="btn-secondary justify-center text-xs">
+          {condicion.activo ? "Desactivar" : "Activar"}
+        </button>
+      </div>
+    </div>
   );
 }
 
@@ -380,7 +442,14 @@ function CondicionRow({
         </span>
       </td>
       <td className="px-4 py-3 text-gray-500 max-w-xs">
-        <span className="line-clamp-1">{condicion.descripcion || "—"}</span>
+        <div className="space-y-1">
+          <span className="line-clamp-1">{condicion.descripcion || "—"}</span>
+          {condicion.descripcion && (
+            <span className="inline-flex rounded-full bg-orange-50 px-2 py-0.5 text-[11px] font-medium text-orange-700">
+              Texto PDF configurado
+            </span>
+          )}
+        </div>
       </td>
       <td className="px-4 py-3 text-center">
         <span

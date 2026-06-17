@@ -7,8 +7,8 @@ import type { ClienteConStats } from "@/types/clientes";
 
 interface ClienteCardProps {
   cliente: ClienteConStats;
-  onEdit: (cliente: ClienteConStats) => void;
-  onDesactivar: (cliente: ClienteConStats) => void;
+  onEdit?: (cliente: ClienteConStats) => void;
+  onDesactivar?: (cliente: ClienteConStats) => void;
 }
 
 export default function ClienteCard({ cliente, onEdit, onDesactivar }: ClienteCardProps) {
@@ -35,7 +35,9 @@ export default function ClienteCard({ cliente, onEdit, onDesactivar }: ClienteCa
           <h3 className="font-semibold text-navy text-sm leading-tight line-clamp-2">
             {cliente.nombre}
           </h3>
-          <p className="text-xs text-gray-400 font-mono mt-0.5">{cliente.rfc}</p>
+          <p className="text-xs text-gray-400 font-mono mt-0.5">
+            {cliente.rfc || "RFC no registrado"}
+          </p>
         </div>
       </div>
 
@@ -43,7 +45,7 @@ export default function ClienteCard({ cliente, onEdit, onDesactivar }: ClienteCa
       <div className="px-5 space-y-1.5 flex-1">
         <InfoRow icon={User} text={cliente.contacto} />
         <InfoRow icon={MapPin} text={cliente.ciudad} />
-        <InfoRow icon={Mail} text={cliente.email} truncate />
+        <InfoRow icon={Mail} text={cliente.email || "Email no registrado"} truncate />
         {cliente.telefono && <InfoRow icon={Phone} text={cliente.telefono} />}
 
         {/* Badge condición de pago */}
@@ -103,25 +105,31 @@ export default function ClienteCard({ cliente, onEdit, onDesactivar }: ClienteCa
       </div>
 
       {/* ── Acciones ── */}
-      <div className="flex items-center justify-between gap-2 px-5 py-3 bg-gray-50 border-t border-surface-border">
-        <button
-          onClick={() => onDesactivar(cliente)}
-          className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-red-500 transition-colors py-1"
-          title="Desactivar cliente"
-        >
-          <PowerOff size={13} />
-          Desactivar
-        </button>
-        <button
-          onClick={() => onEdit(cliente)}
-          className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium
-            text-navy border border-navy/20 rounded-lg bg-white
-            hover:bg-navy hover:text-white transition-colors"
-        >
-          <Pencil size={13} />
-          Editar
-        </button>
-      </div>
+      {(onEdit || onDesactivar) && (
+        <div className="flex items-center justify-between gap-2 px-5 py-3 bg-gray-50 border-t border-surface-border">
+          {onDesactivar && (
+            <button
+              onClick={() => onDesactivar(cliente)}
+              className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-red-500 transition-colors py-1"
+              title="Desactivar cliente"
+            >
+              <PowerOff size={13} />
+              Desactivar
+            </button>
+          )}
+          {onEdit && (
+            <button
+              onClick={() => onEdit(cliente)}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium
+                text-navy border border-navy/20 rounded-lg bg-white
+                hover:bg-navy hover:text-white transition-colors"
+            >
+              <Pencil size={13} />
+              Editar
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 }

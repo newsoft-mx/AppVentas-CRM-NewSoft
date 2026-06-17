@@ -2,37 +2,41 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import type { ConversionTipoItem, ReporteStats } from "@/types/reportes";
+import { requireAuth } from "@/lib/session";
+import { scopeOrdenWhere } from "@/lib/access-control";
+import { netAmountMxn } from "@/lib/net-amounts";
+import { buildDateOrFilters, getAllParam, parseNumberList } from "@/lib/filter-utils";
 
 // ── GET /api/reportes/conversion ──────────────────────────────
 // Devuelve conversión por tipo + stats adicionales (ticket promedio, tiempo cierre)
 
 export async function GET(req: NextRequest) {
+  const session = await requireAuth(req);
+  if (!session) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+
   const sp = req.nextUrl.searchParams;
-  const ano = sp.get("ano") ? Number(sp.get("ano")) : null;
-  const q = sp.get("q") ? Number(sp.get("q")) : null;
-  const mes = sp.get("mes") ? Number(sp.get("mes")) : null;
+  const ano = parseNumberList(getAllParam(sp, "ano"));
+  const q = parseNumberList(getAllParam(sp, "q")).filter((value) => value >= 1 && value <= 4);
+  const mes = parseNumberList(getAllParam(sp, "mes")).filter((value) => value >= 1 && value <= 12);
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const where: any = {};
 
-  if (ano || q || mes) {
-    const year = ano ?? new Date().getFullYear();
-    if (mes) {
-      where.created_at = { gte: new Date(year, mes - 1, 1), lt: new Date(year, mes, 1) };
-    } else if (q) {
-      const m0 = (q - 1) * 3;
-      where.created_at = { gte: new Date(year, m0, 1), lt: new Date(year, m0 + 3, 1) };
-    } else {
-      where.created_at = { gte: new Date(year, 0, 1), lt: new Date(year + 1, 0, 1) };
-    }
+  if (ano.length || q.length || mes.length) {
+    where.OR = buildDateOrFilters({ ano, q, mes }).flatMap((range) => [
+      { fecha_venta: range },
+      { estatus: { not: "VENTA" }, fecha_venta: null, created_at: range },
+    ]);
   }
 
   try {
     const ordenes = await prisma.ordenVenta.findMany({
-      where,
+      where: scopeOrdenWhere(session, where),
       select: {
         estatus: true,
-        total_mxn: true,
+        moneda: true,
+        tipo_cambio: true,
+        subtotal_con_descuento: true,
         created_at: true,
         fecha_venta: true,
         tipo_cotizacion: { select: { id: true, nombre: true } },
@@ -76,7 +80,7 @@ export async function GET(req: NextRequest) {
 
     const ticket_promedio_mxn =
       ventas.length > 0
-        ? ventas.reduce((s, o) => s + o.total_mxn.toNumber(), 0) / ventas.length
+        ? ventas.reduce((s, o) => s + netAmountMxn(o), 0) / ventas.length
         : 0;
 
     // Tiempo promedio de cierre: días entre created_at y fecha_venta

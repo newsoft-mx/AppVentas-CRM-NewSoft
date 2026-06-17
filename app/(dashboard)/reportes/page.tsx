@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import ReportesClient from "@/components/reportes/ReportesClient";
+import { netAmountMxn } from "@/lib/net-amounts";
 import type {
   FiltroReportes,
   ReportesInitialData,
@@ -7,88 +8,109 @@ import type {
   MesVenta,
   PipelineData,
   TopClienteItem,
+  VentasVendedorItem,
+  VentasTipoItem,
   ConversionTipoItem,
   ReporteStats,
 } from "@/types/reportes";
+import {
+  buildDateOrFilters,
+  emptyReporteFilters,
+  parseNumberList,
+  selectedMonths,
+} from "@/lib/filter-utils";
+import { getServerSession } from "@/lib/server-session";
+import { scopeOrdenWhere } from "@/lib/access-control";
+import type { SessionPayload } from "@/lib/session";
 
 export const metadata = { title: "Reportes" };
 export const dynamic = "force-dynamic";
 
 const MESES = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
 
-function buildDateRange(ano: number, q?: number | null, mes?: number | null) {
-  if (mes) return { gte: new Date(ano, mes - 1, 1), lt: new Date(ano, mes, 1) };
-  if (q) {
-    const m0 = (q - 1) * 3;
-    return { gte: new Date(ano, m0, 1), lt: new Date(ano, m0 + 3, 1) };
-  }
-  return { gte: new Date(ano, 0, 1), lt: new Date(ano + 1, 0, 1) };
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function buildWhere(filtros: FiltroReportes, session: SessionPayload | null): any {
+  if (!filtros.ano.length && !filtros.q.length && !filtros.mes.length) return scopeOrdenWhere(session, {});
+  const ranges = buildDateOrFilters(filtros);
+  return scopeOrdenWhere(session, {
+    OR: ranges.flatMap((range) => [
+      { fecha_venta: range },
+      { estatus: { not: "VENTA" }, fecha_venta: null, created_at: range },
+    ]),
+  });
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function buildWhere(filtros: FiltroReportes): any {
-  if (!filtros.ano && !filtros.q && !filtros.mes) return {};
-  const year = filtros.ano ?? new Date().getFullYear();
-  return { created_at: buildDateRange(year, filtros.q, filtros.mes) };
+function buildSalesWhere(filtros: FiltroReportes, session: SessionPayload | null, ano?: number): any {
+  const filterWithYear = ano ? { ...filtros, ano: [ano] } : filtros;
+  return scopeOrdenWhere(session, {
+    estatus: "VENTA",
+    OR: buildDateOrFilters(filterWithYear).map((range) => ({ fecha_venta: range })),
+  });
 }
 
-async function fetchVentasMensuales(filtros: FiltroReportes): Promise<VentasMensualesData> {
-  const ano = filtros.ano ?? new Date().getFullYear();
+async function fetchVentasMensuales(filtros: FiltroReportes, session: SessionPayload | null): Promise<VentasMensualesData> {
+  const years = filtros.ano.length ? [...filtros.ano].sort((a, b) => b - a) : [new Date().getFullYear()];
+  const ano = years[0];
+  const anoComparativo = years[1] ?? ano - 1;
   const [actual, anterior] = await Promise.all([
     prisma.ordenVenta.findMany({
-      where: { estatus: "VENTA", created_at: buildDateRange(ano, filtros.q, filtros.mes) },
-      select: { created_at: true, total_mxn: true },
+      where: buildSalesWhere(filtros, session, ano),
+      select: { fecha_venta: true, moneda: true, tipo_cambio: true, subtotal_con_descuento: true },
     }),
     prisma.ordenVenta.findMany({
-      where: { estatus: "VENTA", created_at: buildDateRange(ano - 1, filtros.q, filtros.mes) },
-      select: { created_at: true, total_mxn: true },
+      where: buildSalesWhere(filtros, session, anoComparativo),
+      select: { fecha_venta: true, moneda: true, tipo_cambio: true, subtotal_con_descuento: true },
     }),
   ]);
 
   const porMesActual = Array.from({ length: 12 }, (_, i) => ({ mes: i + 1, total: 0 }));
   const porMesAnterior = Array.from({ length: 12 }, (_, i) => ({ mes: i + 1, total: 0 }));
 
-  for (const o of actual) porMesActual[new Date(o.created_at).getMonth()].total += o.total_mxn.toNumber();
-  for (const o of anterior) porMesAnterior[new Date(o.created_at).getMonth()].total += o.total_mxn.toNumber();
+  for (const o of actual) porMesActual[new Date(o.fecha_venta!).getUTCMonth()].total += netAmountMxn(o);
+  for (const o of anterior) porMesAnterior[new Date(o.fecha_venta!).getUTCMonth()].total += netAmountMxn(o);
 
-  const data: MesVenta[] = porMesActual.map((m, i) => ({
-    mes: m.mes,
-    nombre: MESES[i],
-    actual: m.total,
-    anterior: porMesAnterior[i].total,
+  const visibleMonths = selectedMonths(filtros);
+  const data: MesVenta[] = visibleMonths.map((month) => ({
+    mes: month,
+    nombre: MESES[month - 1],
+    actual: porMesActual[month - 1]?.total ?? 0,
+    anterior: porMesAnterior[month - 1]?.total ?? 0,
   }));
 
   return {
     data,
     ano_actual: ano,
-    ano_anterior: ano - 1,
+    ano_anterior: anoComparativo,
     total_actual: data.reduce((s, d) => s + d.actual, 0),
     total_anterior: data.reduce((s, d) => s + d.anterior, 0),
   };
 }
 
-async function fetchPipeline(filtros: FiltroReportes): Promise<PipelineData> {
+async function fetchPipeline(filtros: FiltroReportes, session: SessionPayload | null): Promise<PipelineData> {
   const ordenes = await prisma.ordenVenta.findMany({
-    where: buildWhere(filtros),
-    select: { estatus: true, total_mxn: true },
+    where: buildWhere(filtros, session),
+    select: { estatus: true, moneda: true, tipo_cambio: true, subtotal_con_descuento: true },
   });
 
   return {
     borradores_count: ordenes.filter((o) => o.estatus === "BORRADOR").length,
     cotizaciones_count: ordenes.filter((o) => o.estatus === "COTIZADO").length,
     ventas_count: ordenes.filter((o) => o.estatus === "VENTA").length,
-    cotizaciones_mxn: ordenes.filter((o) => o.estatus === "COTIZADO").reduce((s, o) => s + o.total_mxn.toNumber(), 0),
-    ventas_mxn: ordenes.filter((o) => o.estatus === "VENTA").reduce((s, o) => s + o.total_mxn.toNumber(), 0),
+    cotizaciones_mxn: ordenes.filter((o) => o.estatus === "COTIZADO").reduce((s, o) => s + netAmountMxn(o), 0),
+    ventas_mxn: ordenes.filter((o) => o.estatus === "VENTA").reduce((s, o) => s + netAmountMxn(o), 0),
     total_ordenes: ordenes.length,
   };
 }
 
-async function fetchTopClientes(filtros: FiltroReportes): Promise<TopClienteItem[]> {
+async function fetchTopClientes(filtros: FiltroReportes, session: SessionPayload | null): Promise<TopClienteItem[]> {
   const ordenes = await prisma.ordenVenta.findMany({
-    where: buildWhere(filtros),
+    where: buildWhere(filtros, session),
     select: {
       estatus: true,
-      total_mxn: true,
+      moneda: true,
+      tipo_cambio: true,
+      subtotal_con_descuento: true,
       cliente: { select: { id: true, nombre: true } },
     },
   });
@@ -103,13 +125,13 @@ async function fetchTopClientes(filtros: FiltroReportes): Promise<TopClienteItem
         nombre: o.cliente.nombre,
         ordenes_totales: 1,
         ordenes_venta: o.estatus === "VENTA" ? 1 : 0,
-        total_mxn: o.estatus === "VENTA" ? o.total_mxn.toNumber() : 0,
+        total_mxn: o.estatus === "VENTA" ? netAmountMxn(o) : 0,
       });
     } else {
       existing.ordenes_totales += 1;
       if (o.estatus === "VENTA") {
         existing.ordenes_venta += 1;
-        existing.total_mxn += o.total_mxn.toNumber();
+        existing.total_mxn += netAmountMxn(o);
       }
     }
   }
@@ -120,12 +142,70 @@ async function fetchTopClientes(filtros: FiltroReportes): Promise<TopClienteItem
     .slice(0, 10);
 }
 
-async function fetchConversionAndStats(filtros: FiltroReportes): Promise<{ conversion: ConversionTipoItem[]; stats: ReporteStats }> {
+async function fetchVentasPorVendedor(filtros: FiltroReportes, session: SessionPayload | null): Promise<VentasVendedorItem[]> {
   const ordenes = await prisma.ordenVenta.findMany({
-    where: buildWhere(filtros),
+    where: buildSalesWhere(filtros, session),
+    select: {
+      moneda: true,
+      tipo_cambio: true,
+      subtotal_con_descuento: true,
+      vendedor: { select: { id: true, nombre: true } },
+    },
+  });
+
+  const map = new Map<string, VentasVendedorItem>();
+  for (const orden of ordenes) {
+    const key = orden.vendedor?.id ?? "sin-vendedor";
+    const current = map.get(key) ?? {
+      vendedor_id: orden.vendedor?.id ?? null,
+      vendedor: orden.vendedor?.nombre ?? "Sin vendedor",
+      ordenes_venta: 0,
+      total_mxn: 0,
+    };
+    current.ordenes_venta += 1;
+    current.total_mxn += netAmountMxn(orden);
+    map.set(key, current);
+  }
+
+  return Array.from(map.values()).sort((a, b) => b.total_mxn - a.total_mxn);
+}
+
+async function fetchVentasPorTipo(filtros: FiltroReportes, session: SessionPayload | null): Promise<VentasTipoItem[]> {
+  const ordenes = await prisma.ordenVenta.findMany({
+    where: buildSalesWhere(filtros, session),
+    select: {
+      moneda: true,
+      tipo_cambio: true,
+      subtotal_con_descuento: true,
+      tipo_cotizacion: { select: { id: true, nombre: true } },
+    },
+  });
+
+  const map = new Map<string, VentasTipoItem>();
+  for (const orden of ordenes) {
+    const key = orden.tipo_cotizacion.id;
+    const current = map.get(key) ?? {
+      tipo_id: key,
+      tipo: orden.tipo_cotizacion.nombre,
+      ordenes_venta: 0,
+      total_mxn: 0,
+    };
+    current.ordenes_venta += 1;
+    current.total_mxn += netAmountMxn(orden);
+    map.set(key, current);
+  }
+
+  return Array.from(map.values()).sort((a, b) => b.total_mxn - a.total_mxn);
+}
+
+async function fetchConversionAndStats(filtros: FiltroReportes, session: SessionPayload | null): Promise<{ conversion: ConversionTipoItem[]; stats: ReporteStats }> {
+  const ordenes = await prisma.ordenVenta.findMany({
+    where: buildWhere(filtros, session),
     select: {
       estatus: true,
-      total_mxn: true,
+      moneda: true,
+      tipo_cambio: true,
+      subtotal_con_descuento: true,
       created_at: true,
       fecha_venta: true,
       tipo_cotizacion: { select: { id: true, nombre: true } },
@@ -166,7 +246,7 @@ async function fetchConversionAndStats(filtros: FiltroReportes): Promise<{ conve
 
   const ticket_promedio_mxn =
     ventas.length > 0
-      ? ventas.reduce((s, o) => s + o.total_mxn.toNumber(), 0) / ventas.length
+      ? ventas.reduce((s, o) => s + netAmountMxn(o), 0) / ventas.length
       : 0;
 
   const ventasConFecha = ventas.filter((o) => o.fecha_venta != null);
@@ -193,28 +273,41 @@ async function fetchConversionAndStats(filtros: FiltroReportes): Promise<{ conve
 }
 
 interface PageProps {
-  searchParams: Promise<{ ano?: string; q?: string; mes?: string }>;
+  searchParams: Promise<{
+    ano?: string | string[];
+    "ano[]"?: string | string[];
+    q?: string | string[];
+    "q[]"?: string | string[];
+    mes?: string | string[];
+    "mes[]"?: string | string[];
+  }>;
 }
 
 export default async function ReportesPage({ searchParams }: PageProps) {
   const sp = await searchParams;
+  const session = await getServerSession();
   const filtros: FiltroReportes = {
-    ano: sp.ano ? Number(sp.ano) : null,
-    q: sp.q ? Number(sp.q) : null,
-    mes: sp.mes ? Number(sp.mes) : null,
+    ...emptyReporteFilters(),
+    ano: parseNumberList([sp.ano, sp["ano[]"]].filter(Boolean).flat()),
+    q: parseNumberList([sp.q, sp["q[]"]].filter(Boolean).flat()).filter((q) => q >= 1 && q <= 4),
+    mes: parseNumberList([sp.mes, sp["mes[]"]].filter(Boolean).flat()).filter((mes) => mes >= 1 && mes <= 12),
   };
 
-  const [ventasMensuales, pipeline, topClientes, { conversion, stats }] = await Promise.all([
-    fetchVentasMensuales(filtros),
-    fetchPipeline(filtros),
-    fetchTopClientes(filtros),
-    fetchConversionAndStats(filtros),
+  const [ventasMensuales, pipeline, topClientes, ventasPorVendedor, ventasPorTipo, { conversion, stats }] = await Promise.all([
+    fetchVentasMensuales(filtros, session),
+    fetchPipeline(filtros, session),
+    fetchTopClientes(filtros, session),
+    fetchVentasPorVendedor(filtros, session),
+    fetchVentasPorTipo(filtros, session),
+    fetchConversionAndStats(filtros, session),
   ]);
 
   const initialData: ReportesInitialData = {
     ventasMensuales,
     pipeline,
     topClientes,
+    ventasPorVendedor,
+    ventasPorTipo,
     conversion,
     stats,
   };

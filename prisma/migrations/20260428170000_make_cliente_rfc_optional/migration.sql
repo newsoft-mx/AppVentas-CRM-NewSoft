@@ -1,0 +1,2 @@
+ALTER TABLE "cliente"
+ALTER COLUMN "rfc" DROP NOT NULL;

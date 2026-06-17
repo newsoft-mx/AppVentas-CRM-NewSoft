@@ -55,17 +55,47 @@ const s = StyleSheet.create({
   },
   headerLeft: {
     flex: 1,
+    flexDirection: "row",
+    gap: 10,
+  },
+  logoMark: {
+    width: 34,
+    height: 34,
+    borderRadius: 8,
+    backgroundColor: C.orange,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  logoText: {
+    fontSize: 11,
+    fontFamily: "Helvetica-Bold",
+    color: C.white,
+  },
+  companyBlock: {
+    flex: 1,
   },
   companyName: {
-    fontSize: 18,
+    fontSize: 12,
     fontFamily: "Helvetica-Bold",
     color: C.navy,
-    marginBottom: 4,
+    marginBottom: 3,
+  },
+  legalName: {
+    fontSize: 8,
+    color: C.text,
+    fontFamily: "Helvetica-Bold",
+    marginBottom: 2,
   },
   companyDetail: {
     fontSize: 8,
     color: C.textMuted,
     marginBottom: 2,
+  },
+  brandTagline: {
+    fontSize: 7.5,
+    color: C.orange,
+    fontFamily: "Helvetica-Bold",
+    marginBottom: 5,
   },
   headerRight: {
     alignItems: "flex-end",
@@ -139,6 +169,11 @@ const s = StyleSheet.create({
     color: C.text,
     flex: 1,
   },
+  infoFieldValueSuccess: {
+    fontSize: 7.5,
+    color: C.green,
+    flex: 1,
+  },
 
   // ── Descripción orden ──
   descSection: {
@@ -200,6 +235,11 @@ const s = StyleSheet.create({
   colQty: { width: 44, textAlign: "right" },
   colPrice: { width: 68, textAlign: "right" },
   colTotal: { width: 68, textAlign: "right" },
+  thNum: { width: 20, fontSize: 7.5, fontFamily: "Helvetica-Bold", color: C.white },
+  thDesc: { flex: 1, fontSize: 7.5, fontFamily: "Helvetica-Bold", color: C.white },
+  thQty: { width: 44, textAlign: "right", fontSize: 7.5, fontFamily: "Helvetica-Bold", color: C.white },
+  thPrice: { width: 68, textAlign: "right", fontSize: 7.5, fontFamily: "Helvetica-Bold", color: C.white },
+  thTotal: { width: 68, textAlign: "right", fontSize: 7.5, fontFamily: "Helvetica-Bold", color: C.white },
   thText: {
     fontSize: 7.5,
     fontFamily: "Helvetica-Bold",
@@ -212,6 +252,17 @@ const s = StyleSheet.create({
   tdMuted: {
     fontSize: 8,
     color: C.textMuted,
+  },
+  tdNum: { width: 20, fontSize: 8, color: C.textMuted },
+  tdDesc: { flex: 1, fontSize: 8, color: C.text },
+  tdQty: { width: 44, textAlign: "right", fontSize: 8, color: C.textMuted },
+  tdPrice: { width: 68, textAlign: "right", fontSize: 8, color: C.text },
+  tdTotal: {
+    width: 68,
+    textAlign: "right",
+    fontSize: 8,
+    color: C.text,
+    fontFamily: "Helvetica-Bold",
   },
 
   // ── Resumen financiero ──
@@ -308,6 +359,42 @@ const s = StyleSheet.create({
     color: C.textMuted,
     lineHeight: 1.5,
   },
+  conditionSection: {
+    marginTop: 4,
+    marginBottom: 12,
+    padding: 10,
+    borderWidth: 1,
+    borderColor: C.border,
+    borderRadius: 4,
+  },
+  conditionTitle: {
+    fontSize: 8,
+    fontFamily: "Helvetica-Bold",
+    color: C.navy,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+    marginBottom: 6,
+  },
+  mdHeading: {
+    fontSize: 8.5,
+    fontFamily: "Helvetica-Bold",
+    color: C.navy,
+    marginTop: 4,
+    marginBottom: 3,
+  },
+  mdParagraph: {
+    fontSize: 7.5,
+    color: C.textMuted,
+    lineHeight: 1.45,
+    marginBottom: 3,
+  },
+  mdBullet: {
+    fontSize: 7.5,
+    color: C.textMuted,
+    lineHeight: 1.45,
+    marginBottom: 2,
+    paddingLeft: 8,
+  },
   pageNumber: {
     position: "absolute",
     bottom: 24,
@@ -359,18 +446,19 @@ function fmtFecha(iso: string | null | undefined): string {
 
 export interface EmpresaPDF {
   nombre: string;
+  nombre_comercial: string | null;
   rfc: string;
   direccion: string;
-  email: string;
+  email: string | null;
   telefono: string;
   notas_documentos: string | null;
 }
 
 export interface ClientePDF {
   nombre: string;
-  rfc: string;
+  rfc: string | null;
   contacto: string;
-  email: string;
+  email: string | null;
   ciudad: string;
 }
 
@@ -389,7 +477,9 @@ export interface OrdenPDF {
   moneda: string;
   tipo_cambio: number | null;
   tipo_cotizacion: string;
+  tipo_cotizacion_texto_contrato: string | null;
   condicion_pago: string;
+  condicion_pago_descripcion: string | null;
   created_at: string;
   vigencia: string | null;
   aplica_iva: boolean;
@@ -411,6 +501,31 @@ export interface CotizacionPDFProps {
   partidas: PartidaPDF[];
 }
 
+function cleanMarkdownInline(text: string): string {
+  return text
+    .replace(/\*\*(.*?)\*\*/g, "$1")
+    .replace(/__(.*?)__/g, "$1")
+    .replace(/`([^`]+)`/g, "$1")
+    .replace(/\[(.*?)\]\((.*?)\)/g, "$1");
+}
+
+function markdownToPdfText(markdown: string): string {
+  return markdown
+    .split(/\r?\n/)
+    .map((line) => {
+      const trimmed = line.trimEnd();
+      if (/^#{1,6}\s+/.test(trimmed)) {
+        return cleanMarkdownInline(trimmed.replace(/^#{1,6}\s+/, ""));
+      }
+      if (/^[-*]\s+/.test(trimmed)) {
+        return `• ${cleanMarkdownInline(trimmed.replace(/^[-*]\s+/, ""))}`;
+      }
+      return cleanMarkdownInline(trimmed);
+    })
+    .join("\n")
+    .trim();
+}
+
 // ── Componente PDF ───────────────────────────────────────────
 
 export function CotizacionPDF({
@@ -427,6 +542,12 @@ export function CotizacionPDF({
   const vigenciaTexto = fmtFecha(orden.vigencia);
   const notasResueltas = empresa.notas_documentos
     ? empresa.notas_documentos.replace("{vigencia}", vigenciaTexto)
+    : null;
+  const tipoContratoTexto = orden.tipo_cotizacion_texto_contrato
+    ? markdownToPdfText(orden.tipo_cotizacion_texto_contrato)
+    : null;
+  const condicionPagoTexto = orden.condicion_pago_descripcion
+    ? markdownToPdfText(orden.condicion_pago_descripcion)
     : null;
 
   const estatusLabel =
@@ -448,11 +569,22 @@ export function CotizacionPDF({
         <View style={s.header}>
           {/* Datos empresa */}
           <View style={s.headerLeft}>
-            <Text style={s.companyName}>{empresa.nombre}</Text>
-            <Text style={s.companyDetail}>RFC: {empresa.rfc}</Text>
-            <Text style={s.companyDetail}>{empresa.direccion}</Text>
-            <Text style={s.companyDetail}>{empresa.email}</Text>
-            <Text style={s.companyDetail}>Tel: {empresa.telefono}</Text>
+            <View style={s.logoMark}>
+              <Text style={s.logoText}>NS</Text>
+            </View>
+            <View style={s.companyBlock}>
+              <Text style={s.companyName}>
+                {empresa.nombre_comercial?.toLowerCase() === "newsoft"
+                  ? "Newsoft Technologies"
+                  : empresa.nombre_comercial || "Newsoft Technologies"}
+              </Text>
+              <Text style={s.brandTagline}>Aceleración Tecnológica</Text>
+              <Text style={s.legalName}>{empresa.nombre}</Text>
+              <Text style={s.companyDetail}>RFC: {empresa.rfc}</Text>
+              <Text style={s.companyDetail}>{empresa.direccion}</Text>
+              <Text style={s.companyDetail}>{empresa.email}</Text>
+              <Text style={s.companyDetail}>Tel: {empresa.telefono}</Text>
+            </View>
           </View>
 
           {/* Folio + estatus */}
@@ -499,7 +631,7 @@ export function CotizacionPDF({
             {orden.estatus === "VENTA" && (
               <View style={s.infoField}>
                 <Text style={s.infoFieldLabel}>Estatus</Text>
-                <Text style={{ ...s.infoFieldValueNormal, color: C.green }}>
+                <Text style={s.infoFieldValueSuccess}>
                   Venta confirmada
                 </Text>
               </View>
@@ -516,7 +648,9 @@ export function CotizacionPDF({
             </View>
             <View style={s.infoField}>
               <Text style={s.infoFieldLabel}>RFC</Text>
-              <Text style={s.infoFieldValueNormal}>{cliente.rfc}</Text>
+              <Text style={s.infoFieldValueNormal}>
+                {cliente.rfc || "No registrado"}
+              </Text>
             </View>
             <View style={s.infoField}>
               <Text style={s.infoFieldLabel}>Contacto</Text>
@@ -524,7 +658,7 @@ export function CotizacionPDF({
             </View>
             <View style={s.infoField}>
               <Text style={s.infoFieldLabel}>Email</Text>
-              <Text style={s.infoFieldValueNormal}>{cliente.email}</Text>
+              <Text style={s.infoFieldValueNormal}>{cliente.email || "No registrado"}</Text>
             </View>
             <View style={s.infoField}>
               <Text style={s.infoFieldLabel}>Ciudad</Text>
@@ -544,26 +678,26 @@ export function CotizacionPDF({
         <View style={s.table}>
           {/* Encabezado */}
           <View style={s.tableHeader}>
-            <Text style={{ ...s.thText, ...s.colNum }}>#</Text>
-            <Text style={{ ...s.thText, ...s.colDesc }}>Descripción</Text>
-            <Text style={{ ...s.thText, ...s.colQty }}>Cant.</Text>
-            <Text style={{ ...s.thText, ...s.colPrice }}>Precio unit.</Text>
-            <Text style={{ ...s.thText, ...s.colTotal }}>Total</Text>
+            <Text style={s.thNum}>#</Text>
+            <Text style={s.thDesc}>Descripción</Text>
+            <Text style={s.thQty}>Cant.</Text>
+            <Text style={s.thPrice}>Precio unit.</Text>
+            <Text style={s.thTotal}>Total</Text>
           </View>
 
           {/* Filas */}
           {partidas.map((p, i) => (
             <View
               key={p.orden_display}
-              style={[s.tableRow, i % 2 === 1 ? s.tableRowAlt : {}]}
+              style={i % 2 === 1 ? [s.tableRow, s.tableRowAlt] : s.tableRow}
             >
-              <Text style={{ ...s.tdMuted, ...s.colNum }}>{i + 1}</Text>
-              <Text style={{ ...s.tdText, ...s.colDesc }}>{p.descripcion}</Text>
-              <Text style={{ ...s.tdMuted, ...s.colQty }}>{fmtNum(p.cantidad)}</Text>
-              <Text style={{ ...s.tdText, ...s.colPrice }}>
+              <Text style={s.tdNum}>{i + 1}</Text>
+              <Text style={s.tdDesc}>{p.descripcion}</Text>
+              <Text style={s.tdQty}>{fmtNum(p.cantidad)}</Text>
+              <Text style={s.tdPrice}>
                 {fmtMoneda(p.precio_unitario, orden.moneda)}
               </Text>
-              <Text style={{ ...s.tdText, ...s.colTotal, fontFamily: "Helvetica-Bold" }}>
+              <Text style={s.tdTotal}>
                 {fmtMoneda(p.total_partida, orden.moneda)}
               </Text>
             </View>
@@ -583,7 +717,7 @@ export function CotizacionPDF({
 
             {/* Descuento (si aplica) */}
             {hasDescuento && (
-              <>
+              <View>
                 <View style={s.summaryRow}>
                   <Text style={s.discountLabel}>
                     Descuento ({orden.descuento_porcentaje}%)
@@ -601,7 +735,7 @@ export function CotizacionPDF({
                     {fmtMoneda(orden.subtotal_con_descuento, orden.moneda)} {orden.moneda}
                   </Text>
                 </View>
-              </>
+              </View>
             )}
 
             {/* IVA (si aplica) */}
@@ -633,6 +767,21 @@ export function CotizacionPDF({
             )}
           </View>
         </View>
+
+        {/* ── CONDICIONES COMERCIALES ── */}
+        {tipoContratoTexto && (
+          <View style={s.conditionSection} wrap>
+            <Text style={s.conditionTitle}>Contrato / condiciones del servicio</Text>
+            <Text style={s.mdParagraph}>{tipoContratoTexto}</Text>
+          </View>
+        )}
+
+        {condicionPagoTexto && (
+          <View style={s.conditionSection} wrap>
+            <Text style={s.conditionTitle}>Condiciones comerciales</Text>
+            <Text style={s.mdParagraph}>{condicionPagoTexto}</Text>
+          </View>
+        )}
 
         {/* ── FOOTER: Notas del documento ── */}
         {notasResueltas && (

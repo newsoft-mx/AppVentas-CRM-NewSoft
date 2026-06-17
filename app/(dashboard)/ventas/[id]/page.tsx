@@ -4,16 +4,19 @@ import OrdenDetalleClient from "@/components/ordenes/OrdenDetalleClient";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import type { OrdenDetalle } from "@/types/ordenes";
+import { getServerSession } from "@/lib/server-session";
+import { canAccessOrden, canMutateOrden } from "@/lib/access-control";
 
 export const dynamic = "force-dynamic";
 
 export async function generateMetadata({
   params,
 }: {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }): Promise<Metadata> {
+  const { id } = await params;
   const orden = await prisma.ordenVenta.findUnique({
-    where: { id: params.id },
+    where: { id },
     select: { folio: true, descripcion: true },
   });
   if (!orden) return { title: "Orden no encontrada" };
@@ -23,15 +26,18 @@ export async function generateMetadata({
 export default async function OrdenDetallePage({
   params,
 }: {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }) {
-  const [orden, clientes, tipos, condiciones, empresa] = await Promise.all([
+  const { id } = await params;
+  const session = await getServerSession();
+  const [orden, clientes, tipos, condiciones, vendedores, empresa] = await Promise.all([
     prisma.ordenVenta.findUnique({
-      where: { id: params.id },
+      where: { id },
       include: {
         cliente: { select: { id: true, nombre: true, rfc: true, contacto: true, email: true, ciudad: true } },
         tipo_cotizacion: { select: { id: true, nombre: true } },
         condicion_pago: { select: { id: true, nombre: true } },
+        vendedor: { select: { id: true, nombre: true } },
         partidas: { orderBy: { orden_display: "asc" } },
       },
     }),
@@ -50,10 +56,16 @@ export default async function OrdenDetallePage({
       select: { id: true, nombre: true },
       orderBy: { nombre: "asc" },
     }),
+    prisma.vendedor.findMany({
+      where: { activo: true },
+      select: { id: true, nombre: true },
+      orderBy: { nombre: "asc" },
+    }),
     prisma.empresa.findFirst({ select: { tasa_iva: true } }),
   ]);
 
   if (!orden) notFound();
+  if (!canAccessOrden(session, orden)) notFound();
 
   const tasaIvaDefault = empresa?.tasa_iva.toNumber() ?? 16;
   const serialized = serializeOrden(orden) as OrdenDetalle;
@@ -64,7 +76,13 @@ export default async function OrdenDetallePage({
       clientes={clientes}
       tipos={tipos}
       condiciones={condiciones}
+      vendedores={
+        session?.rol === "VENDEDOR"
+          ? vendedores.filter((vendedor) => vendedor.id === session.vendedorId)
+          : vendedores
+      }
       tasaIvaDefault={tasaIvaDefault}
+      canWrite={canMutateOrden(session, orden)}
     />
   );
 }

@@ -13,7 +13,7 @@ import Link from "next/link";
 interface ClienteOpcion {
   id: string;
   nombre: string;
-  rfc: string;
+  rfc: string | null;
   condicion_pago_id: string;
 }
 
@@ -27,7 +27,9 @@ interface OrdenDetalleClientProps {
   clientes: ClienteOpcion[];
   tipos: CatalogItem[];
   condiciones: CatalogItem[];
+  vendedores: CatalogItem[];
   tasaIvaDefault: number;
+  canWrite?: boolean;
 }
 
 export default function OrdenDetalleClient({
@@ -35,7 +37,9 @@ export default function OrdenDetalleClient({
   clientes,
   tipos,
   condiciones,
+  vendedores,
   tasaIvaDefault,
+  canWrite = true,
 }: OrdenDetalleClientProps) {
   const router = useRouter();
   const [orden, setOrden] = useState<OrdenDetalle>(initialOrden);
@@ -62,13 +66,11 @@ export default function OrdenDetalleClient({
     setOrden((prev) => ({
       ...prev,
       estatus: nuevoEstatus,
-      fecha_venta: nuevoEstatus === "VENTA" ? (fechaVenta ?? prev.fecha_venta) : null,
+      fecha_venta: fechaVenta ?? prev.fecha_venta,
     }));
     // Sincronizar el input de fecha si cambió
     if (nuevoEstatus === "VENTA" && fechaVenta) {
       setFechaVentaInput(fechaVenta);
-    } else if (nuevoEstatus !== "VENTA") {
-      setFechaVentaInput("");
     }
     setToast({ type: "success", message: `Estatus cambiado a ${ESTATUS_LABELS[nuevoEstatus]}` });
   };
@@ -153,13 +155,16 @@ export default function OrdenDetalleClient({
             <StatusBadge
               ordenId={orden.id}
               estatus={orden.estatus}
+              readOnly={!canWrite}
               onChanged={handleEstatusChanged}
             />
           </div>
 
           <p className="text-sm text-gray-500 mt-1">
             {orden.cliente.nombre} ·{" "}
-            <span className="font-mono text-xs">{orden.cliente.rfc}</span>
+            <span className="font-mono text-xs">
+              {orden.cliente.rfc || "RFC no registrado"}
+            </span>
           </p>
         </div>
 
@@ -175,26 +180,30 @@ export default function OrdenDetalleClient({
               <FileDown size={14} />
               PDF
             </a>
-            <button
-              onClick={handleDuplicar}
-              disabled={isDuplicating}
-              className="btn-secondary text-sm flex items-center gap-1.5 disabled:opacity-60"
-              title="Duplicar orden"
-            >
-              {isDuplicating ? (
-                <Loader2 size={14} className="animate-spin" />
-              ) : (
-                <Copy size={14} />
-              )}
-              {isDuplicating ? "Duplicando..." : "Duplicar"}
-            </button>
-            <button
-              onClick={() => setIsEditing(true)}
-              className="btn-primary text-sm flex items-center gap-1.5"
-            >
-              <Pencil size={14} />
-              Editar
-            </button>
+            {canWrite && (
+              <>
+                <button
+                  onClick={handleDuplicar}
+                  disabled={isDuplicating}
+                  className="btn-secondary text-sm flex items-center gap-1.5 disabled:opacity-60"
+                  title="Duplicar orden"
+                >
+                  {isDuplicating ? (
+                    <Loader2 size={14} className="animate-spin" />
+                  ) : (
+                    <Copy size={14} />
+                  )}
+                  {isDuplicating ? "Duplicando..." : "Duplicar"}
+                </button>
+                <button
+                  onClick={() => setIsEditing(true)}
+                  className="btn-primary text-sm flex items-center gap-1.5"
+                >
+                  <Pencil size={14} />
+                  Editar
+                </button>
+              </>
+            )}
           </div>
         )}
 
@@ -211,12 +220,13 @@ export default function OrdenDetalleClient({
 
       {isEditing ? (
         /* ── Formulario de edición ── */
-        <div className="max-w-3xl bg-white rounded-xl border border-surface-border shadow-sm p-6">
+        <div className="max-w-3xl rounded-xl border border-surface-border bg-white p-4 shadow-sm sm:p-6">
           <OrdenForm
             orden={orden}
             clientes={clientes}
             tipos={tipos}
             condiciones={condiciones}
+            vendedores={vendedores}
             tasaIvaDefault={tasaIvaDefault}
             onSuccess={handleEditSuccess}
             onCancel={() => setIsEditing(false)}
@@ -224,19 +234,20 @@ export default function OrdenDetalleClient({
         </div>
       ) : (
         /* ── Vista de detalle ── */
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
 
           {/* ── Columna izquierda: info + partidas ── */}
           <div className="lg:col-span-2 space-y-6">
 
             {/* Info de la orden */}
-            <div className="bg-white rounded-xl border border-surface-border shadow-sm p-5">
+            <div className="rounded-xl border border-surface-border bg-white p-4 shadow-sm sm:p-5">
               <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-4">
                 Información general
               </h2>
-              <dl className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
+              <dl className="grid grid-cols-1 gap-x-6 gap-y-3 text-sm sm:grid-cols-2">
                 <InfoItem label="Tipo" value={orden.tipo_cotizacion.nombre} />
                 <InfoItem label="Condición de pago" value={orden.condicion_pago.nombre} />
+                <InfoItem label="Vendedor" value={orden.vendedor?.nombre ?? "Sin vendedor"} />
                 <InfoItem
                   label="Moneda"
                   value={`${orden.moneda}${orden.tipo_cambio ? ` (TC: $${orden.tipo_cambio})` : ""}`}
@@ -247,7 +258,7 @@ export default function OrdenDetalleClient({
                   <dt className="text-xs text-gray-400 font-medium flex items-center gap-1">
                     <CalendarDays size={11} />
                     Fecha de venta
-                    {!editingFecha && (
+                    {canWrite && !editingFecha && (
                       <button
                         type="button"
                         onClick={() => {
@@ -263,7 +274,7 @@ export default function OrdenDetalleClient({
                   </dt>
                   <dd className="mt-0.5">
                     {editingFecha ? (
-                      <div className="flex items-center gap-1.5 mt-1">
+                      <div className="mt-1 flex flex-wrap items-center gap-1.5">
                         <input
                           type="date"
                           className="input text-xs py-1 px-2"
@@ -303,7 +314,7 @@ export default function OrdenDetalleClient({
                 </div>
 
                 {orden.vigencia && (
-                  <InfoItem label="Vigencia" value={orden.vigencia} />
+                  <InfoItem label="Vigencia" value={formatFecha(orden.vigencia)} />
                 )}
                 <InfoItem label="Creada" value={formatFecha(orden.created_at)} />
               </dl>
@@ -322,7 +333,29 @@ export default function OrdenDetalleClient({
                   Partidas ({orden.partidas.length})
                 </h2>
               </div>
-              <div className="overflow-x-auto">
+              <div className="divide-y divide-surface-border sm:hidden">
+                {orden.partidas.map((p, i) => (
+                  <div key={p.id} className="p-4">
+                    <p className="text-xs font-semibold text-gray-400">#{i + 1}</p>
+                    <p className="mt-1 text-sm text-gray-800">{p.descripcion}</p>
+                    <div className="mt-3 grid grid-cols-3 gap-2 text-xs">
+                      <div>
+                        <p className="text-gray-400">Cant.</p>
+                        <p className="font-medium text-gray-700">{p.cantidad.toLocaleString("es-MX")}</p>
+                      </div>
+                      <div>
+                        <p className="text-gray-400">Precio</p>
+                        <p className="font-medium text-gray-700">{formatMoneda(p.precio_unitario, orden.moneda)}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-gray-400">Total</p>
+                        <p className="font-semibold text-gray-900">{formatMoneda(p.total_partida, orden.moneda)}</p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="hidden overflow-x-auto sm:block">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="text-xs text-gray-500 border-b border-surface-border">
@@ -425,10 +458,12 @@ export default function OrdenDetalleClient({
                 Cliente
               </h2>
               <p className="font-semibold text-navy text-sm">{orden.cliente.nombre}</p>
-              <p className="text-xs font-mono text-gray-400 mt-0.5">{orden.cliente.rfc}</p>
+              <p className="text-xs font-mono text-gray-400 mt-0.5">
+                {orden.cliente.rfc || "RFC no registrado"}
+              </p>
               <div className="mt-2 space-y-1 text-xs text-gray-500">
                 <p>{orden.cliente.contacto}</p>
-                <p>{orden.cliente.email}</p>
+                <p>{orden.cliente.email || "Email no registrado"}</p>
                 <p>{orden.cliente.ciudad}</p>
               </div>
             </div>

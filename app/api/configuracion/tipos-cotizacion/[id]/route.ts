@@ -1,16 +1,22 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { serializeTipo } from "@/lib/serializers";
 import { tipoCotizacionUpdateSchema } from "@/lib/validations/configuracion";
+import { isAdmin, requireAuth } from "@/lib/session";
 
 // PUT /api/configuracion/tipos-cotizacion/:id
 // Actualiza nombre, descripcion y activo (soft delete via activo=false)
 export async function PUT(
-  request: Request,
-  { params }: { params: { id: string } }
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
+  const session = await requireAuth(req);
+  if (!session) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+  if (!isAdmin(session)) return NextResponse.json({ error: "Sin permisos" }, { status: 403 });
+
   try {
-    const body = await request.json();
+    const body = await req.json();
     const validation = tipoCotizacionUpdateSchema.safeParse(body);
 
     if (!validation.success) {
@@ -27,7 +33,7 @@ export async function PUT(
     }
 
     const tipo = await prisma.tipoCotizacion.findUnique({
-      where: { id: params.id },
+      where: { id },
     });
 
     if (!tipo) {
@@ -42,7 +48,7 @@ export async function PUT(
       where: {
         nombre: { equals: validation.data.nombre, mode: "insensitive" },
         activo: true,
-        NOT: { id: params.id },
+        NOT: { id },
       },
     });
 
@@ -54,7 +60,7 @@ export async function PUT(
     }
 
     const updated = await prisma.tipoCotizacion.update({
-      where: { id: params.id },
+      where: { id },
       data: validation.data,
     });
 

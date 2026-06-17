@@ -3,6 +3,9 @@ import { prisma } from "@/lib/prisma";
 import { calcularOrden, generarFolio } from "@/lib/utils";
 import { serializeOrden } from "@/lib/serializers";
 import Decimal from "decimal.js";
+import { canWrite, requireAuth } from "@/lib/session";
+import { canMutateOrden } from "@/lib/access-control";
+import { logger } from "@/lib/logger";
 
 // ── POST /api/ordenes/:id/duplicar ────────────────────────────
 // Crea una copia exacta de la orden con:
@@ -13,13 +16,18 @@ import Decimal from "decimal.js";
 //   - Todas las partidas copiadas
 
 export async function POST(
-  _req: NextRequest,
-  { params }: { params: { id: string } }
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
+  const session = await requireAuth(req);
+  if (!session) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+  if (!canWrite(session)) return NextResponse.json({ error: "Sin permisos" }, { status: 403 });
+
   try {
     // 1. Buscar la orden original con sus partidas
     const original = await prisma.ordenVenta.findUnique({
-      where: { id: params.id },
+      where: { id },
       include: {
         partidas: { orderBy: { orden_display: "asc" } },
       },
@@ -27,6 +35,9 @@ export async function POST(
 
     if (!original) {
       return NextResponse.json({ error: "Orden no encontrada" }, { status: 404 });
+    }
+    if (!canMutateOrden(session, original)) {
+      return NextResponse.json({ error: "Sin permisos" }, { status: 403 });
     }
 
     // 2. Recalcular los montos (los copiamos del original, pero recalculamos
@@ -64,6 +75,7 @@ export async function POST(
           cliente_id: original.cliente_id,
           tipo_cotizacion_id: original.tipo_cotizacion_id,
           condicion_pago_id: original.condicion_pago_id,
+          vendedor_id: session.rol === "VENDEDOR" ? session.vendedorId : original.vendedor_id,
           descripcion: original.descripcion,
           // Siempre inicia como BORRADOR
           estatus: "BORRADOR",
@@ -100,6 +112,7 @@ export async function POST(
           },
           tipo_cotizacion: { select: { id: true, nombre: true } },
           condicion_pago: { select: { id: true, nombre: true } },
+          vendedor: { select: { id: true, nombre: true } },
         },
       });
 
@@ -126,7 +139,7 @@ export async function POST(
 
     return NextResponse.json(serializeOrden(nuevaOrden), { status: 201 });
   } catch (err) {
-    console.error("POST /api/ordenes/:id/duplicar", err);
+    logger.error("Error al duplicar orden", "POST /api/ordenes/:id/duplicar", err);
     return NextResponse.json({ error: "Error al duplicar la orden" }, { status: 500 });
   }
 }

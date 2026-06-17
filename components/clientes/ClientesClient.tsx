@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useCallback, useMemo } from "react";
-import { Plus, Users, Search, AlertTriangle } from "lucide-react";
+import { useState, useCallback, useMemo, useRef } from "react";
+import { Plus, Users, Search, AlertTriangle, Download, Upload } from "lucide-react";
+import { useRouter } from "next/navigation";
 import Modal from "@/components/ui/Modal";
 import Toast, { ToastData } from "@/components/ui/Toast";
 import ClienteCard from "./ClienteCard";
@@ -11,21 +12,66 @@ import type { ClienteConStats, CondicionResumen } from "@/types/clientes";
 interface ClientesClientProps {
   initialClientes: ClienteConStats[];
   condiciones: CondicionResumen[];
+  canWrite?: boolean;
+}
+
+interface ImportResult {
+  created: number;
+  total: number;
+  errors: Array<{ fila: number; mensaje: string }>;
 }
 
 export default function ClientesClient({
   initialClientes,
   condiciones,
+  canWrite = true,
 }: ClientesClientProps) {
+  const router = useRouter();
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [clientes, setClientes] = useState<ClienteConStats[]>(initialClientes);
   const [search, setSearch] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingCliente, setEditingCliente] = useState<ClienteConStats | null>(null);
   const [confirmDesactivar, setConfirmDesactivar] = useState<ClienteConStats | null>(null);
   const [isDesactivando, setIsDesactivando] = useState(false);
+  const [importResult, setImportResult] = useState<ImportResult | null>(null);
   const [toast, setToast] = useState<ToastData | null>(null);
 
   const closeToast = useCallback(() => setToast(null), []);
+
+  const handleImportFile = async (file: File) => {
+    try {
+      const res = await fetch("/api/import/clientes", {
+        method: "POST",
+        headers: { "Content-Type": "application/octet-stream" },
+        body: await file.arrayBuffer(),
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        setToast({ type: "error", message: data.error || "Error al importar clientes" });
+        return;
+      }
+
+      const errores = Array.isArray(data.errors) ? data.errors.length : 0;
+      setImportResult({
+        created: data.created ?? 0,
+        total: data.total ?? 0,
+        errors: Array.isArray(data.errors) ? data.errors : [],
+      });
+      setToast({
+        type: errores > 0 ? "error" : "success",
+        message: `Clientes creados: ${data.created}. Errores: ${errores}.`,
+      });
+      const updated = await fetch("/api/clientes", { cache: "no-store" });
+      if (updated.ok) setClientes(await updated.json());
+      router.refresh();
+    } catch {
+      setToast({ type: "error", message: "Error al leer el archivo" });
+    } finally {
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
 
   // ── Filtrado por búsqueda ────────────────────────────────────
   const clientesFiltrados = useMemo(() => {
@@ -34,7 +80,7 @@ export default function ClientesClient({
     return clientes.filter(
       (c) =>
         c.nombre.toLowerCase().includes(q) ||
-        c.rfc.toLowerCase().includes(q) ||
+        (c.rfc?.toLowerCase().includes(q) ?? false) ||
         c.contacto.toLowerCase().includes(q) ||
         c.ciudad.toLowerCase().includes(q)
     );
@@ -120,29 +166,57 @@ export default function ClientesClient({
             {clientes.length === 1 ? "cliente activo" : "clientes activos"}
           </p>
         </div>
-        <button onClick={handleOpenCreate} className="btn-primary self-start sm:self-auto">
-          <Plus size={16} />
-          Nuevo cliente
-        </button>
+        {canWrite && (
+          <div className="grid w-full grid-cols-1 gap-2 sm:w-auto sm:grid-cols-3">
+            <a href="/api/import/clientes/layout" className="btn-secondary justify-center">
+              <Download size={16} />
+              Layout Excel
+            </a>
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className="btn-secondary justify-center"
+            >
+              <Upload size={16} />
+              Subir Excel/CSV
+            </button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".xls,.xlsx,.csv,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) void handleImportFile(file);
+              }}
+            />
+            <button onClick={handleOpenCreate} className="btn-primary justify-center">
+              <Plus size={16} />
+              Nuevo cliente
+            </button>
+          </div>
+        )}
       </div>
 
       {/* ── Barra de búsqueda ── */}
-      <div className="relative mb-6">
-        <Search
-          size={16}
-          className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"
-        />
-        <input
-          className="input pl-9 max-w-sm"
-          placeholder="Buscar por nombre, RFC, contacto o ciudad..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
+      <div className="mb-6 max-w-sm sm:max-w-md">
+        <div className="relative">
+          <Search
+            size={16}
+            className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+          />
+          <input
+            className="input w-full pl-9 text-sm"
+            placeholder="Buscar por nombre, RFC, contacto o ciudad..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </div>
         {search && (
-          <span className="ml-3 text-xs text-gray-400">
+          <p className="mt-1 text-xs text-gray-400">
             {clientesFiltrados.length} resultado
             {clientesFiltrados.length !== 1 && "s"}
-          </span>
+          </p>
         )}
       </div>
 
@@ -159,8 +233,8 @@ export default function ClientesClient({
             <ClienteCard
               key={cliente.id}
               cliente={cliente}
-              onEdit={handleOpenEdit}
-              onDesactivar={setConfirmDesactivar}
+              onEdit={canWrite ? handleOpenEdit : undefined}
+              onDesactivar={canWrite ? setConfirmDesactivar : undefined}
             />
           ))}
         </div>
@@ -182,6 +256,66 @@ export default function ClientesClient({
         </Modal>
       )}
 
+      {importResult && (
+        <Modal
+          title="Resultado de importación"
+          onClose={() => setImportResult(null)}
+          size="lg"
+        >
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-3">
+              <div className="rounded-lg border border-surface-border bg-gray-50 p-3">
+                <p className="text-xs text-gray-400">Filas procesadas</p>
+                <p className="text-lg font-semibold text-navy">{importResult.total}</p>
+              </div>
+              <div className="rounded-lg border border-green-200 bg-green-50 p-3">
+                <p className="text-xs text-green-700">Creados</p>
+                <p className="text-lg font-semibold text-green-700">{importResult.created}</p>
+              </div>
+              <div className="rounded-lg border border-red-200 bg-red-50 p-3">
+                <p className="text-xs text-red-700">Errores</p>
+                <p className="text-lg font-semibold text-red-700">{importResult.errors.length}</p>
+              </div>
+            </div>
+
+            {importResult.errors.length > 0 ? (
+              <div className="max-h-72 overflow-auto rounded-lg border border-red-200">
+                <table className="w-full text-sm">
+                  <thead className="bg-red-50 text-left text-xs uppercase tracking-wide text-red-700">
+                    <tr>
+                      <th className="px-3 py-2">Fila</th>
+                      <th className="px-3 py-2">Motivo</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-red-100">
+                    {importResult.errors.map((error, index) => (
+                      <tr key={`${error.fila}-${index}`}>
+                        <td className="px-3 py-2 font-mono text-xs">{error.fila}</td>
+                        <td className="px-3 py-2 text-gray-700">{error.mensaje}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <p className="rounded-lg border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700">
+                Todas las filas se cargaron correctamente.
+              </p>
+            )}
+
+            <div className="flex justify-end">
+              <button
+                type="button"
+                className="btn-primary w-full justify-center sm:w-auto"
+                onClick={() => setImportResult(null)}
+              >
+                Entendido
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
       {/* ── Modal: confirmar desactivar ── */}
       {confirmDesactivar && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -189,7 +323,7 @@ export default function ClientesClient({
             className="absolute inset-0 bg-black/40 backdrop-blur-sm"
             onClick={() => !isDesactivando && setConfirmDesactivar(null)}
           />
-          <div className="relative bg-white rounded-xl shadow-2xl w-full max-w-sm p-6 animate-fade-in z-10">
+          <div className="relative z-10 w-full max-w-sm animate-fade-in rounded-xl bg-white p-4 shadow-2xl sm:p-6">
             <div className="flex items-start gap-4">
               <div className="shrink-0 w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center">
                 <AlertTriangle size={20} className="text-amber-600" />
@@ -218,7 +352,7 @@ export default function ClientesClient({
                 </p>
               </div>
             </div>
-            <div className="flex justify-end gap-3 mt-5">
+            <div className="mt-5 grid grid-cols-2 gap-3">
               <button
                 onClick={() => setConfirmDesactivar(null)}
                 disabled={isDesactivando}

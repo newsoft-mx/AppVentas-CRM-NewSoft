@@ -1,0 +1,35 @@
+#!/bin/bash
+set -euxo pipefail
+
+export DEBIAN_FRONTEND=noninteractive
+
+apt-get update
+apt-get install -y ca-certificates curl gnupg lsb-release
+
+install -m 0755 -d /etc/apt/keyrings
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
+chmod a+r /etc/apt/keyrings/docker.asc
+
+echo \
+  "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu \
+  $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | \
+  tee /etc/apt/sources.list.d/docker.list > /dev/null
+
+apt-get update
+apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+
+systemctl enable docker
+systemctl start docker
+usermod -aG docker ${ssh_user}
+
+mkdir -p ${app_dir}
+cat > ${app_dir}/.env.production <<'EOF'
+POSTGRES_PRISMA_URL="${database_url}"
+POSTGRES_URL_NON_POOLING="${database_url}"
+SESSION_SECRET="${session_secret}"
+ADMIN_PASSWORD="${admin_password}"
+SALES_PASSWORD="${sales_password}"
+PORT=${port}
+EOF
+
+chown -R ${ssh_user}:${ssh_user} ${app_dir}

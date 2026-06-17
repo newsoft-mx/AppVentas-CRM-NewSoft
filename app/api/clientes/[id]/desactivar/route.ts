@@ -1,16 +1,22 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { canManageClients, requireAuth } from "@/lib/session";
 
 // PATCH /api/clientes/:id/desactivar
 // Soft delete: marca activo = false.
 // Los clientes con órdenes asociadas quedan con historial visible.
 export async function PATCH(
-  _req: Request,
-  { params }: { params: { id: string } }
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
+  const session = await requireAuth(req);
+  if (!session) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+  if (!canManageClients(session)) return NextResponse.json({ error: "Sin permisos" }, { status: 403 });
+
   try {
     const cliente = await prisma.cliente.findUnique({
-      where: { id: params.id },
+      where: { id },
       include: { _count: { select: { ordenes: true } } },
     });
 
@@ -26,7 +32,7 @@ export async function PATCH(
     }
 
     const updated = await prisma.cliente.update({
-      where: { id: params.id },
+      where: { id },
       data: { activo: false },
     });
 

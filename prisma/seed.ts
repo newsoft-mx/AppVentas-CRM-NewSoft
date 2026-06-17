@@ -50,6 +50,11 @@ async function main() {
     }),
   ]);
 
+  await Promise.all([
+    prisma.$executeRaw`UPDATE "user" SET rol = 'ADMIN'::user_role WHERE id = ${userRoldan.id}`,
+    prisma.$executeRaw`UPDATE "user" SET rol = 'GERENTE_COMERCIAL'::user_role WHERE id = ${userElva.id}`,
+  ]);
+
   console.log(`   ✓ ${userRoldan.email}`);
   console.log(`   ✓ ${userElva.email}\n`);
 
@@ -64,6 +69,7 @@ async function main() {
     create: {
       id: "00000000-0000-0000-0000-000000000001",
       nombre: "Newsoft Technologies S.A. de C.V.",
+      nombre_comercial: "NewSoft",
       rfc: "NTE150615GH7",
       direccion: "Av. Insurgentes Sur 1234, Piso 8, Col. Del Valle, CDMX, C.P. 03100",
       email: "ventas@newsoft.mx",

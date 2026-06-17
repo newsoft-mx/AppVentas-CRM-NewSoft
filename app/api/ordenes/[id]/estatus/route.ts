@@ -3,13 +3,20 @@ import { prisma } from "@/lib/prisma";
 import { serializeOrden } from "@/lib/serializers";
 import { EstatusUpdateSchema } from "@/lib/validations/ordenes";
 import { TRANSICIONES_PERMITIDAS } from "@/lib/utils";
+import { canWrite, requireAuth } from "@/lib/session";
+import { canMutateOrden } from "@/lib/access-control";
 
 // ── PATCH /api/ordenes/:id/estatus ────────────────────────────
 
 export async function PATCH(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
+  const session = await requireAuth(req);
+  if (!session) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+  if (!canWrite(session)) return NextResponse.json({ error: "Sin permisos" }, { status: 403 });
+
   let body: unknown;
   try {
     body = await req.json();
@@ -30,12 +37,15 @@ export async function PATCH(
 
   try {
     const orden = await prisma.ordenVenta.findUnique({
-      where: { id: params.id },
-      select: { id: true, estatus: true },
+      where: { id },
+      select: { id: true, estatus: true, vendedor_id: true },
     });
 
     if (!orden) {
       return NextResponse.json({ error: "Orden no encontrada" }, { status: 404 });
+    }
+    if (!canMutateOrden(session, orden)) {
+      return NextResponse.json({ error: "Sin permisos" }, { status: 403 });
     }
 
     // Validar transición permitida
@@ -59,19 +69,18 @@ export async function PATCH(
     }
 
     const actualizada = await prisma.ordenVenta.update({
-      where: { id: params.id },
+      where: { id },
       data: {
         estatus: nuevoEstatus,
         ...(nuevoEstatus === "VENTA" && fecha_venta
           ? { fecha_venta: new Date(fecha_venta) }
           : {}),
-        // Al revertir a BORRADOR o COTIZADO desde VENTA, limpiar fecha_venta
-        ...(nuevoEstatus !== "VENTA" ? { fecha_venta: null } : {}),
       },
       include: {
         cliente: { select: { id: true, nombre: true, rfc: true, contacto: true, email: true, ciudad: true } },
         tipo_cotizacion: { select: { id: true, nombre: true } },
         condicion_pago: { select: { id: true, nombre: true } },
+        vendedor: { select: { id: true, nombre: true } },
         partidas: { orderBy: { orden_display: "asc" } },
       },
     });

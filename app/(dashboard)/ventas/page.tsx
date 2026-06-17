@@ -2,7 +2,17 @@ import { prisma } from "@/lib/prisma";
 import VentasClient from "@/components/ordenes/VentasClient";
 import { serializeOrden } from "@/lib/serializers";
 import type { Metadata } from "next";
-import type { KpisData, OrdenResumen, FiltroOrdenes, EstatusOrden } from "@/types/ordenes";
+import type { OrdenResumen, FiltroOrdenes } from "@/types/ordenes";
+import {
+  buildDateOrFilters,
+  emptyOrdenFilters,
+  parseEstatusList,
+  parseNumberList,
+  parseStringList,
+} from "@/lib/filter-utils";
+import { getServerSession } from "@/lib/server-session";
+import { canWrite } from "@/lib/session";
+import { scopeOrdenWhere } from "@/lib/access-control";
 
 export const metadata: Metadata = { title: "Ventas" };
 export const dynamic = "force-dynamic";
@@ -12,130 +22,109 @@ function buildWhere(filtros: FiltroOrdenes) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const where: any = {};
 
-  if (filtros.estatus) where.estatus = filtros.estatus;
+  if (filtros.estatus.length) where.estatus = { in: filtros.estatus };
+  if (filtros.cliente_id.length) where.cliente_id = { in: filtros.cliente_id };
+  if (filtros.tipo_cotizacion_id.length) where.tipo_cotizacion_id = { in: filtros.tipo_cotizacion_id };
+  if (filtros.vendedor_id.length) where.vendedor_id = { in: filtros.vendedor_id };
 
-  if (filtros.ano || filtros.q || filtros.mes) {
-    const year = filtros.ano ?? new Date().getFullYear();
-    if (filtros.mes) {
-      where.created_at = {
-        gte: new Date(year, filtros.mes - 1, 1),
-        lt: new Date(year, filtros.mes, 1),
-      };
-    } else if (filtros.q) {
-      const mesInicio = (filtros.q - 1) * 3;
-      where.created_at = {
-        gte: new Date(year, mesInicio, 1),
-        lt: new Date(year, mesInicio + 3, 1),
-      };
-    } else {
-      where.created_at = {
-        gte: new Date(year, 0, 1),
-        lt: new Date(year + 1, 0, 1),
-      };
-    }
+  if (filtros.ano.length || filtros.q.length || filtros.mes.length) {
+    const ranges = buildDateOrFilters(filtros);
+    where.OR = ranges.flatMap((range) => [
+      { fecha_venta: range },
+      { fecha_venta: null, created_at: range },
+    ]);
   }
 
   return where;
 }
 
-/** Calcula los KPIs sobre un array de órdenes ya serializadas */
-function calcularKpis(ordenes: OrdenResumen[]): KpisData {
-  const total_ordenes = ordenes.length;
-  const borradores = ordenes.filter((o) => o.estatus === "BORRADOR").length;
-  const cotizadas = ordenes.filter((o) => o.estatus === "COTIZADO").length;
-  const ventas = ordenes.filter((o) => o.estatus === "VENTA").length;
-
-  const ventas_mxn = ordenes
-    .filter((o) => o.estatus === "VENTA")
-    .reduce((s, o) => s + o.total_mxn, 0);
-
-  const pipeline_mxn = ordenes
-    .filter((o) => o.estatus === "COTIZADO")
-    .reduce((s, o) => s + o.total_mxn, 0);
-
-  // Fórmula correcta según doc: ventas / total_ordenes * 100
-  const tasa_conversion =
-    total_ordenes > 0 ? Math.round((ventas / total_ordenes) * 100) : 0;
-
-  const suma_total_mxn = ordenes
-    .filter((o) => o.moneda === "MXN")
-    .reduce((s, o) => s + o.total, 0);
-
-  const suma_total_usd = ordenes
-    .filter((o) => o.moneda === "USD")
-    .reduce((s, o) => s + o.total, 0);
-
-  return {
-    total_ordenes,
-    borradores,
-    cotizadas,
-    ventas,
-    ventas_mxn,
-    pipeline_mxn,
-    tasa_conversion,
-    suma_total_mxn,
-    suma_total_usd,
-  };
-}
 
 interface SearchParams {
-  ano?: string;
-  q?: string;
-  mes?: string;
-  estatus?: string;
+  ano?: string | string[];
+  "ano[]"?: string | string[];
+  q?: string | string[];
+  "q[]"?: string | string[];
+  mes?: string | string[];
+  "mes[]"?: string | string[];
+  estatus?: string | string[];
+  "estatus[]"?: string | string[];
+  cliente_id?: string | string[];
+  "cliente_id[]"?: string | string[];
+  tipo_cotizacion_id?: string | string[];
+  "tipo_cotizacion_id[]"?: string | string[];
+  vendedor_id?: string | string[];
+  "vendedor_id[]"?: string | string[];
 }
 
 export default async function VentasPage({
   searchParams,
 }: {
-  searchParams: SearchParams;
+  searchParams: Promise<SearchParams>;
 }) {
+  const sp = await searchParams;
+  const session = await getServerSession();
   // Leer filtros iniciales de la URL
-  const ESTATUS_VALIDOS = ["BORRADOR", "COTIZADO", "VENTA"];
   const initialFiltros: FiltroOrdenes = {
-    ano: searchParams.ano ? Number(searchParams.ano) : null,
-    q: searchParams.q ? Number(searchParams.q) : null,
-    mes: searchParams.mes ? Number(searchParams.mes) : null,
-    estatus: ESTATUS_VALIDOS.includes(searchParams.estatus ?? "")
-      ? (searchParams.estatus as EstatusOrden)
-      : null,
+    ...emptyOrdenFilters(),
+    ano: parseNumberList([sp.ano, sp["ano[]"]].filter(Boolean).flat()),
+    q: parseNumberList([sp.q, sp["q[]"]].filter(Boolean).flat()).filter((q) => q >= 1 && q <= 4),
+    mes: parseNumberList([sp.mes, sp["mes[]"]].filter(Boolean).flat()).filter((mes) => mes >= 1 && mes <= 12),
+    estatus: parseEstatusList([sp.estatus, sp["estatus[]"]].filter(Boolean).flat()),
+    cliente_id: parseStringList([sp.cliente_id, sp["cliente_id[]"]].filter(Boolean).flat()),
+    tipo_cotizacion_id: parseStringList([sp.tipo_cotizacion_id, sp["tipo_cotizacion_id[]"]].filter(Boolean).flat()),
+    vendedor_id: parseStringList([sp.vendedor_id, sp["vendedor_id[]"]].filter(Boolean).flat()),
   };
 
   // Cargar TODAS las órdenes (filtrado fine-grained se hace client-side)
   // Pero si hay filtros de fecha/estatus en URL los aplicamos en el servidor
   // para reducir carga inicial — el cliente re-filtra sin API call adicional
-  const where = buildWhere(initialFiltros);
+  const where = scopeOrdenWhere(session, buildWhere(initialFiltros));
 
-  const ordenes = await prisma.ordenVenta.findMany({
-    where,
-    include: {
-      cliente: {
-        select: {
-          id: true,
-          nombre: true,
-          rfc: true,
-          contacto: true,
-          email: true,
-          ciudad: true,
+  const [ordenes, tipos, vendedores] = await Promise.all([
+    prisma.ordenVenta.findMany({
+      where,
+      include: {
+        cliente: {
+          select: {
+            id: true,
+            nombre: true,
+            rfc: true,
+            contacto: true,
+            email: true,
+            ciudad: true,
+          },
         },
+        tipo_cotizacion: { select: { id: true, nombre: true } },
+        condicion_pago: { select: { id: true, nombre: true } },
+        vendedor: { select: { id: true, nombre: true } },
       },
-      tipo_cotizacion: { select: { id: true, nombre: true } },
-      condicion_pago: { select: { id: true, nombre: true } },
-    },
-    orderBy: { created_at: "desc" },
-  });
+      orderBy: { created_at: "desc" },
+    }),
+    prisma.tipoCotizacion.findMany({
+      where: { activo: true },
+      select: { id: true, nombre: true },
+      orderBy: { nombre: "asc" },
+    }),
+    prisma.vendedor.findMany({
+      where: session?.rol === "VENDEDOR"
+        ? { activo: true, id: session.vendedorId ?? "__sin-vendedor-asignado__" }
+        : { activo: true },
+      select: { id: true, nombre: true },
+      orderBy: { nombre: "asc" },
+    }),
+  ]);
 
   const serialized = ordenes.map((o) =>
     serializeOrden({ ...o, partidas: [] })
   ) as OrdenResumen[];
 
-  const kpis = calcularKpis(serialized);
-
   return (
     <VentasClient
       initialOrdenes={serialized}
-      initialKpis={kpis}
       initialFiltros={initialFiltros}
+      tipos={tipos.map((tipo) => ({ id: tipo.id, label: tipo.nombre }))}
+      vendedores={vendedores.map((vendedor) => ({ id: vendedor.id, label: vendedor.nombre }))}
+      canWrite={canWrite(session)}
     />
   );
 }

@@ -3,10 +3,13 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: {
-    default: "Newsoft Sales",
-    template: "%s | Newsoft Sales",
+    default: "NewSoft Sales",
+    template: "%s | NewSoft Sales",
   },
-  description: "Sistema interno de gestión de ventas — Newsoft Technologies",
+  description: "Sistema interno de gestión de ventas — NewSoft",
+  icons: {
+    icon: "/newsoft-favicon.png",
+  },
 };
 
 export default function RootLayout({

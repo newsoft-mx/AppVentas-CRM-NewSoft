@@ -11,11 +11,11 @@ export interface CondicionResumen {
 /** Totales de ventas por cliente, separados por moneda */
 export interface ClienteStats {
   num_ordenes: number;
-  /** Suma de `total` de órdenes en MXN (en pesos) */
+  /** Suma neta sin IVA de órdenes en MXN (en pesos) */
   total_mxn: number;
-  /** Suma de `total` de órdenes en USD (en dólares) */
+  /** Suma neta sin IVA de órdenes en USD (en dólares) */
   total_usd: number;
-  /** Suma de `total_mxn` de TODAS las órdenes (todo convertido a pesos) */
+  /** Suma neta sin IVA de TODAS las órdenes (todo convertido a pesos) */
   grand_total_mxn: number;
 }
 
@@ -23,10 +23,10 @@ export interface ClienteStats {
 export interface ClienteConStats {
   id: string;
   nombre: string;
-  rfc: string;
+  rfc: string | null;
   contacto: string;
   ciudad: string;
-  email: string;
+  email: string | null;
   telefono: string | null;
   condicion_pago_id: string;
   condicion_pago: CondicionResumen;
@@ -40,10 +40,10 @@ export interface ClienteConStats {
 /** Payload para crear o actualizar un cliente */
 export interface ClienteInput {
   nombre: string;
-  rfc: string;
+  rfc?: string | null;
   contacto: string;
   ciudad: string;
-  email: string;
+  email?: string | null;
   telefono?: string | null;
   condicion_pago_id: string;
   notas?: string | null;

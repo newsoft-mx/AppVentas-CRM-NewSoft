@@ -2,111 +2,136 @@
 
 import { X } from "lucide-react";
 import type { FiltroOrdenes } from "@/types/ordenes";
+import MultiSelect, { MultiSelectOption } from "@/components/ui/MultiSelect";
 
 interface FiltrosBarProps {
   filtros: FiltroOrdenes;
+  clientes: MultiSelectOption[];
+  tipos: MultiSelectOption[];
+  vendedores: MultiSelectOption[];
   onChange: (filtros: FiltroOrdenes) => void;
 }
 
 const CURRENT_YEAR = new Date().getFullYear();
-const YEARS = Array.from({ length: 6 }, (_, i) => CURRENT_YEAR - i);
+const YEARS = Array.from({ length: 6 }, (_, i) => ({ id: String(CURRENT_YEAR - i), label: String(CURRENT_YEAR - i) }));
 const TRIMESTRES = [
-  { value: 1, label: "Q1 (Ene–Mar)" },
-  { value: 2, label: "Q2 (Abr–Jun)" },
-  { value: 3, label: "Q3 (Jul–Sep)" },
-  { value: 4, label: "Q4 (Oct–Dic)" },
+  { id: "1", label: "Q1 (Ene-Mar)" },
+  { id: "2", label: "Q2 (Abr-Jun)" },
+  { id: "3", label: "Q3 (Jul-Sep)" },
+  { id: "4", label: "Q4 (Oct-Dic)" },
 ];
 const MESES = [
   "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
   "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre",
+].map((label, index) => ({ id: String(index + 1), label }));
+const ESTATUS = [
+  { id: "BORRADOR", label: "Borrador" },
+  { id: "COTIZADO", label: "Cotizado" },
+  { id: "VENTA", label: "Venta" },
 ];
 
-export default function FiltrosBar({ filtros, onChange }: FiltrosBarProps) {
+function toNumbers(values: string[]) {
+  return values.map(Number).filter((value) => Number.isFinite(value));
+}
+
+export default function FiltrosBar({ filtros, clientes, tipos, vendedores, onChange }: FiltrosBarProps) {
   const set = <K extends keyof FiltroOrdenes>(key: K, val: FiltroOrdenes[K]) => {
     onChange({ ...filtros, [key]: val });
   };
 
   const hasFilters =
-    filtros.ano !== null ||
-    filtros.q !== null ||
-    filtros.mes !== null ||
-    filtros.estatus !== null;
+    filtros.ano.length > 0 ||
+    filtros.q.length > 0 ||
+    filtros.mes.length > 0 ||
+    filtros.estatus.length > 0 ||
+    filtros.cliente_id.length > 0 ||
+    filtros.tipo_cotizacion_id.length > 0 ||
+    filtros.vendedor_id.length > 0;
 
   const clearAll = () =>
-    onChange({ ano: null, q: null, mes: null, estatus: null });
+    onChange({
+      ano: [],
+      q: [],
+      mes: [],
+      estatus: [],
+      cliente_id: [],
+      tipo_cotizacion_id: [],
+      vendedor_id: [],
+    });
 
   return (
     <div className="flex flex-wrap items-center gap-2">
-      {/* Año */}
-      <select
-        className="input text-sm py-1.5 pr-8 w-auto min-w-[90px]"
-        value={filtros.ano ?? ""}
-        onChange={(e) => set("ano", e.target.value ? Number(e.target.value) : null)}
-      >
-        <option value="">Todos los años</option>
-        {YEARS.map((y) => (
-          <option key={y} value={y}>
-            {y}
-          </option>
-        ))}
-      </select>
+      <MultiSelect
+        className="w-full sm:w-36"
+        options={YEARS}
+        value={filtros.ano.map(String)}
+        onChange={(values) => set("ano", toNumbers(values))}
+        placeholder="Todos los años"
+        searchable={false}
+      />
 
-      {/* Trimestre */}
-      <select
-        className="input text-sm py-1.5 pr-8 w-auto min-w-[130px]"
-        value={filtros.q ?? ""}
-        onChange={(e) => {
-          const q = e.target.value ? Number(e.target.value) : null;
-          onChange({ ...filtros, q, mes: null }); // reset mes al elegir trimestre
-        }}
-      >
-        <option value="">Todos los trimestres</option>
-        {TRIMESTRES.map((t) => (
-          <option key={t.value} value={t.value}>
-            {t.label}
-          </option>
-        ))}
-      </select>
+      <MultiSelect
+        className="w-full sm:w-64"
+        options={clientes}
+        value={filtros.cliente_id}
+        onChange={(values) => set("cliente_id", values)}
+        placeholder="Todos los clientes"
+        searchPlaceholder="Buscar cliente..."
+      />
 
-      {/* Mes */}
-      <select
-        className="input text-sm py-1.5 pr-8 w-auto min-w-[120px]"
-        value={filtros.mes ?? ""}
-        onChange={(e) => {
-          const mes = e.target.value ? Number(e.target.value) : null;
-          onChange({ ...filtros, mes, q: null }); // reset trimestre al elegir mes
-        }}
-      >
-        <option value="">Todos los meses</option>
-        {MESES.map((m, i) => (
-          <option key={i + 1} value={i + 1}>
-            {m}
-          </option>
-        ))}
-      </select>
+      <MultiSelect
+        className="w-full sm:w-56"
+        options={tipos}
+        value={filtros.tipo_cotizacion_id}
+        onChange={(values) => set("tipo_cotizacion_id", values)}
+        placeholder="Todos los tipos"
+        searchPlaceholder="Buscar tipo..."
+      />
 
-      {/* Estatus */}
-      <select
-        className="input text-sm py-1.5 pr-8 w-auto min-w-[110px]"
-        value={filtros.estatus ?? ""}
-        onChange={(e) =>
-          set("estatus", (e.target.value as FiltroOrdenes["estatus"]) || null)
-        }
-      >
-        <option value="">Todos los estatus</option>
-        <option value="BORRADOR">Borrador</option>
-        <option value="COTIZADO">Cotizado</option>
-        <option value="VENTA">Venta</option>
-      </select>
+      <MultiSelect
+        className="w-full sm:w-56"
+        options={vendedores}
+        value={filtros.vendedor_id}
+        onChange={(values) => set("vendedor_id", values)}
+        placeholder="Todos los vendedores"
+        searchPlaceholder="Buscar vendedor..."
+      />
 
-      {/* Limpiar filtros */}
+      <MultiSelect
+        className="w-full sm:w-44"
+        options={TRIMESTRES}
+        value={filtros.q.map(String)}
+        onChange={(values) => onChange({ ...filtros, q: toNumbers(values), mes: [] })}
+        placeholder="Todos los trimestres"
+        searchable={false}
+      />
+
+      <MultiSelect
+        className="w-full sm:w-44"
+        options={MESES}
+        value={filtros.mes.map(String)}
+        onChange={(values) => onChange({ ...filtros, mes: toNumbers(values), q: [] })}
+        placeholder="Todos los meses"
+        searchable={false}
+      />
+
+      <MultiSelect
+        className="w-full sm:w-40"
+        options={ESTATUS}
+        value={filtros.estatus}
+        onChange={(values) => set("estatus", values as FiltroOrdenes["estatus"])}
+        placeholder="Todos los estatus"
+        searchable={false}
+      />
+
       {hasFilters && (
         <button
+          type="button"
           onClick={clearAll}
-          className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-red-500 transition-colors px-2 py-1.5 rounded-lg hover:bg-red-50"
+          className="flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-xs text-gray-500 transition-colors hover:bg-red-50 hover:text-red-500"
         >
           <X size={13} />
-          Limpiar
+          Limpiar todo
         </button>
       )}
     </div>

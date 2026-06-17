@@ -7,6 +7,7 @@
 export interface Empresa {
   id: string;
   nombre: string;
+  nombre_comercial: string | null;
   rfc: string;
   direccion: string;
   email: string;
@@ -25,6 +26,7 @@ export interface TipoCotizacion {
   id: string;
   nombre: string;
   descripcion: string | null;
+  texto_contrato: string | null;
   activo: boolean;
   created_at: string;
 }
@@ -36,4 +38,23 @@ export interface CondicionComercial {
   descripcion: string | null;
   activo: boolean;
   created_at: string;
+}
+
+export interface Vendedor {
+  id: string;
+  nombre: string;
+  email: string | null;
+  telefono: string | null;
+  activo: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Usuario {
+  id: string;
+  nombre: string;
+  email: string;
+  activo: boolean;
+  created_at: string;
+  updated_at: string;
 }

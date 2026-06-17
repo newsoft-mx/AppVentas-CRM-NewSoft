@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { serializeOrden } from "@/lib/serializers";
 import { z } from "zod";
+import { canWrite, requireAuth } from "@/lib/session";
+import { canMutateOrden } from "@/lib/access-control";
 
 // Schema de validación — fecha YYYY-MM-DD o null para limpiarla
 const FechaVentaSchema = z.object({
@@ -18,8 +20,13 @@ const FechaVentaSchema = z.object({
 
 export async function PATCH(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
+  const session = await requireAuth(req);
+  if (!session) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+  if (!canWrite(session)) return NextResponse.json({ error: "Sin permisos" }, { status: 403 });
+
   let body: unknown;
   try {
     body = await req.json();
@@ -39,16 +46,19 @@ export async function PATCH(
 
   try {
     const orden = await prisma.ordenVenta.findUnique({
-      where: { id: params.id },
-      select: { id: true },
+      where: { id },
+      select: { id: true, vendedor_id: true },
     });
 
     if (!orden) {
       return NextResponse.json({ error: "Orden no encontrada" }, { status: 404 });
     }
+    if (!canMutateOrden(session, orden)) {
+      return NextResponse.json({ error: "Sin permisos" }, { status: 403 });
+    }
 
     const actualizada = await prisma.ordenVenta.update({
-      where: { id: params.id },
+      where: { id },
       data: {
         fecha_venta: fecha_venta ? new Date(fecha_venta) : null,
       },
@@ -65,6 +75,7 @@ export async function PATCH(
         },
         tipo_cotizacion: { select: { id: true, nombre: true } },
         condicion_pago: { select: { id: true, nombre: true } },
+        vendedor: { select: { id: true, nombre: true } },
         partidas: { orderBy: { orden_display: "asc" } },
       },
     });

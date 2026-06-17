@@ -1,12 +1,17 @@
 export const dynamic = "force-dynamic";
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
+import { isAdmin, requireAuth } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { serializeTipo } from "@/lib/serializers";
 import { tipoCotizacionCreateSchema } from "@/lib/validations/configuracion";
 
 // GET /api/configuracion/tipos-cotizacion
 // Devuelve todos los tipos (activos e inactivos) para la pantalla de config
-export async function GET() {
+export async function GET(req: NextRequest) {
+  const session = await requireAuth(req);
+  if (!session) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+  if (!isAdmin(session)) return NextResponse.json({ error: "Sin permisos" }, { status: 403 });
+
   try {
     const tipos = await prisma.tipoCotizacion.findMany({
       orderBy: [{ activo: "desc" }, { nombre: "asc" }],
@@ -21,9 +26,13 @@ export async function GET() {
 }
 
 // POST /api/configuracion/tipos-cotizacion
-export async function POST(request: Request) {
+export async function POST(req: NextRequest) {
+  const session = await requireAuth(req);
+  if (!session) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+  if (!isAdmin(session)) return NextResponse.json({ error: "Sin permisos" }, { status: 403 });
+
   try {
-    const body = await request.json();
+    const body = await req.json();
     const validation = tipoCotizacionCreateSchema.safeParse(body);
 
     if (!validation.success) {

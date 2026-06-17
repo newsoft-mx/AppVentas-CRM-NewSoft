@@ -104,7 +104,7 @@ export default function SearchableSelect({
             <span>
               {selected.label}
               {selected.sublabel && (
-                <span className="text-gray-400 ml-2 text-xs font-mono">
+                <span className="ml-2 text-xs font-mono text-gray-400">
                   {selected.sublabel}
                 </span>
               )}
@@ -132,7 +132,7 @@ export default function SearchableSelect({
 
       {/* ── Dropdown ── */}
       {isOpen && (
-        <div className="absolute z-50 mt-1 w-full bg-white border border-surface-border rounded-xl shadow-lg overflow-hidden">
+        <div className="absolute z-50 mt-1 w-full min-w-0 overflow-hidden rounded-xl border border-surface-border bg-white shadow-lg sm:min-w-[220px]">
           {/* Buscador */}
           <div className="p-2 border-b border-surface-border">
             <div className="relative">
@@ -160,9 +160,9 @@ export default function SearchableSelect({
                     className={`w-full text-left px-3 py-2 text-sm hover:bg-gray-50 transition-colors
                       ${option.id === value ? "bg-navy/5 text-navy font-medium" : "text-gray-700"}`}
                   >
-                    <span className="block">{option.label}</span>
+                    <span className="block truncate">{option.label}</span>
                     {option.sublabel && (
-                      <span className="block text-xs text-gray-400 font-mono mt-0.5">
+                      <span className="mt-0.5 block truncate font-mono text-xs text-gray-400">
                         {option.sublabel}
                       </span>
                     )}

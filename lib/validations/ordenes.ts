@@ -32,6 +32,7 @@ const OrdenBaseShape = {
   cliente_id: z.string().uuid("cliente_id inválido"),
   tipo_cotizacion_id: z.string().uuid("tipo_cotizacion_id inválido"),
   condicion_pago_id: z.string().uuid("condicion_pago_id inválido"),
+  vendedor_id: z.string().uuid("Selecciona un vendedor"),
   descripcion: z
     .string()
     .trim()
@@ -105,6 +106,14 @@ export const OrdenCreateSchema = z.object(OrdenBaseShape).superRefine((data, ctx
       path: ["tasa_iva"],
     });
   }
+  // fecha_venta requerida si se crea directamente como VENTA
+  if (data.estatus === "VENTA" && !data.fecha_venta) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "La fecha de venta es requerida cuando el estatus inicial es Venta",
+      path: ["fecha_venta"],
+    });
+  }
 });
 
 // ── Orden: actualizar (todos los campos opcionales) ──────────
@@ -136,6 +145,8 @@ export const FiltroOrdenesSchema = z.object({
   mes: z.coerce.number().int().min(1).max(12).nullable().optional(),
   estatus: z.enum(["BORRADOR", "COTIZADO", "VENTA"]).nullable().optional(),
   cliente_id: z.string().uuid().nullable().optional(),
+  tipo_cotizacion_id: z.string().uuid().nullable().optional(),
+  vendedor_id: z.string().uuid().nullable().optional(),
 });
 
 export type OrdenCreateInput = z.infer<typeof OrdenCreateSchema>;

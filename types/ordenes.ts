@@ -25,15 +25,17 @@ export interface OrdenDetalle {
   cliente: {
     id: string;
     nombre: string;
-    rfc: string;
+    rfc: string | null;
     contacto: string;
-    email: string;
+    email: string | null;
     ciudad: string;
   };
   tipo_cotizacion_id: string;
   tipo_cotizacion: { id: string; nombre: string };
   condicion_pago_id: string;
   condicion_pago: { id: string; nombre: string };
+  vendedor_id: string | null;
+  vendedor: { id: string; nombre: string } | null;
   descripcion: string;
   estatus: EstatusOrden;
   moneda: Moneda;
@@ -66,12 +68,14 @@ export interface OrdenResumen {
   moneda: Moneda;
   tipo_cambio: number | null;
   fecha_venta: string | null;
+  subtotal_con_descuento: number;
   total: number;
   total_mxn: number;
   created_at: string;
   cliente: { id: string; nombre: string };
   tipo_cotizacion: { id: string; nombre: string };
   condicion_pago: { id: string; nombre: string };
+  vendedor: { id: string; nombre: string } | null;
 }
 
 /** Resultado del endpoint GET /api/ordenes/kpis */
@@ -80,11 +84,11 @@ export interface KpisData {
   borradores: number;
   cotizadas: number;
   ventas: number;
-  ventas_mxn: number;       // suma total_mxn donde estatus=VENTA
-  pipeline_mxn: number;     // suma total_mxn donde estatus=COTIZADO
+  ventas_mxn: number;       // suma neta sin IVA donde estatus=VENTA
+  pipeline_mxn: number;     // suma neta sin IVA donde estatus=COTIZADO
   tasa_conversion: number;  // porcentaje
-  suma_total_mxn: number;   // suma `total` de órdenes MXN
-  suma_total_usd: number;   // suma `total` de órdenes USD
+  suma_total_mxn: number;   // suma neta sin IVA de órdenes MXN
+  suma_total_usd: number;   // suma neta sin IVA de órdenes USD
 }
 
 /** Payload para crear o actualizar una orden */
@@ -92,6 +96,7 @@ export interface OrdenInput {
   cliente_id: string;
   tipo_cotizacion_id: string;
   condicion_pago_id: string;
+  vendedor_id?: string | null;
   descripcion: string;
   estatus: EstatusOrden;
   moneda: Moneda;
@@ -112,8 +117,11 @@ export interface OrdenInput {
 
 /** Parámetros de filtro para órdenes y KPIs */
 export interface FiltroOrdenes {
-  ano: number | null;
-  q: number | null;   // 1-4
-  mes: number | null; // 1-12
-  estatus: EstatusOrden | null;
+  ano: number[];
+  q: number[];   // 1-4
+  mes: number[]; // 1-12
+  estatus: EstatusOrden[];
+  cliente_id: string[];
+  tipo_cotizacion_id: string[];
+  vendedor_id: string[];
 }

@@ -1,0 +1,22 @@
+aws_region            = "us-east-1"
+availability_zone     = "us-east-1a"
+project_name          = "appventas-newsoft"
+instance_bundle_id    = "small_3_0"
+instance_blueprint_id = "ubuntu_24_04"
+
+database_bundle_id        = "micro_2_0"
+database_blueprint_id     = "postgres_16"
+database_admin_username   = "newsoft_admin"
+database_admin_password   = "CAMBIA_ESTE_PASSWORD"
+database_name             = "newsoft_sales"
+
+session_secret = "CAMBIA_ESTE_SECRET_LARGO_DE_AL_MENOS_32_CARACTERES"
+admin_password = "CAMBIA_ESTE_PASSWORD_ADMIN"
+sales_password = "CAMBIA_ESTE_PASSWORD_VENTAS"
+
+ssh_public_key_path  = "~/.ssh/id_ed25519.pub"
+ssh_private_key_path = "~/.ssh/id_ed25519"
+ssh_user             = "ubuntu"
+
+open_https_port          = true
+run_seed_on_first_deploy = true

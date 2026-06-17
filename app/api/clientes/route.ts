@@ -1,25 +1,34 @@
 export const dynamic = "force-dynamic";
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { clienteCreateSchema } from "@/lib/validations/clientes";
+import { canManageClients, requireAuth } from "@/lib/session";
+import { netAmount, netAmountMxn } from "@/lib/net-amounts";
 
 // ── Helper: agrega stats de órdenes por cliente ──────────────
 function buildStats(
-  ordenes: Array<{ moneda: string; total: { toNumber(): number }; total_mxn: { toNumber(): number } }>
+  ordenes: Array<{
+    moneda: string;
+    tipo_cambio: { toNumber(): number } | null;
+    subtotal_con_descuento: { toNumber(): number };
+  }>
 ) {
   const mxnOrdenes = ordenes.filter((o) => o.moneda === "MXN");
   const usdOrdenes = ordenes.filter((o) => o.moneda === "USD");
   return {
     num_ordenes: ordenes.length,
-    total_mxn: mxnOrdenes.reduce((s, o) => s + o.total.toNumber(), 0),
-    total_usd: usdOrdenes.reduce((s, o) => s + o.total.toNumber(), 0),
-    grand_total_mxn: ordenes.reduce((s, o) => s + o.total_mxn.toNumber(), 0),
+    total_mxn: mxnOrdenes.reduce((s, o) => s + netAmount(o), 0),
+    total_usd: usdOrdenes.reduce((s, o) => s + netAmount(o), 0),
+    grand_total_mxn: ordenes.reduce((s, o) => s + netAmountMxn(o), 0),
   };
 }
 
 // GET /api/clientes
 // Devuelve clientes activos con conteo y montos por moneda
-export async function GET() {
+export async function GET(req: NextRequest) {
+  const session = await requireAuth(req);
+  if (!session) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+
   try {
     const clientes = await prisma.cliente.findMany({
       where: { activo: true },
@@ -28,7 +37,7 @@ export async function GET() {
           select: { id: true, nombre: true, dias_credito: true },
         },
         ordenes: {
-          select: { moneda: true, total: true, total_mxn: true },
+          select: { moneda: true, tipo_cambio: true, subtotal_con_descuento: true },
         },
       },
       orderBy: { nombre: "asc" },
@@ -51,9 +60,13 @@ export async function GET() {
 }
 
 // POST /api/clientes
-export async function POST(request: Request) {
+export async function POST(req: NextRequest) {
+  const session = await requireAuth(req);
+  if (!session) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+  if (!canManageClients(session)) return NextResponse.json({ error: "Sin permisos" }, { status: 403 });
+
   try {
-    const body = await request.json();
+    const body = await req.json();
     const validation = clienteCreateSchema.safeParse(body);
 
     if (!validation.success) {
@@ -69,10 +82,12 @@ export async function POST(request: Request) {
       );
     }
 
-    // Verificar RFC único (en todos los clientes, activos e inactivos)
-    const rfcExistente = await prisma.cliente.findUnique({
-      where: { rfc: validation.data.rfc.toUpperCase() },
-    });
+    // Verificar RFC único si se capturó (en todos los clientes, activos e inactivos)
+    const rfcExistente = validation.data.rfc
+      ? await prisma.cliente.findFirst({
+          where: { rfc: validation.data.rfc },
+        })
+      : null;
 
     if (rfcExistente) {
       return NextResponse.json(
@@ -94,10 +109,7 @@ export async function POST(request: Request) {
     }
 
     const nuevo = await prisma.cliente.create({
-      data: {
-        ...validation.data,
-        rfc: validation.data.rfc.toUpperCase(),
-      },
+      data: validation.data as Parameters<typeof prisma.cliente.create>[0]["data"],
       include: {
         condicion_pago: {
           select: { id: true, nombre: true, dias_credito: true },

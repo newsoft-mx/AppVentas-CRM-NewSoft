@@ -1,7 +1,9 @@
 import { prisma } from "@/lib/prisma";
-import { serializeEmpresa, serializeTipo, serializeCondicion } from "@/lib/serializers";
+import { serializeEmpresa, serializeTipo, serializeCondicion, serializeVendedor, serializeUsuario } from "@/lib/serializers";
 import ConfiguracionClient from "@/components/configuracion/ConfiguracionClient";
 import type { Metadata } from "next";
+import { getServerSession } from "@/lib/server-session";
+import { redirect } from "next/navigation";
 
 export const metadata: Metadata = { title: "Configuración" };
 
@@ -9,13 +11,30 @@ export const metadata: Metadata = { title: "Configuración" };
 export const dynamic = "force-dynamic";
 
 export default async function ConfiguracionPage() {
+  const session = await getServerSession();
+  if (session?.rol !== "ADMIN") redirect("/ventas");
+
   // Fetch en paralelo desde el servidor — sin waterfall
-  const [empresa, tipos, condiciones] = await Promise.all([
+  const [empresa, tipos, condiciones, vendedores, usuarios] = await Promise.all([
     prisma.empresa.findFirst(),
     prisma.tipoCotizacion.findMany({
       orderBy: [{ activo: "desc" }, { nombre: "asc" }],
     }),
     prisma.condicionComercial.findMany({
+      orderBy: [{ activo: "desc" }, { nombre: "asc" }],
+    }),
+    prisma.vendedor.findMany({
+      orderBy: [{ activo: "desc" }, { nombre: "asc" }],
+    }),
+    prisma.user.findMany({
+      select: {
+        id: true,
+        nombre: true,
+        email: true,
+        activo: true,
+        created_at: true,
+        updated_at: true,
+      },
       orderBy: [{ activo: "desc" }, { nombre: "asc" }],
     }),
   ]);
@@ -25,6 +44,8 @@ export default async function ConfiguracionPage() {
       initialEmpresa={empresa ? serializeEmpresa(empresa) : null}
       initialTipos={tipos.map(serializeTipo)}
       initialCondiciones={condiciones.map(serializeCondicion)}
+      initialVendedores={vendedores.map(serializeVendedor)}
+      initialUsuarios={usuarios.map(serializeUsuario)}
     />
   );
 }

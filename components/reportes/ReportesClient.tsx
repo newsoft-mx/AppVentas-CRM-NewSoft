@@ -2,21 +2,25 @@
 
 import { useState, useEffect, useTransition, useCallback, useRef } from "react";
 import { useRouter, usePathname } from "next/navigation";
-import { Clock, TrendingUp, ShoppingBag, Tag, type LucideIcon } from "lucide-react";
+import { BarChart3 } from "lucide-react";
 import FiltrosReportes from "./FiltrosReportes";
 import GraficoVentasMensuales from "./GraficoVentasMensuales";
-import GraficoPipelineDonut from "./GraficoPipelineDonut";
+import GraficoVentasPorTipo from "./GraficoVentasPorTipo";
+import TarjetasVentasPorTipo from "./TarjetasVentasPorTipo";
 import TablaTopClientes from "./TablaTopClientes";
-import TablaConversionTipo from "./TablaConversionTipo";
+import TablaVentasVendedor from "./TablaVentasVendedor";
 import type {
   FiltroReportes,
   ReportesInitialData,
   VentasMensualesData,
   PipelineData,
   TopClienteItem,
+  VentasVendedorItem,
+  VentasTipoItem,
   ConversionTipoItem,
   ReporteStats,
 } from "@/types/reportes";
+import { appendArrayParams } from "@/lib/filter-utils";
 
 interface Props {
   initialData: ReportesInitialData;
@@ -31,38 +35,11 @@ function formatMXN(v: number) {
   }).format(v);
 }
 
-function KpiStatCard({
-  icon: Icon,
-  label,
-  value,
-  sub,
-  color,
-}: {
-  icon: LucideIcon;
-  label: string;
-  value: string;
-  sub?: string;
-  color: string;
-}) {
-  return (
-    <div className="bg-white rounded-xl border border-gray-200 p-4 flex items-start gap-3">
-      <div className={`p-2 rounded-lg ${color}`}>
-        <Icon size={18} />
-      </div>
-      <div>
-        <p className="text-xs text-gray-500 mb-0.5">{label}</p>
-        <p className="text-xl font-bold text-navy">{value}</p>
-        {sub && <p className="text-xs text-gray-400 mt-0.5">{sub}</p>}
-      </div>
-    </div>
-  );
-}
-
 function buildQS(f: FiltroReportes) {
   const p = new URLSearchParams();
-  if (f.ano) p.set("ano", String(f.ano));
-  if (f.q) p.set("q", String(f.q));
-  if (f.mes) p.set("mes", String(f.mes));
+  appendArrayParams(p, "ano", f.ano);
+  appendArrayParams(p, "q", f.q);
+  appendArrayParams(p, "mes", f.mes);
   return p.toString();
 }
 
@@ -81,7 +58,8 @@ export default function ReportesClient({ initialData, initialFiltros }: Props) {
   const [ventasMensuales, setVentasMensuales] = useState<VentasMensualesData>(initialData.ventasMensuales);
   const [pipeline, setPipeline] = useState<PipelineData>(initialData.pipeline);
   const [topClientes, setTopClientes] = useState<TopClienteItem[]>(initialData.topClientes);
-  const [conversion, setConversion] = useState<ConversionTipoItem[]>(initialData.conversion);
+  const [ventasPorVendedor, setVentasPorVendedor] = useState<VentasVendedorItem[]>(initialData.ventasPorVendedor);
+  const [ventasPorTipo, setVentasPorTipo] = useState<VentasTipoItem[]>(initialData.ventasPorTipo);
   const [stats, setStats] = useState<ReporteStats>(initialData.stats);
   const [loading, setLoading] = useState(false);
 
@@ -100,16 +78,19 @@ export default function ReportesClient({ initialData, initialFiltros }: Props) {
 
     setLoading(true);
     try {
-      const [vm, pl, tc, cv] = await Promise.all([
+      const [vm, pl, tc, vv, vt, cv] = await Promise.all([
         fetchJSON<VentasMensualesData>(base("/api/reportes/ventas-mensuales")),
         fetchJSON<PipelineData>(base("/api/reportes/pipeline")),
         fetchJSON<TopClienteItem[]>(base("/api/reportes/top-clientes")),
+        fetchJSON<VentasVendedorItem[]>(base("/api/reportes/ventas-vendedor")),
+        fetchJSON<VentasTipoItem[]>(base("/api/reportes/ventas-tipo")),
         fetchJSON<{ conversion: ConversionTipoItem[]; stats: ReporteStats }>(base("/api/reportes/conversion")),
       ]);
       setVentasMensuales(vm);
       setPipeline(pl);
       setTopClientes(tc);
-      setConversion(cv.conversion);
+      setVentasPorVendedor(vv);
+      setVentasPorTipo(vt);
       setStats(cv.stats);
     } catch {
       // silently keep previous data on error
@@ -133,7 +114,7 @@ export default function ReportesClient({ initialData, initialFiltros }: Props) {
     <div className={`space-y-6 transition-opacity duration-150 ${loading || isPending ? "opacity-60 pointer-events-none" : ""}`}>
 
       {/* ── Header + Filtros ── */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-navy">Reportes</h1>
           <p className="text-sm text-gray-500 mt-0.5">Análisis de ventas y rendimiento comercial</p>
@@ -141,41 +122,36 @@ export default function ReportesClient({ initialData, initialFiltros }: Props) {
         <FiltrosReportes filtros={filtros} onChange={setFiltros} />
       </div>
 
-      {/* ── KPI Cards ── */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <KpiStatCard
-          icon={ShoppingBag}
-          label="Ticket promedio"
-          value={formatMXN(stats.ticket_promedio_mxn)}
-          sub={`${stats.total_ventas} venta${stats.total_ventas !== 1 ? "s" : ""} cerrada${stats.total_ventas !== 1 ? "s" : ""}`}
-          color="bg-navy/10 text-navy"
-        />
-        <KpiStatCard
-          icon={Clock}
-          label="Tiempo promedio de cierre"
-          value={stats.tiempo_promedio_cierre_dias !== null ? `${stats.tiempo_promedio_cierre_dias} días` : "—"}
-          sub="desde cotización hasta venta"
-          color="bg-orange-100 text-[#E8751A]"
-        />
-        <KpiStatCard
-          icon={TrendingUp}
-          label="Ventas cerradas"
-          value={String(stats.total_ventas)}
-          sub={`${stats.total_cotizadas} en cotización`}
-          color="bg-green-100 text-green-700"
-        />
-        <KpiStatCard
-          icon={Tag}
-          label="Tasa de conversión"
-          value={
-            stats.total_ventas + stats.total_cotizadas > 0
-              ? `${Math.round((stats.total_ventas / (stats.total_ventas + stats.total_cotizadas + pipeline.borradores_count)) * 100)}%`
-              : "—"
-          }
-          sub="ventas / total órdenes"
-          color="bg-purple-100 text-purple-700"
-        />
+      <div className="rounded-xl border border-surface-border bg-white p-4 shadow-sm sm:p-6">
+        <div className="flex flex-col gap-5 md:flex-row md:items-center">
+          <div className="flex min-w-0 flex-1 items-center gap-4">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-green-100 text-green-600">
+              <BarChart3 size={24} />
+            </div>
+            <div className="min-w-0">
+              <p className="break-words text-xl font-bold leading-tight text-green-600 sm:text-2xl">
+                {formatMXN(pipeline.ventas_mxn)} MXN
+              </p>
+              <p className="mt-0.5 text-sm text-navy">Ventas totales · sin IVA</p>
+            </div>
+          </div>
+
+          <div className="hidden h-12 w-px bg-surface-border md:block" />
+
+          <div className="grid grid-cols-2 gap-4 text-center sm:gap-6 md:text-left">
+            <div>
+              <p className="text-lg font-bold text-green-600">{stats.total_ventas}</p>
+              <p className="text-xs text-gray-500 sm:text-sm">Venta</p>
+            </div>
+            <div>
+              <p className="text-lg font-bold text-blue-600">{stats.total_cotizadas}</p>
+              <p className="text-xs text-gray-500 sm:text-sm">Cotización</p>
+            </div>
+          </div>
+        </div>
       </div>
+
+      <TarjetasVentasPorTipo data={ventasPorTipo} />
 
       {/* ── Charts row ── */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
@@ -186,15 +162,14 @@ export default function ReportesClient({ initialData, initialFiltros }: Props) {
             anoAnterior={ventasMensuales.ano_anterior}
           />
         </div>
-        <GraficoPipelineDonut data={pipeline} />
+        <GraficoVentasPorTipo data={ventasPorTipo} />
       </div>
 
       {/* ── Tables row ── */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <TablaTopClientes data={topClientes} />
-        <TablaConversionTipo data={conversion} />
+        <TablaVentasVendedor data={ventasPorVendedor} />
       </div>
     </div>
   );
 }
-

@@ -12,6 +12,7 @@ interface TabEmpresaProps {
 export default function TabEmpresa({ empresa }: TabEmpresaProps) {
   const [form, setForm] = useState<Omit<Empresa, "id" | "created_at" | "updated_at">>({
     nombre: empresa.nombre,
+    nombre_comercial: empresa.nombre_comercial ?? "Newsoft",
     rfc: empresa.rfc,
     direccion: empresa.direccion,
     email: empresa.email,
@@ -38,6 +39,7 @@ export default function TabEmpresa({ empresa }: TabEmpresaProps) {
   const validate = () => {
     const errs: Record<string, string> = {};
     if (!form.nombre.trim()) errs.nombre = "Nombre requerido";
+    if (!form.nombre_comercial?.trim()) errs.nombre_comercial = "Nombre comercial requerido";
     if (!form.rfc.trim()) errs.rfc = "RFC requerido";
     if (!form.direccion.trim()) errs.direccion = "Dirección requerida";
     if (!form.email.trim()) errs.email = "Email requerido";
@@ -86,7 +88,7 @@ export default function TabEmpresa({ empresa }: TabEmpresaProps) {
     <>
       {toast && <Toast {...toast} onClose={closeToast} />}
 
-      <form onSubmit={handleSubmit} className="space-y-8 max-w-3xl">
+      <form onSubmit={handleSubmit} className="max-w-3xl space-y-8">
 
         {/* ── Datos de la empresa ── */}
         <section>
@@ -97,6 +99,22 @@ export default function TabEmpresa({ empresa }: TabEmpresaProps) {
             </h3>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="md:col-span-2">
+              <label className="label">Nombre comercial *</label>
+              <input
+                className={`input ${errors.nombre_comercial ? "border-red-400 focus:ring-red-400" : ""}`}
+                value={form.nombre_comercial ?? ""}
+                onChange={(e) => set("nombre_comercial", e.target.value)}
+                placeholder="Newsoft"
+              />
+              <p className="mt-1 text-xs text-gray-400">
+                Nombre visible en cotizaciones y encabezados comerciales.
+              </p>
+              {errors.nombre_comercial && (
+                <p className="mt-1 text-xs text-red-500">{errors.nombre_comercial}</p>
+              )}
+            </div>
+
             <div className="md:col-span-2">
               <label className="label">Razón social *</label>
               <input
@@ -225,7 +243,7 @@ export default function TabEmpresa({ empresa }: TabEmpresaProps) {
               Configuración de IVA
             </h3>
           </div>
-          <div className="flex items-start gap-6">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:gap-6">
             {/* Toggle aplicar IVA */}
             <label className="flex items-center gap-3 cursor-pointer select-none group">
               <button
@@ -301,7 +319,7 @@ export default function TabEmpresa({ empresa }: TabEmpresaProps) {
           <button
             type="submit"
             disabled={isSaving}
-            className="btn-primary"
+            className="btn-primary w-full justify-center sm:w-auto"
           >
             <Save size={16} />
             {isSaving ? "Guardando..." : "Guardar cambios"}

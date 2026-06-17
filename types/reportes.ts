@@ -6,8 +6,8 @@
 export interface MesVenta {
   mes: number;           // 1-12
   nombre: string;        // "Ene", "Feb", ...
-  actual: number;        // total_mxn ventas cerradas año actual
-  anterior: number;      // total_mxn ventas cerradas año anterior (0 si no hay)
+  actual: number;        // monto neto MXN ventas cerradas año actual
+  anterior: number;      // monto neto MXN ventas cerradas año anterior (0 si no hay)
 }
 
 export interface VentasMensualesData {
@@ -37,6 +37,22 @@ export interface TopClienteItem {
   total_mxn: number;
 }
 
+/** Ventas cerradas agregadas por vendedor */
+export interface VentasVendedorItem {
+  vendedor_id: string | null;
+  vendedor: string;
+  ordenes_venta: number;
+  total_mxn: number;
+}
+
+/** Ventas cerradas agregadas por tipo / línea de producto */
+export interface VentasTipoItem {
+  tipo_id: string;
+  tipo: string;
+  ordenes_venta: number;
+  total_mxn: number;
+}
+
 /** Un tipo de cotización con su tasa de conversión */
 export interface ConversionTipoItem {
   tipo_id: string;
@@ -60,13 +76,15 @@ export interface ReportesInitialData {
   ventasMensuales: VentasMensualesData;
   pipeline: PipelineData;
   topClientes: TopClienteItem[];
+  ventasPorVendedor: VentasVendedorItem[];
+  ventasPorTipo: VentasTipoItem[];
   conversion: ConversionTipoItem[];
   stats: ReporteStats;
 }
 
 /** Filtros del módulo de reportes */
 export interface FiltroReportes {
-  ano: number | null;
-  q: number | null;
-  mes: number | null;
+  ano: number[];
+  q: number[];
+  mes: number[];
 }

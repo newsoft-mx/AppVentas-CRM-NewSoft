@@ -10,6 +10,7 @@ interface KpiCardProps {
   sublabel?: string;
   extraMXN?: number;
   extraUSD?: number;
+  formatAsCurrency?: boolean;
 }
 
 const VARIANT_CONFIG: Record<
@@ -55,11 +56,12 @@ export default function KpiCard({
   sublabel,
   extraMXN,
   extraUSD,
+  formatAsCurrency = false,
 }: KpiCardProps) {
   const { icon: Icon, iconBg, iconColor, valueColor } = VARIANT_CONFIG[variant];
 
   const formattedValue =
-    variant === "ventas" || variant === "pipeline"
+    formatAsCurrency || variant === "ventas" || variant === "pipeline"
       ? formatMXN(value)
       : variant === "conversion"
       ? `${value}%`

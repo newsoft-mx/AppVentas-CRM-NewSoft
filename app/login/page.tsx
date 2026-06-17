@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, FormEvent } from "react";
+import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Loader2, AlertCircle } from "lucide-react";
 import { Suspense } from "react";
@@ -37,15 +38,25 @@ function LoginForm() {
   }
 
   return (
-    <div className="min-h-screen bg-surface flex items-center justify-center p-4">
+    <div className="min-h-screen bg-[radial-gradient(circle_at_top_left,#eaf2ff_0,#f5f7fa_34%,#ffffff_100%)] flex items-center justify-center p-4">
       <div className="w-full max-w-sm">
         {/* Logo / Header */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-14 h-14 bg-navy rounded-2xl mb-4">
-            <span className="text-white font-bold text-xl">NS</span>
+          <div className="inline-flex items-center justify-center rounded-2xl bg-white px-5 py-3 shadow-sm ring-1 ring-gray-200 mb-5">
+            <Image
+              src="/newsoft-logo.png"
+              alt="NewSoft"
+              width={180}
+              height={39}
+              className="h-9 w-auto"
+              unoptimized
+              priority
+            />
           </div>
-          <h1 className="text-2xl font-bold text-navy">Newsoft Sales</h1>
-          <p className="text-sm text-gray-500 mt-1">Ingresa tus credenciales para continuar</p>
+          <h1 className="text-2xl font-bold text-navy">Sales</h1>
+          <p className="text-sm text-gray-500 mt-1">
+            Soluciones a la medida para la gestión comercial
+          </p>
         </div>
 
         {/* Form card */}
@@ -110,7 +121,7 @@ function LoginForm() {
         </div>
 
         <p className="text-center text-xs text-gray-400 mt-6">
-          Newsoft Technologies © {new Date().getFullYear()}
+          NewSoft © {new Date().getFullYear()}
         </p>
       </div>
     </div>

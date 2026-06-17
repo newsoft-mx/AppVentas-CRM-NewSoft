@@ -1,0 +1,15 @@
+.git
+.next
+node_modules
+coverage
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.env
+.env.*
+!.env.example
+.vercel
+*.tsbuildinfo
+EVALUACION_EJECUTIVA_PROYECTO.pdf
+EVALUACION_EJECUTIVA_PROYECTO.md
+.codex

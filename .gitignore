@@ -30,15 +30,28 @@ yarn-error.log*
 .env.test.local
 .env.production.local
 
+# Terraform local/state/secrets
+**/.terraform/
+**/.terraform.bak.*/
+**/*.tfstate
+**/*.tfstate.*
+**/terraform.tfvars
+**/tfplan
+infra/lightsail/build/
+
+# Archivos locales/personales de trabajo
+.codex
+.codex/
+EVALUACION_EJECUTIVA_PROYECTO.md
+EVALUACION_EJECUTIVA_PROYECTO.pdf
+layouts_carga/
+
 # Vercel
 .vercel
 
 # TypeScript
 *.tsbuildinfo
 next-env.d.ts
-
-# Prisma
-prisma/migrations/
 
 # Editor
 .vscode/

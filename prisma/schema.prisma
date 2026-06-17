@@ -14,7 +14,7 @@ datasource db {
 
 // ============================================================
 // USUARIO (autenticación NextAuth)
-// Un solo rol por ahora: admin
+// Control de accesos por rol operativo.
 // Soft delete: activo = false
 // ============================================================
 model User {
@@ -22,6 +22,9 @@ model User {
   nombre        String   @db.VarChar(150)
   email         String   @unique @db.VarChar(100)
   password_hash String   @db.VarChar(255)
+  rol           UserRole @default(ADMIN)
+  vendedor_id   String?  @db.Uuid
+  vendedor      Vendedor? @relation(fields: [vendedor_id], references: [id], onDelete: SetNull)
   activo        Boolean  @default(true)
   created_at    DateTime @default(now())
   updated_at    DateTime @updatedAt
@@ -36,6 +39,7 @@ model User {
 model Empresa {
   id                       String   @id @default(uuid())
   nombre                   String   @db.VarChar(200)
+  nombre_comercial         String?  @db.VarChar(200)
   rfc                      String   @db.VarChar(13)
   direccion                String   @db.VarChar(500)
   email                    String   @db.VarChar(100)
@@ -63,6 +67,7 @@ model TipoCotizacion {
   id          String       @id @default(uuid())
   nombre      String       @db.VarChar(100)
   descripcion String?      @db.VarChar(300)
+  texto_contrato String?   @db.Text
   activo      Boolean      @default(true)
   created_at  DateTime     @default(now())
 
@@ -94,6 +99,26 @@ model CondicionComercial {
 }
 
 // ============================================================
+// VENDEDOR
+// Catálogo comercial independiente de usuarios del sistema.
+// Soft delete: activo = false
+// ============================================================
+model Vendedor {
+  id         String       @id @default(uuid()) @db.Uuid
+  nombre     String       @db.VarChar(150)
+  email      String?      @db.VarChar(100)
+  telefono   String?      @db.VarChar(20)
+  activo     Boolean      @default(true)
+  created_at DateTime     @default(now())
+  updated_at DateTime     @updatedAt
+
+  ordenes    OrdenVenta[]
+  usuarios   User[]
+
+  @@map("vendedor")
+}
+
+// ============================================================
 // 3.2 CLIENTE
 // Soft delete: activo = false
 // RFC único en el sistema
@@ -101,10 +126,10 @@ model CondicionComercial {
 model Cliente {
   id                 String             @id @default(uuid())
   nombre             String             @db.VarChar(200)
-  rfc                String             @unique @db.VarChar(13)
+  rfc                String?            @unique @db.VarChar(13)
   contacto           String             @db.VarChar(150)
   ciudad             String             @db.VarChar(100)
-  email              String             @db.VarChar(100)
+  email              String?            @db.VarChar(100)
   telefono           String?            @db.VarChar(20)
   // Condición de pago por defecto del cliente
   condicion_pago_id  String
@@ -142,6 +167,15 @@ enum Moneda {
   @@map("moneda")
 }
 
+enum UserRole {
+  ADMIN
+  GERENTE_COMERCIAL
+  VENDEDOR
+  ADMINISTRATIVO
+
+  @@map("user_role")
+}
+
 // ============================================================
 // 3.5 ORDEN DE VENTA
 // Entidad central. Cotización o venta cerrada.
@@ -160,6 +194,8 @@ model OrdenVenta {
   // Condición de esta orden específica (puede diferir del default del cliente)
   condicion_pago_id      String
   condicion_pago         CondicionComercial @relation(fields: [condicion_pago_id], references: [id])
+  vendedor_id            String?            @db.Uuid
+  vendedor               Vendedor?          @relation(fields: [vendedor_id], references: [id], onDelete: SetNull)
 
   descripcion            String             @db.VarChar(500)
   estatus                EstatusOrden       @default(BORRADOR)

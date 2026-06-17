@@ -13,10 +13,16 @@ interface TabTiposProps {
 interface FormState {
   nombre: string;
   descripcion: string;
+  texto_contrato: string;
   activo: boolean;
 }
 
-const emptyForm: FormState = { nombre: "", descripcion: "", activo: true };
+const emptyForm: FormState = {
+  nombre: "",
+  descripcion: "",
+  texto_contrato: "",
+  activo: true,
+};
 
 export default function TabTipos({ initialTipos }: TabTiposProps) {
   const [tipos, setTipos] = useState<TipoCotizacion[]>(initialTipos);
@@ -28,6 +34,9 @@ export default function TabTipos({ initialTipos }: TabTiposProps) {
   const [toast, setToast] = useState<ToastData | null>(null);
 
   const closeToast = useCallback(() => setToast(null), []);
+
+  const normalizeMarkdownText = (value: string) =>
+    value.replace(/<br\s*\/?>/gi, "\n").trim();
 
   const openCreate = () => {
     setEditingTipo(null);
@@ -41,6 +50,7 @@ export default function TabTipos({ initialTipos }: TabTiposProps) {
     setForm({
       nombre: tipo.nombre,
       descripcion: tipo.descripcion ?? "",
+      texto_contrato: tipo.texto_contrato ?? "",
       activo: tipo.activo,
     });
     setFormError("");
@@ -63,6 +73,7 @@ export default function TabTipos({ initialTipos }: TabTiposProps) {
           body: JSON.stringify({
             nombre: tipo.nombre,
             descripcion: tipo.descripcion,
+            texto_contrato: tipo.texto_contrato,
             activo: !tipo.activo,
           }),
         }
@@ -105,8 +116,17 @@ export default function TabTipos({ initialTipos }: TabTiposProps) {
       const method = isEditing ? "PUT" : "POST";
 
       const body = isEditing
-        ? { nombre: form.nombre, descripcion: form.descripcion || null, activo: form.activo }
-        : { nombre: form.nombre, descripcion: form.descripcion || null };
+        ? {
+            nombre: form.nombre,
+            descripcion: form.descripcion || null,
+            texto_contrato: normalizeMarkdownText(form.texto_contrato) || null,
+            activo: form.activo,
+          }
+        : {
+            nombre: form.nombre,
+            descripcion: form.descripcion || null,
+            texto_contrato: normalizeMarkdownText(form.texto_contrato) || null,
+          };
 
       const res = await fetch(url, {
         method,
@@ -117,7 +137,10 @@ export default function TabTipos({ initialTipos }: TabTiposProps) {
       const data = await res.json();
 
       if (!res.ok) {
-        setFormError(data.error || "Error al guardar");
+        const details = Array.isArray(data.details)
+          ? data.details.map((d: { campo: string; mensaje: string }) => d.mensaje).join(". ")
+          : "";
+        setFormError(details || data.error || "Error al guardar");
         return;
       }
 
@@ -146,20 +169,31 @@ export default function TabTipos({ initialTipos }: TabTiposProps) {
       {toast && <Toast {...toast} onClose={closeToast} />}
 
       {/* Header de la sección */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <p className="text-sm text-gray-500">
             Clasifica tus órdenes de venta según el tipo de proyecto o servicio.
           </p>
         </div>
-        <button onClick={openCreate} className="btn-primary">
+        <button onClick={openCreate} className="btn-primary w-full justify-center sm:w-auto">
           <Plus size={16} />
           Agregar tipo
         </button>
       </div>
 
+      <div className="space-y-3 md:hidden">
+        {tipos.length === 0 && (
+          <div className="rounded-xl border border-surface-border p-8 text-center text-sm text-gray-400">
+            No hay tipos de cotización registrados
+          </div>
+        )}
+        {[...activos, ...inactivos].map((tipo) => (
+          <TipoCard key={tipo.id} tipo={tipo} onEdit={openEdit} onToggle={handleToggleActivo} />
+        ))}
+      </div>
+
       {/* Tabla */}
-      <div className="rounded-xl border border-surface-border overflow-hidden">
+      <div className="hidden overflow-hidden rounded-xl border border-surface-border md:block">
         <table className="w-full text-sm">
           <thead>
             <tr className="bg-gray-50 border-b border-surface-border">
@@ -224,6 +258,7 @@ export default function TabTipos({ initialTipos }: TabTiposProps) {
         <Modal
           title={editingTipo ? "Editar tipo de cotización" : "Nuevo tipo de cotización"}
           onClose={closeModal}
+          size="lg"
         >
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
@@ -248,6 +283,22 @@ export default function TabTipos({ initialTipos }: TabTiposProps) {
                 value={form.descripcion}
                 onChange={(e) => setForm((f) => ({ ...f, descripcion: e.target.value }))}
                 placeholder="Descripción opcional del tipo de cotización..."
+              />
+            </div>
+
+            <div>
+              <label className="label">Texto de contrato / condición</label>
+              <p className="mb-2 text-xs text-gray-400">
+                Puedes pegar texto largo desde Notion en formato Markdown. Si pegas saltos como &lt;br&gt;, se convertirán a saltos de línea en el PDF.
+              </p>
+              <textarea
+                className="input min-h-[260px] resize-y font-mono text-sm leading-relaxed"
+                rows={12}
+                value={form.texto_contrato}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, texto_contrato: e.target.value }))
+                }
+                placeholder={"Ej:\n## Alcance contractual\n- Servicio incluido\n- Condición especial\n\nTexto adicional..."}
               />
             </div>
 
@@ -277,11 +328,11 @@ export default function TabTipos({ initialTipos }: TabTiposProps) {
               </p>
             )}
 
-            <div className="flex justify-end gap-3 pt-2">
-              <button type="button" onClick={closeModal} className="btn-secondary">
+            <div className="grid grid-cols-1 gap-3 pt-2 sm:flex sm:justify-end">
+              <button type="button" onClick={closeModal} className="btn-secondary justify-center">
                 Cancelar
               </button>
-              <button type="submit" disabled={isSaving} className="btn-primary">
+              <button type="submit" disabled={isSaving} className="btn-primary justify-center">
                 {isSaving ? "Guardando..." : editingTipo ? "Guardar cambios" : "Crear tipo"}
               </button>
             </div>
@@ -289,6 +340,44 @@ export default function TabTipos({ initialTipos }: TabTiposProps) {
         </Modal>
       )}
     </>
+  );
+}
+
+function TipoCard({
+  tipo,
+  onEdit,
+  onToggle,
+}: {
+  tipo: TipoCotizacion;
+  onEdit: (t: TipoCotizacion) => void;
+  onToggle: (t: TipoCotizacion) => void;
+}) {
+  return (
+    <div className={`rounded-xl border border-surface-border bg-white p-4 ${!tipo.activo ? "opacity-60" : ""}`}>
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="truncate font-medium text-gray-900">{tipo.nombre}</p>
+          <p className="mt-1 line-clamp-2 text-xs text-gray-500">{tipo.descripcion || "Sin descripción"}</p>
+          {tipo.texto_contrato && (
+            <span className="mt-2 inline-flex rounded-full bg-orange-50 px-2 py-0.5 text-[11px] font-medium text-orange-700">
+              Texto PDF configurado
+            </span>
+          )}
+        </div>
+        <span className={`badge shrink-0 ${tipo.activo ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}>
+          {tipo.activo ? "Activo" : "Inactivo"}
+        </span>
+      </div>
+      <div className="mt-4 grid grid-cols-2 gap-2">
+        <button onClick={() => onEdit(tipo)} className="btn-secondary justify-center text-xs">
+          <Pencil size={14} />
+          Editar
+        </button>
+        <button onClick={() => onToggle(tipo)} className="btn-secondary justify-center text-xs">
+          {tipo.activo ? "Desactivar" : "Activar"}
+        </button>
+      </div>
+    </div>
   );
 }
 
@@ -311,7 +400,14 @@ function TipoRow({
         </div>
       </td>
       <td className="px-4 py-3 text-gray-500 max-w-xs">
-        <span className="line-clamp-1">{tipo.descripcion || "—"}</span>
+        <div className="space-y-1">
+          <span className="line-clamp-1">{tipo.descripcion || "—"}</span>
+          {tipo.texto_contrato && (
+            <span className="inline-flex rounded-full bg-orange-50 px-2 py-0.5 text-[11px] font-medium text-orange-700">
+              Texto PDF configurado
+            </span>
+          )}
+        </div>
       </td>
       <td className="px-4 py-3 text-center">
         <span

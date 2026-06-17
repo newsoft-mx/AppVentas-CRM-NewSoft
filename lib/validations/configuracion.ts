@@ -9,6 +9,14 @@ import { z } from "zod";
 // siguiente_folio NO se incluye: es gestionado por el sistema de folios
 export const empresaUpdateSchema = z.object({
   nombre: z.string().min(1, "Nombre requerido").max(200),
+  nombre_comercial: z
+    .string()
+    .trim()
+    .min(1, "Nombre comercial requerido")
+    .max(200)
+    .nullable()
+    .optional()
+    .transform((v) => v?.trim() || null),
   rfc: z.string().min(1, "RFC requerido").max(13),
   direccion: z.string().min(1, "Dirección requerida").max(500),
   email: z.string().email("Email inválido").max(100),
@@ -38,7 +46,13 @@ export const tipoCotizacionCreateSchema = z.object({
   nombre: z.string().min(1, "Nombre requerido").max(100),
   descripcion: z
     .string()
-    .max(300)
+    .max(5000)
+    .nullable()
+    .optional()
+    .transform((v) => v?.trim() || null),
+  texto_contrato: z
+    .string()
+    .max(50000)
     .nullable()
     .optional()
     .transform((v) => v?.trim() || null),
@@ -62,6 +76,7 @@ export const condicionComercialCreateSchema = z.object({
     .transform((v) => (v === undefined || v === null || isNaN(v as number) ? null : v)),
   descripcion: z
     .string()
+    .max(50000)
     .nullable()
     .optional()
     .transform((v) => v?.trim() || null),
@@ -72,9 +87,57 @@ export const condicionComercialUpdateSchema =
     activo: z.boolean(),
   });
 
+// ── Vendedor ────────────────────────────────────────────────
+export const vendedorCreateSchema = z.object({
+  nombre: z.string().trim().min(1, "Nombre requerido").max(150),
+  email: z
+    .string()
+    .trim()
+    .email("Email inválido")
+    .max(100)
+    .nullable()
+    .optional()
+    .or(z.literal(""))
+    .transform((v) => v?.trim() || null),
+  telefono: z
+    .string()
+    .trim()
+    .max(20)
+    .nullable()
+    .optional()
+    .transform((v) => v?.trim() || null),
+});
+
+export const vendedorUpdateSchema = vendedorCreateSchema.extend({
+  activo: z.boolean(),
+});
+
+// ── Usuario ─────────────────────────────────────────────────
+export const usuarioCreateSchema = z.object({
+  nombre: z.string().trim().min(1, "Nombre requerido").max(150),
+  email: z.string().trim().email("Email inválido").max(100).transform((v) => v.toLowerCase()),
+  password: z.string().min(8, "La contraseña debe tener al menos 8 caracteres").max(100),
+});
+
+export const usuarioUpdateSchema = z.object({
+  nombre: z.string().trim().min(1, "Nombre requerido").max(150),
+  email: z.string().trim().email("Email inválido").max(100).transform((v) => v.toLowerCase()),
+  password: z
+    .string()
+    .max(100)
+    .optional()
+    .transform((v) => v?.trim() || undefined)
+    .refine((v) => !v || v.length >= 8, "La contraseña debe tener al menos 8 caracteres"),
+  activo: z.boolean(),
+});
+
 // Tipos inferidos para usar en el frontend si se necesitan
 export type EmpresaUpdateInput = z.infer<typeof empresaUpdateSchema>;
 export type TipoCotizacionCreateInput = z.infer<typeof tipoCotizacionCreateSchema>;
 export type TipoCotizacionUpdateInput = z.infer<typeof tipoCotizacionUpdateSchema>;
 export type CondicionComercialCreateInput = z.infer<typeof condicionComercialCreateSchema>;
 export type CondicionComercialUpdateInput = z.infer<typeof condicionComercialUpdateSchema>;
+export type VendedorCreateInput = z.infer<typeof vendedorCreateSchema>;
+export type VendedorUpdateInput = z.infer<typeof vendedorUpdateSchema>;
+export type UsuarioCreateInput = z.infer<typeof usuarioCreateSchema>;
+export type UsuarioUpdateInput = z.infer<typeof usuarioUpdateSchema>;

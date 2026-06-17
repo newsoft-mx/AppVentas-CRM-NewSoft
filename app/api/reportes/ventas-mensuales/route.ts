@@ -2,35 +2,27 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import type { VentasMensualesData, MesVenta } from "@/types/reportes";
+import { requireAuth, type SessionPayload } from "@/lib/session";
+import { scopeOrdenWhere } from "@/lib/access-control";
+import { netAmountMxn } from "@/lib/net-amounts";
+import { buildDateOrFilters, getAllParam, parseNumberList, selectedMonths } from "@/lib/filter-utils";
 
 const MESES = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
 
-// Construye el rango de fechas para un filtro dado
-function buildDateRange(ano: number, q?: number | null, mes?: number | null) {
-  if (mes) {
-    return { gte: new Date(ano, mes - 1, 1), lt: new Date(ano, mes, 1) };
-  }
-  if (q) {
-    const m0 = (q - 1) * 3;
-    return { gte: new Date(ano, m0, 1), lt: new Date(ano, m0 + 3, 1) };
-  }
-  return { gte: new Date(ano, 0, 1), lt: new Date(ano + 1, 0, 1) };
-}
-
-async function getVentasPorMes(ano: number, q?: number | null, mes?: number | null) {
+async function getVentasPorMes(filtros: { ano: number[]; q: number[]; mes: number[] }, session: SessionPayload) {
   const ordenes = await prisma.ordenVenta.findMany({
-    where: {
+    where: scopeOrdenWhere(session, {
       estatus: "VENTA",
-      created_at: buildDateRange(ano, q, mes),
-    },
-    select: { created_at: true, total_mxn: true },
+      OR: buildDateOrFilters(filtros).map((range) => ({ fecha_venta: range })),
+    }),
+    select: { fecha_venta: true, moneda: true, tipo_cambio: true, subtotal_con_descuento: true },
   });
 
   // Inicializar los 12 meses en 0
   const porMes = Array.from({ length: 12 }, (_, i) => ({ mes: i + 1, total: 0 }));
   for (const o of ordenes) {
-    const m = new Date(o.created_at).getMonth(); // 0-indexed
-    porMes[m].total += o.total_mxn.toNumber();
+    const m = new Date(o.fecha_venta!).getUTCMonth(); // 0-indexed
+    porMes[m].total += netAmountMxn(o);
   }
   return porMes;
 }
@@ -38,28 +30,34 @@ async function getVentasPorMes(ano: number, q?: number | null, mes?: number | nu
 // ── GET /api/reportes/ventas-mensuales ────────────────────────
 
 export async function GET(req: NextRequest) {
+  const session = await requireAuth(req);
+  if (!session) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+
   const sp = req.nextUrl.searchParams;
-  const ano = sp.get("ano") ? Number(sp.get("ano")) : new Date().getFullYear();
-  const q = sp.get("q") ? Number(sp.get("q")) : null;
-  const mes = sp.get("mes") ? Number(sp.get("mes")) : null;
+  const ano = parseNumberList(getAllParam(sp, "ano"));
+  const q = parseNumberList(getAllParam(sp, "q")).filter((value) => value >= 1 && value <= 4);
+  const mes = parseNumberList(getAllParam(sp, "mes")).filter((value) => value >= 1 && value <= 12);
+  const years = ano.length ? [...ano].sort((a, b) => b - a) : [new Date().getFullYear()];
+  const year = years[0];
+  const comparisonYear = years[1] ?? year - 1;
 
   try {
     const [porMesActual, porMesAnterior] = await Promise.all([
-      getVentasPorMes(ano, q, mes),
-      getVentasPorMes(ano - 1, q, mes),
+      getVentasPorMes({ ano: [year], q, mes }, session),
+      getVentasPorMes({ ano: [comparisonYear], q, mes }, session),
     ]);
 
-    const data: MesVenta[] = porMesActual.map((m, i) => ({
-      mes: m.mes,
-      nombre: MESES[i],
-      actual: m.total,
-      anterior: porMesAnterior[i].total,
+    const data: MesVenta[] = selectedMonths({ q, mes }).map((month) => ({
+      mes: month,
+      nombre: MESES[month - 1],
+      actual: porMesActual[month - 1]?.total ?? 0,
+      anterior: porMesAnterior[month - 1]?.total ?? 0,
     }));
 
     const result: VentasMensualesData = {
       data,
-      ano_actual: ano,
-      ano_anterior: ano - 1,
+      ano_actual: year,
+      ano_anterior: comparisonYear,
       total_actual: data.reduce((s, d) => s + d.actual, 0),
       total_anterior: data.reduce((s, d) => s + d.anterior, 0),
     };

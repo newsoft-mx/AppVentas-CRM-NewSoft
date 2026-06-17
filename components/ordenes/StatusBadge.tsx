@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, type CSSProperties } from "react";
+import { createPortal } from "react-dom";
 import { ChevronDown, Loader2 } from "lucide-react";
 import { ESTATUS_LABELS, ESTATUS_COLORS, TRANSICIONES_PERMITIDAS } from "@/lib/utils";
 import type { EstatusOrden } from "@/types/ordenes";
@@ -9,29 +10,63 @@ interface StatusBadgeProps {
   ordenId: string;
   estatus: EstatusOrden;
   onChanged: (nuevoEstatus: EstatusOrden, fechaVenta?: string) => void;
+  readOnly?: boolean;
 }
 
-export default function StatusBadge({ ordenId, estatus, onChanged }: StatusBadgeProps) {
+function todayForInput() {
+  const date = new Date();
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+export default function StatusBadge({ ordenId, estatus, onChanged, readOnly = false }: StatusBadgeProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [showFechaVenta, setShowFechaVenta] = useState(false);
-  const [fechaVenta, setFechaVenta] = useState(
-    new Date().toISOString().split("T")[0]
-  );
+  const [fechaVenta, setFechaVenta] = useState(todayForInput);
+  const [menuStyle, setMenuStyle] = useState<CSSProperties>({});
   const containerRef = useRef<HTMLDivElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
-  const transiciones = TRANSICIONES_PERMITIDAS[estatus] ?? [];
+  const transiciones = readOnly ? [] : TRANSICIONES_PERMITIDAS[estatus] ?? [];
+
+  useEffect(() => {
+    if (!isOpen && !showFechaVenta) return;
+    const updatePosition = () => {
+      const rect = containerRef.current?.getBoundingClientRect();
+      if (!rect) return;
+      setMenuStyle({
+        position: "fixed",
+        top: rect.bottom + 6,
+        left: rect.left,
+        zIndex: 9999,
+      });
+    };
+
+    updatePosition();
+    window.addEventListener("scroll", updatePosition, true);
+    window.addEventListener("resize", updatePosition);
+    return () => {
+      window.removeEventListener("scroll", updatePosition, true);
+      window.removeEventListener("resize", updatePosition);
+    };
+  }, [isOpen, showFechaVenta]);
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+      const target = e.target as Node;
+      const inButton = containerRef.current?.contains(target);
+      const inDropdown = dropdownRef.current?.contains(target);
+      if (!inButton && !inDropdown) {
         setIsOpen(false);
         setShowFechaVenta(false);
       }
     };
-    if (isOpen) document.addEventListener("mousedown", handler);
+    if (isOpen || showFechaVenta) document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
-  }, [isOpen]);
+  }, [isOpen, showFechaVenta]);
 
   const handleTransition = async (nuevoEstatus: EstatusOrden, fecha?: string) => {
     setIsLoading(true);
@@ -87,52 +122,65 @@ export default function StatusBadge({ ordenId, estatus, onChanged }: StatusBadge
         )}
       </button>
 
-      {/* ── Opciones de transición ── */}
-      {isOpen && transiciones.length > 0 && (
-        <div className="absolute left-0 top-full mt-1 z-30 bg-white border border-surface-border rounded-xl shadow-lg min-w-[140px] py-1 overflow-hidden">
-          {transiciones.map((sig) => (
-            <button
-              key={sig}
-              type="button"
-              onClick={() => handleOptionClick(sig as EstatusOrden)}
-              className="w-full text-left px-3 py-2 text-xs hover:bg-gray-50 flex items-center gap-2"
-            >
-              <span className={`badge text-xs font-medium ${ESTATUS_COLORS[sig]}`}>
-                {ESTATUS_LABELS[sig]}
-              </span>
-            </button>
-          ))}
-        </div>
-      )}
+      {typeof document !== "undefined" &&
+        isOpen &&
+        transiciones.length > 0 &&
+        createPortal(
+          <div
+            ref={dropdownRef}
+            style={menuStyle}
+            className="min-w-[140px] overflow-hidden rounded-xl border border-surface-border bg-white py-1 shadow-lg"
+          >
+            {transiciones.map((sig) => (
+              <button
+                key={sig}
+                type="button"
+                onClick={() => handleOptionClick(sig as EstatusOrden)}
+                className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs hover:bg-gray-50"
+              >
+                <span className={`badge text-xs font-medium ${ESTATUS_COLORS[sig]}`}>
+                  {ESTATUS_LABELS[sig]}
+                </span>
+              </button>
+            ))}
+          </div>,
+          document.body
+        )}
 
-      {/* ── Mini-form para fecha de venta ── */}
-      {showFechaVenta && (
-        <div className="absolute left-0 top-full mt-1 z-30 bg-white border border-surface-border rounded-xl shadow-lg w-64 p-3">
-          <p className="text-xs font-medium text-gray-700 mb-2">Fecha de venta</p>
-          <input
-            type="date"
-            className="input text-sm py-1.5 w-full"
-            value={fechaVenta}
-            onChange={(e) => setFechaVenta(e.target.value)}
-          />
-          <div className="flex gap-2 mt-2.5">
-            <button
-              type="button"
-              onClick={() => setShowFechaVenta(false)}
-              className="btn-secondary text-xs py-1 px-3 flex-1"
-            >
-              Cancelar
-            </button>
-            <button
-              type="button"
-              onClick={() => handleTransition("VENTA", fechaVenta)}
-              className="btn-primary text-xs py-1 px-3 flex-1"
-            >
-              Confirmar
-            </button>
-          </div>
-        </div>
-      )}
+      {typeof document !== "undefined" &&
+        showFechaVenta &&
+        createPortal(
+          <div
+            ref={dropdownRef}
+            style={menuStyle}
+            className="w-64 rounded-xl border border-surface-border bg-white p-3 shadow-lg"
+          >
+            <p className="mb-2 text-xs font-medium text-gray-700">Fecha de venta</p>
+            <input
+              type="date"
+              className="input w-full py-1.5 text-sm"
+              value={fechaVenta}
+              onChange={(e) => setFechaVenta(e.target.value)}
+            />
+            <div className="mt-2.5 flex gap-2">
+              <button
+                type="button"
+                onClick={() => setShowFechaVenta(false)}
+                className="btn-secondary flex-1 px-3 py-1 text-xs"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={() => handleTransition("VENTA", fechaVenta)}
+                className="btn-primary flex-1 px-3 py-1 text-xs"
+              >
+                Confirmar
+              </button>
+            </div>
+          </div>,
+          document.body
+        )}
     </div>
   );
 }

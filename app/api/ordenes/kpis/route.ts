@@ -1,38 +1,37 @@
 export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { FiltroOrdenesSchema } from "@/lib/validations/ordenes";
 import type { KpisData } from "@/types/ordenes";
+import { requireAuth } from "@/lib/session";
+import { scopeOrdenWhere } from "@/lib/access-control";
+import { netAmount, netAmountMxn } from "@/lib/net-amounts";
+import {
+  buildDateOrFilters,
+  getAllParam,
+  parseNumberList,
+  parseStringList,
+} from "@/lib/filter-utils";
 
 function buildWhere(filtros: {
-  ano?: number | null;
-  q?: number | null;
-  mes?: number | null;
-  estatus?: string | null;
-  cliente_id?: string | null;
+  ano: number[];
+  q: number[];
+  mes: number[];
+  cliente_id: string[];
+  tipo_cotizacion_id: string[];
+  vendedor_id: string[];
 }) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const where: any = {};
 
-  if (filtros.estatus) where.estatus = filtros.estatus;
-  if (filtros.cliente_id) where.cliente_id = filtros.cliente_id;
+  if (filtros.cliente_id.length) where.cliente_id = { in: filtros.cliente_id };
+  if (filtros.tipo_cotizacion_id.length) where.tipo_cotizacion_id = { in: filtros.tipo_cotizacion_id };
+  if (filtros.vendedor_id.length) where.vendedor_id = { in: filtros.vendedor_id };
 
-  if (filtros.ano || filtros.q || filtros.mes) {
-    const year = filtros.ano ?? new Date().getFullYear();
-    if (filtros.mes) {
-      const start = new Date(year, filtros.mes - 1, 1);
-      const end = new Date(year, filtros.mes, 1);
-      where.created_at = { gte: start, lt: end };
-    } else if (filtros.q) {
-      const mesInicio = (filtros.q - 1) * 3;
-      const start = new Date(year, mesInicio, 1);
-      const end = new Date(year, mesInicio + 3, 1);
-      where.created_at = { gte: start, lt: end };
-    } else {
-      const start = new Date(year, 0, 1);
-      const end = new Date(year + 1, 0, 1);
-      where.created_at = { gte: start, lt: end };
-    }
+  if (filtros.ano.length || filtros.q.length || filtros.mes.length) {
+    where.OR = buildDateOrFilters(filtros).flatMap((range) => [
+      { fecha_venta: range },
+      { fecha_venta: null, created_at: range },
+    ]);
   }
 
   return where;
@@ -41,31 +40,29 @@ function buildWhere(filtros: {
 // ── GET /api/ordenes/kpis ─────────────────────────────────────
 
 export async function GET(req: NextRequest) {
-  const { searchParams } = req.nextUrl;
-  const parsed = FiltroOrdenesSchema.safeParse({
-    ano: searchParams.get("ano") || undefined,
-    q: searchParams.get("q") || undefined,
-    mes: searchParams.get("mes") || undefined,
-    estatus: searchParams.get("estatus") || undefined,
-    cliente_id: searchParams.get("cliente_id") || undefined,
-  });
+  const session = await requireAuth(req);
+  if (!session) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
 
-  if (!parsed.success) {
-    return NextResponse.json({ error: "Parámetros inválidos" }, { status: 400 });
-  }
+  const { searchParams } = req.nextUrl;
+  const filtros = {
+    ano: parseNumberList(getAllParam(searchParams, "ano")).filter((value) => value >= 2020 && value <= 2099),
+    q: parseNumberList(getAllParam(searchParams, "q")).filter((value) => value >= 1 && value <= 4),
+    mes: parseNumberList(getAllParam(searchParams, "mes")).filter((value) => value >= 1 && value <= 12),
+    cliente_id: parseStringList(getAllParam(searchParams, "cliente_id")),
+    tipo_cotizacion_id: parseStringList(getAllParam(searchParams, "tipo_cotizacion_id")),
+    vendedor_id: parseStringList(getAllParam(searchParams, "vendedor_id")),
+  };
 
   try {
-    // Ignorar filtro de estatus para KPIs generales (todos los estatus)
-    const { estatus: _ignored, ...filtrosSinEstatus } = parsed.data;
-    const where = buildWhere(filtrosSinEstatus);
+    const where = scopeOrdenWhere(session, buildWhere(filtros));
 
     const ordenes = await prisma.ordenVenta.findMany({
       where,
       select: {
         estatus: true,
         moneda: true,
-        total: true,
-        total_mxn: true,
+        tipo_cambio: true,
+        subtotal_con_descuento: true,
       },
     });
 
@@ -76,11 +73,11 @@ export async function GET(req: NextRequest) {
 
     const ventas_mxn = ordenes
       .filter((o) => o.estatus === "VENTA")
-      .reduce((s, o) => s + o.total_mxn.toNumber(), 0);
+      .reduce((s, o) => s + netAmountMxn(o), 0);
 
     const pipeline_mxn = ordenes
       .filter((o) => o.estatus === "COTIZADO")
-      .reduce((s, o) => s + o.total_mxn.toNumber(), 0);
+      .reduce((s, o) => s + netAmountMxn(o), 0);
 
     // Fórmula correcta según doc funcional: ventas / total_ordenes * 100
     const tasa_conversion =
@@ -88,11 +85,11 @@ export async function GET(req: NextRequest) {
 
     const suma_total_mxn = ordenes
       .filter((o) => o.moneda === "MXN")
-      .reduce((s, o) => s + o.total.toNumber(), 0);
+      .reduce((s, o) => s + netAmount(o), 0);
 
     const suma_total_usd = ordenes
       .filter((o) => o.moneda === "USD")
-      .reduce((s, o) => s + o.total.toNumber(), 0);
+      .reduce((s, o) => s + netAmount(o), 0);
 
     const kpis: KpisData = {
       total_ordenes,

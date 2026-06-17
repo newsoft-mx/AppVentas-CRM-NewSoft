@@ -1,22 +1,28 @@
 export const dynamic = "force-dynamic";
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { clienteUpdateSchema } from "@/lib/validations/clientes";
+import { canManageClients, requireAuth } from "@/lib/session";
+import { netAmount, netAmountMxn } from "@/lib/net-amounts";
 
 // GET /api/clientes/:id
 export async function GET(
-  _req: Request,
-  { params }: { params: { id: string } }
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
+  const session = await requireAuth(req);
+  if (!session) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+
   try {
     const cliente = await prisma.cliente.findUnique({
-      where: { id: params.id },
+      where: { id },
       include: {
         condicion_pago: {
           select: { id: true, nombre: true, dias_credito: true },
         },
         ordenes: {
-          select: { moneda: true, total: true, total_mxn: true },
+          select: { moneda: true, tipo_cambio: true, subtotal_con_descuento: true },
         },
       },
     });
@@ -35,9 +41,9 @@ export async function GET(
       updated_at: c.updated_at.toISOString(),
       stats: {
         num_ordenes: ordenes.length,
-        total_mxn: mxnOrdenes.reduce((s, o) => s + o.total.toNumber(), 0),
-        total_usd: usdOrdenes.reduce((s, o) => s + o.total.toNumber(), 0),
-        grand_total_mxn: ordenes.reduce((s, o) => s + o.total_mxn.toNumber(), 0),
+        total_mxn: mxnOrdenes.reduce((s, o) => s + netAmount(o), 0),
+        total_usd: usdOrdenes.reduce((s, o) => s + netAmount(o), 0),
+        grand_total_mxn: ordenes.reduce((s, o) => s + netAmountMxn(o), 0),
       },
     });
   } catch {
@@ -50,11 +56,16 @@ export async function GET(
 
 // PUT /api/clientes/:id
 export async function PUT(
-  request: Request,
-  { params }: { params: { id: string } }
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
+  const session = await requireAuth(req);
+  if (!session) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+  if (!canManageClients(session)) return NextResponse.json({ error: "Sin permisos" }, { status: 403 });
+
   try {
-    const body = await request.json();
+    const body = await req.json();
     const validation = clienteUpdateSchema.safeParse(body);
 
     if (!validation.success) {
@@ -70,18 +81,20 @@ export async function PUT(
       );
     }
 
-    const cliente = await prisma.cliente.findUnique({ where: { id: params.id } });
+    const cliente = await prisma.cliente.findUnique({ where: { id } });
     if (!cliente) {
       return NextResponse.json({ error: "Cliente no encontrado" }, { status: 404 });
     }
 
-    // Verificar RFC único excluyendo este registro
-    const rfcExistente = await prisma.cliente.findFirst({
-      where: {
-        rfc: validation.data.rfc.toUpperCase(),
-        NOT: { id: params.id },
-      },
-    });
+    // Verificar RFC único excluyendo este registro, solo si se capturó
+    const rfcExistente = validation.data.rfc
+      ? await prisma.cliente.findFirst({
+          where: {
+            rfc: validation.data.rfc,
+            NOT: { id },
+          },
+        })
+      : null;
 
     if (rfcExistente) {
       return NextResponse.json(
@@ -103,22 +116,25 @@ export async function PUT(
     }
 
     const updated = await prisma.cliente.update({
-      where: { id: params.id },
-      data: {
-        ...validation.data,
-        rfc: validation.data.rfc.toUpperCase(),
-      },
+      where: { id },
+      data: validation.data as Parameters<typeof prisma.cliente.update>[0]["data"],
       include: {
         condicion_pago: {
           select: { id: true, nombre: true, dias_credito: true },
         },
         ordenes: {
-          select: { moneda: true, total: true, total_mxn: true },
+          select: { moneda: true, tipo_cambio: true, subtotal_con_descuento: true },
         },
       },
     });
 
-    const { ordenes, ...c } = updated;
+    const { ordenes, ...c } = updated as typeof updated & {
+      ordenes: Array<{
+        moneda: string;
+        tipo_cambio: { toNumber(): number } | null;
+        subtotal_con_descuento: { toNumber(): number };
+      }>;
+    };
     const mxnOrdenes = ordenes.filter((o) => o.moneda === "MXN");
     const usdOrdenes = ordenes.filter((o) => o.moneda === "USD");
 
@@ -128,9 +144,9 @@ export async function PUT(
       updated_at: c.updated_at.toISOString(),
       stats: {
         num_ordenes: ordenes.length,
-        total_mxn: mxnOrdenes.reduce((s, o) => s + o.total.toNumber(), 0),
-        total_usd: usdOrdenes.reduce((s, o) => s + o.total.toNumber(), 0),
-        grand_total_mxn: ordenes.reduce((s, o) => s + o.total_mxn.toNumber(), 0),
+        total_mxn: mxnOrdenes.reduce((s, o) => s + netAmount(o), 0),
+        total_usd: usdOrdenes.reduce((s, o) => s + netAmount(o), 0),
+        grand_total_mxn: ordenes.reduce((s, o) => s + netAmountMxn(o), 0),
       },
     });
   } catch {

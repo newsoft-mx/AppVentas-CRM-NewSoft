@@ -1,10 +1,15 @@
 export const dynamic = "force-dynamic";
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
+import { isAdmin, requireAuth } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { serializeEmpresa } from "@/lib/serializers";
 import { empresaUpdateSchema } from "@/lib/validations/configuracion";
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  const session = await requireAuth(req);
+  if (!session) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+  if (!isAdmin(session)) return NextResponse.json({ error: "Sin permisos" }, { status: 403 });
+
   try {
     const empresa = await prisma.empresa.findFirst();
     if (!empresa) {
@@ -22,9 +27,13 @@ export async function GET() {
   }
 }
 
-export async function PUT(request: Request) {
+export async function PUT(req: NextRequest) {
+  const session = await requireAuth(req);
+  if (!session) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+  if (!isAdmin(session)) return NextResponse.json({ error: "Sin permisos" }, { status: 403 });
+
   try {
-    const body = await request.json();
+    const body = await req.json();
     const validation = empresaUpdateSchema.safeParse(body);
 
     if (!validation.success) {

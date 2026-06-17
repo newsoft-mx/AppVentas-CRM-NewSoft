@@ -7,6 +7,8 @@ import type {
   Empresa as PrismaEmpresa,
   TipoCotizacion as PrismaTipo,
   CondicionComercial as PrismaCondicion,
+  Vendedor as PrismaVendedor,
+  User as PrismaUser,
   OrdenVenta as PrismaOrden,
   Partida as PrismaPartida,
   Cliente as PrismaCliente,
@@ -24,6 +26,9 @@ export function serializeEmpresa(e: PrismaEmpresa) {
 export function serializeTipo(t: PrismaTipo) {
   return {
     ...t,
+    texto_contrato:
+      (t as PrismaTipo & { texto_contrato?: string | null }).texto_contrato ??
+      null,
     created_at: t.created_at.toISOString(),
   };
 }
@@ -32,6 +37,22 @@ export function serializeCondicion(c: PrismaCondicion) {
   return {
     ...c,
     created_at: c.created_at.toISOString(),
+  };
+}
+
+export function serializeVendedor(v: PrismaVendedor) {
+  return {
+    ...v,
+    created_at: v.created_at.toISOString(),
+    updated_at: v.updated_at.toISOString(),
+  };
+}
+
+export function serializeUsuario(u: Pick<PrismaUser, "id" | "nombre" | "email" | "activo" | "created_at" | "updated_at">) {
+  return {
+    ...u,
+    created_at: u.created_at.toISOString(),
+    updated_at: u.updated_at.toISOString(),
   };
 }
 
@@ -52,6 +73,7 @@ type OrdenConRelaciones = PrismaOrden & {
   cliente: Pick<PrismaCliente, "id" | "nombre" | "rfc" | "contacto" | "email" | "ciudad">;
   tipo_cotizacion: { id: string; nombre: string };
   condicion_pago: { id: string; nombre: string };
+  vendedor?: { id: string; nombre: string } | null;
 };
 
 export function serializeOrden(o: OrdenConRelaciones) {
@@ -69,7 +91,7 @@ export function serializeOrden(o: OrdenConRelaciones) {
     total: o.total.toNumber(),
     total_mxn: o.total_mxn.toNumber(),
     fecha_venta: o.fecha_venta ? o.fecha_venta.toISOString() : null,
-    vigencia: o.vigencia ?? null,
+    vigencia: o.vigencia ? o.vigencia.toISOString() : null,
     created_at: o.created_at.toISOString(),
     updated_at: o.updated_at.toISOString(),
     partidas: o.partidas ? o.partidas.map(serializePartida) : [],

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo, useCallback } from "react";
-import { Save, Plus, Trash2, GripVertical, Calculator } from "lucide-react";
+import { Save, Plus, Trash2, Calculator } from "lucide-react";
 import SearchableSelect from "@/components/ui/SearchableSelect";
 import { formatMoneda, formatMXN } from "@/lib/utils";
 import type { OrdenDetalle } from "@/types/ordenes";
@@ -12,7 +12,7 @@ import Decimal from "decimal.js";
 interface ClienteOpcion {
   id: string;
   nombre: string;
-  rfc: string;
+  rfc: string | null;
   condicion_pago_id: string;
 }
 
@@ -34,13 +34,25 @@ interface OrdenFormProps {
   clientes: ClienteOpcion[];
   tipos: CatalogItem[];
   condiciones: CatalogItem[];
+  vendedores: CatalogItem[];
   /** Tasa IVA de la empresa (default) */
   tasaIvaDefault: number;
+  /** Configuración default de empresa para nuevas órdenes */
+  aplicarIvaDefault?: boolean;
+  vigenciaDiasDefault?: number;
   onSuccess: (orden: OrdenDetalle) => void;
   onCancel?: () => void;
 }
 
 type FormErrors = Partial<Record<string, string>>;
+
+function createTempKey(): string {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+
+  return `partida-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
 
 // ── Cálculo client-side para el preview ──────────────────────
 
@@ -77,11 +89,30 @@ function calcularPreview(params: {
 
 function newPartida(): PartidaLocal {
   return {
-    _key: crypto.randomUUID(),
+    _key: createTempKey(),
     descripcion: "",
     cantidad: "1",
     precio_unitario: "",
   };
+}
+
+function dateForInput(value: string | null | undefined) {
+  if (!value) return "";
+  return value.split("T")[0];
+}
+
+function addDaysForInput(days: number | null | undefined) {
+  if (!days || days < 1) return "";
+  const date = new Date();
+  date.setDate(date.getDate() + days);
+  return localDateForInput(date);
+}
+
+function localDateForInput(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }
 
 // ── Componente principal ──────────────────────────────────────
@@ -91,7 +122,10 @@ export default function OrdenForm({
   clientes,
   tipos,
   condiciones,
+  vendedores,
   tasaIvaDefault,
+  aplicarIvaDefault = true,
+  vigenciaDiasDefault,
   onSuccess,
   onCancel,
 }: OrdenFormProps) {
@@ -101,6 +135,7 @@ export default function OrdenForm({
   const [clienteId, setClienteId] = useState(orden?.cliente_id ?? "");
   const [tipoId, setTipoId] = useState(orden?.tipo_cotizacion_id ?? tipos[0]?.id ?? "");
   const [condicionId, setCondicionId] = useState(orden?.condicion_pago_id ?? condiciones[0]?.id ?? "");
+  const [vendedorId, setVendedorId] = useState(orden?.vendedor_id ?? (vendedores.length === 1 ? vendedores[0].id : ""));
   const [descripcion, setDescripcion] = useState(orden?.descripcion ?? "");
   const [estatus, setEstatus] = useState<"BORRADOR" | "COTIZADO" | "VENTA">(
     orden?.estatus ?? "BORRADOR"
@@ -109,11 +144,12 @@ export default function OrdenForm({
   const [tipoCambio, setTipoCambio] = useState(
     orden?.tipo_cambio ? String(orden.tipo_cambio) : ""
   );
-  const [vigencia, setVigencia] = useState(orden?.vigencia ?? "");
+  const vigenciaCalculada = addDaysForInput(vigenciaDiasDefault);
+  const [vigencia, setVigencia] = useState(orden ? dateForInput(orden.vigencia) : "");
   const [fechaVenta, setFechaVenta] = useState(
-    orden?.fecha_venta ? orden.fecha_venta.split("T")[0] : ""
+    dateForInput(orden?.fecha_venta)
   );
-  const [apIva, setApIva] = useState(orden?.aplica_iva ?? true);
+  const [apIva, setApIva] = useState(orden?.aplica_iva ?? aplicarIvaDefault);
   const [tasaIva, setTasaIva] = useState(
     orden?.tasa_iva ? String(orden.tasa_iva) : String(tasaIvaDefault)
   );
@@ -178,7 +214,9 @@ export default function OrdenForm({
     if (!clienteId) errs.cliente_id = "Selecciona un cliente";
     if (!tipoId) errs.tipo_cotizacion_id = "Selecciona un tipo";
     if (!condicionId) errs.condicion_pago_id = "Selecciona una condición";
+    if (!vendedorId) errs.vendedor_id = "Selecciona un vendedor";
     if (!descripcion.trim()) errs.descripcion = "La descripción es requerida";
+    if (estatus === "VENTA" && !fechaVenta) errs.fecha_venta = "La fecha de venta es requerida";
     if (moneda === "USD" && (!tipoCambio || parseFloat(tipoCambio) <= 0))
       errs.tipo_cambio = "Ingresa el tipo de cambio";
     if (apIva && (!tasaIva || parseFloat(tasaIva) <= 0))
@@ -217,12 +255,13 @@ export default function OrdenForm({
         cliente_id: clienteId,
         tipo_cotizacion_id: tipoId,
         condicion_pago_id: condicionId,
+        vendedor_id: vendedorId,
         descripcion: descripcion.trim(),
         estatus,
         moneda,
         tipo_cambio: tipoCambio ? parseFloat(tipoCambio) : null,
         fecha_venta: fechaVenta || null,
-        vigencia: vigencia.trim() || null,
+        vigencia: isEditing ? vigencia.trim() || null : null,
         aplica_iva: apIva,
         tasa_iva: apIva && tasaIva ? parseFloat(tasaIva) : null,
         descuento_porcentaje: descuento ? parseFloat(descuento) : null,
@@ -269,7 +308,11 @@ export default function OrdenForm({
   const clienteOpciones = clientes.map((c) => ({
     id: c.id,
     label: c.nombre,
-    sublabel: c.rfc,
+    sublabel: c.rfc || "RFC no registrado",
+  }));
+  const vendedorOpciones = vendedores.map((v) => ({
+    id: v.id,
+    label: v.nombre,
   }));
 
   return (
@@ -340,6 +383,25 @@ export default function OrdenForm({
             )}
           </div>
 
+          {/* Vendedor */}
+          <div>
+            <label className="label">Vendedor *</label>
+            <SearchableSelect
+              options={vendedorOpciones}
+              value={vendedorId}
+              onChange={(id) => {
+                setVendedorId(id);
+                if (errors.vendedor_id) setErrors((p) => ({ ...p, vendedor_id: "" }));
+              }}
+              placeholder="Buscar vendedor..."
+              searchPlaceholder="Nombre del vendedor..."
+              error={!!errors.vendedor_id}
+            />
+            {errors.vendedor_id && (
+              <p className="mt-1 text-xs text-red-500">{errors.vendedor_id}</p>
+            )}
+          </div>
+
           {/* Descripción */}
           <div className="sm:col-span-2">
             <label className="label">Descripción / Proyecto *</label>
@@ -403,11 +465,18 @@ export default function OrdenForm({
             <select
               className="input"
               value={estatus}
-              onChange={(e) => setEstatus(e.target.value as typeof estatus)}
+              onChange={(e) => {
+                const next = e.target.value as typeof estatus;
+                setEstatus(next);
+                if (next === "VENTA" && !fechaVenta) {
+                  setFechaVenta(localDateForInput(new Date()));
+                }
+                if (errors.fecha_venta) setErrors((p) => ({ ...p, fecha_venta: "" }));
+              }}
             >
               <option value="BORRADOR">Borrador</option>
               <option value="COTIZADO">Cotizado</option>
-              {isEditing && <option value="VENTA">Venta</option>}
+              <option value="VENTA">Venta</option>
             </select>
           </div>
 
@@ -416,41 +485,51 @@ export default function OrdenForm({
             <label className="label">
               Vigencia <span className="text-gray-400 font-normal">(opcional)</span>
             </label>
-            <input
-              className="input"
-              value={vigencia}
-              onChange={(e) => setVigencia(e.target.value)}
-              placeholder="30 días hábiles"
-            />
-          </div>
-
-          {/* Fecha de venta */}
-          {(estatus === "VENTA" || isEditing) && (
-            <div>
-              <label className="label">
-                Fecha de venta{estatus === "VENTA" ? " *" : " (opcional)"}
-              </label>
+            {isEditing ? (
               <input
                 type="date"
                 className="input"
-                value={fechaVenta}
-                onChange={(e) => setFechaVenta(e.target.value)}
+                value={vigencia}
+                onChange={(e) => setVigencia(e.target.value)}
               />
-            </div>
-          )}
+            ) : (
+              <>
+                <input type="date" className="input bg-gray-50" value={vigenciaCalculada} disabled />
+                <p className="mt-1 text-xs text-gray-400">
+                  Se calcula automáticamente con la configuración de empresa.
+                </p>
+              </>
+            )}
+          </div>
+
+          {/* Fecha de venta */}
+          <div>
+            <label className="label">
+              Fecha de venta{estatus === "VENTA" ? " *" : " (opcional)"}
+            </label>
+            <input
+              type="date"
+              className={`input ${errors.fecha_venta ? "border-red-400" : ""}`}
+              value={fechaVenta}
+              onChange={(e) => setFechaVenta(e.target.value)}
+            />
+            {errors.fecha_venta && (
+              <p className="mt-1 text-xs text-red-500">{errors.fecha_venta}</p>
+            )}
+          </div>
         </div>
       </div>
 
       {/* ══ SECCIÓN 3: Partidas ══════════════════════════════════════ */}
       <div>
-        <div className="flex items-center justify-between mb-3">
+        <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
             Partidas *
           </h3>
           <button
             type="button"
             onClick={addPartida}
-            className="flex items-center gap-1.5 text-xs text-navy border border-navy/20 bg-white hover:bg-navy hover:text-white rounded-lg px-3 py-1.5 transition-colors"
+            className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-navy/20 bg-white px-3 py-1.5 text-xs text-navy transition-colors hover:bg-navy hover:text-white sm:w-auto"
           >
             <Plus size={13} />
             Agregar partida
@@ -462,18 +541,22 @@ export default function OrdenForm({
         )}
 
         <div className="space-y-2">
+          <div className="hidden grid-cols-[1fr_100px_130px_104px] gap-2 px-3 text-[11px] font-semibold uppercase tracking-wide text-gray-400 sm:grid">
+            <span>Descripción</span>
+            <span className="text-right">Cantidad</span>
+            <span className="text-right">Precio unit.</span>
+            <span className="text-right">Total</span>
+          </div>
           {partidas.map((p, i) => (
             <div
               key={p._key}
-              className="grid grid-cols-[auto_1fr_100px_130px_auto] gap-2 items-start bg-gray-50 rounded-lg p-3 border border-surface-border"
+              className="grid grid-cols-1 gap-2 rounded-lg border border-surface-border bg-gray-50 p-3 sm:grid-cols-[1fr_100px_130px_auto] sm:items-start"
             >
-              {/* Drag handle (visual only) */}
-              <div className="pt-2 text-gray-300">
-                <GripVertical size={14} />
-              </div>
-
               {/* Descripción */}
               <div>
+                <label className="mb-1 block text-[11px] font-medium text-gray-400 sm:hidden">
+                  Descripción
+                </label>
                 <input
                   className={`input text-sm py-1.5 ${errors[`p_desc_${i}`] ? "border-red-400" : ""}`}
                   value={p.descripcion}
@@ -487,6 +570,9 @@ export default function OrdenForm({
 
               {/* Cantidad */}
               <div>
+                <label className="mb-1 block text-[11px] font-medium text-gray-400 sm:hidden">
+                  Cantidad
+                </label>
                 <input
                   type="number"
                   step="0.01"
@@ -500,6 +586,9 @@ export default function OrdenForm({
 
               {/* Precio unitario */}
               <div>
+                <label className="mb-1 block text-[11px] font-medium text-gray-400 sm:hidden">
+                  Precio unit.
+                </label>
                 <input
                   type="number"
                   step="0.01"
@@ -512,8 +601,8 @@ export default function OrdenForm({
               </div>
 
               {/* Total partida + botón eliminar */}
-              <div className="flex items-center gap-2 pt-1.5">
-                <span className="text-xs text-gray-600 font-medium min-w-[80px] text-right">
+              <div className="flex items-center justify-end gap-2 sm:pt-1.5">
+                <span className="text-xs font-medium text-gray-600 sm:min-w-[80px] sm:text-right">
                   {formatMoneda(
                     (parseFloat(p.cantidad) || 0) * (parseFloat(p.precio_unitario) || 0),
                     moneda
@@ -671,13 +760,13 @@ export default function OrdenForm({
       </div>
 
       {/* ── Acciones ── */}
-      <div className="flex justify-end gap-3 pt-2 border-t border-surface-border">
+      <div className="grid grid-cols-1 gap-3 border-t border-surface-border pt-2 sm:flex sm:justify-end">
         {onCancel && (
-          <button type="button" onClick={onCancel} className="btn-secondary">
+          <button type="button" onClick={onCancel} className="btn-secondary justify-center">
             Cancelar
           </button>
         )}
-        <button type="submit" disabled={isSaving} className="btn-primary">
+        <button type="submit" disabled={isSaving} className="btn-primary justify-center">
           <Save size={15} />
           {isSaving
             ? "Guardando..."
@@ -702,7 +791,7 @@ function PreviewRow({
   variant?: "normal" | "discount" | "total" | "mxn";
 }) {
   return (
-    <div className="flex items-center justify-between">
+    <div className="flex items-center justify-between gap-3">
       <span
         className={`text-sm ${
           variant === "total"
@@ -727,7 +816,7 @@ function PreviewRow({
             : "text-gray-800 text-sm"
         }`}
       >
-        {value}
+        <span className="break-words text-right">{value}</span>
       </span>
     </div>
   );

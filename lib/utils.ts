@@ -151,11 +151,12 @@ export function generarFolio(prefijo: string, consecutivo: number): string {
 export function formatFecha(fecha: Date | string | null | undefined): string {
   if (!fecha) return "—";
   const d = new Date(fecha);
-  return d.toLocaleDateString("es-MX", {
+  return new Intl.DateTimeFormat("es-MX", {
     day: "2-digit",
     month: "2-digit",
     year: "numeric",
-  });
+    timeZone: "UTC",
+  }).format(d);
 }
 
 /**
@@ -183,7 +184,7 @@ export const ESTATUS_COLORS: Record<string, string> = {
 
 // Transiciones de estatus permitidas según el documento funcional
 export const TRANSICIONES_PERMITIDAS: Record<string, string[]> = {
-  BORRADOR: ["COTIZADO"],
+  BORRADOR: ["COTIZADO", "VENTA"],
   COTIZADO: ["VENTA", "BORRADOR"],
   VENTA: ["COTIZADO"],
 };

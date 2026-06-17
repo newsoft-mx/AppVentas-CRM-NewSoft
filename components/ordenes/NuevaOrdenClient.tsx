@@ -7,7 +7,7 @@ import type { OrdenDetalle } from "@/types/ordenes";
 interface ClienteOpcion {
   id: string;
   nombre: string;
-  rfc: string;
+  rfc: string | null;
   condicion_pago_id: string;
 }
 
@@ -20,14 +20,20 @@ interface NuevaOrdenClientProps {
   clientes: ClienteOpcion[];
   tipos: CatalogItem[];
   condiciones: CatalogItem[];
+  vendedores: CatalogItem[];
   tasaIvaDefault: number;
+  aplicarIvaDefault: boolean;
+  vigenciaDiasDefault: number;
 }
 
 export default function NuevaOrdenClient({
   clientes,
   tipos,
   condiciones,
+  vendedores,
   tasaIvaDefault,
+  aplicarIvaDefault,
+  vigenciaDiasDefault,
 }: NuevaOrdenClientProps) {
   const router = useRouter();
 
@@ -44,7 +50,10 @@ export default function NuevaOrdenClient({
       clientes={clientes}
       tipos={tipos}
       condiciones={condiciones}
+      vendedores={vendedores}
       tasaIvaDefault={tasaIvaDefault}
+      aplicarIvaDefault={aplicarIvaDefault}
+      vigenciaDiasDefault={vigenciaDiasDefault}
       onSuccess={handleSuccess}
       onCancel={handleCancel}
     />
