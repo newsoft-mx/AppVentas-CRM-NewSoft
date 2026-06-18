@@ -11,12 +11,13 @@ import {
   TEMPERATURA_META, ROL_CONTACTO_LABEL,
   type DealDetalle, type DealActividadItem, type StageResumen, type TipoActividad,
 } from "@/types/crm";
-import DealAIPanel from "@/components/pipeline/DealAIPanel";
+import DealAIPanel, { type AnalisisHistItem } from "@/components/pipeline/DealAIPanel";
 
 interface Props {
   deal: DealDetalle;
   stages: StageResumen[];
   canWrite: boolean;
+  analisis: AnalisisHistItem[];
 }
 
 function fmt(n: number): string {
@@ -50,7 +51,7 @@ const ACT_ICON: Record<TipoActividad, { icon: typeof StickyNote; color: string; 
   SISTEMA: { icon: Cog, color: "#6B7A99", bg: "#F3F5F9" },
 };
 
-export default function DealDetalleClient({ deal, stages, canWrite }: Props) {
+export default function DealDetalleClient({ deal, stages, canWrite, analisis }: Props) {
   const router = useRouter();
   const temp = TEMPERATURA_META[deal.temperatura];
   const [actividades, setActividades] = useState<DealActividadItem[]>(deal.actividades);
@@ -298,7 +299,7 @@ export default function DealDetalleClient({ deal, stages, canWrite }: Props) {
         </section>
 
         {/* ── DERECHA: panel de IA ── */}
-        <DealAIPanel dealId={deal.id} canWrite={canWrite} />
+        <DealAIPanel dealId={deal.id} canWrite={canWrite} initialHistorial={analisis} />
       </div>
     </div>
   );

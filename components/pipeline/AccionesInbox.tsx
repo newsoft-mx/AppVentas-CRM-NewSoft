@@ -49,6 +49,7 @@ export default function AccionesInbox({
   const router = useRouter();
   const [items, setItems] = useState<AccionItem[]>(acciones);
   const [vendedorFiltro, setVendedorFiltro] = useState("todos");
+  const [filtro, setFiltro] = useState<"todas" | "alta" | "media" | "LLAMADA" | "EMAIL">("todas");
 
   const filtered = useMemo(
     () =>
@@ -58,11 +59,24 @@ export default function AccionesInbox({
     [items, vendedorFiltro]
   );
 
-  const conUrgencia = filtered.map((a) => ({ ...a, urgencia: urgenciaDe(a.fecha_tarea) }));
+  const conUrgenciaAll = filtered.map((a) => ({ ...a, urgencia: urgenciaDe(a.fecha_tarea) }));
+  const conUrgencia = conUrgenciaAll.filter((a) => {
+    if (filtro === "todas") return true;
+    if (filtro === "alta" || filtro === "media") return a.urgencia === filtro;
+    return a.tipo === filtro; // LLAMADA | EMAIL
+  });
+
+  const FILTROS: { key: typeof filtro; label: string }[] = [
+    { key: "todas", label: "Todas" },
+    { key: "alta", label: "Urgente" },
+    { key: "media", label: "Esta semana" },
+    { key: "LLAMADA", label: "Llamadas" },
+    { key: "EMAIL", label: "Emails" },
+  ];
   const cuenta = {
-    alta: conUrgencia.filter((a) => a.urgencia === "alta").length,
-    media: conUrgencia.filter((a) => a.urgencia === "media").length,
-    baja: conUrgencia.filter((a) => a.urgencia === "baja").length,
+    alta: conUrgenciaAll.filter((a) => a.urgencia === "alta").length,
+    media: conUrgenciaAll.filter((a) => a.urgencia === "media").length,
+    baja: conUrgenciaAll.filter((a) => a.urgencia === "baja").length,
   };
 
   async function completar(id: string) {
@@ -109,6 +123,22 @@ export default function AccionesInbox({
           </select>
         </div>
       </header>
+
+      <div className="flex items-center gap-2 border-b border-surface-border bg-white px-6 py-2.5">
+        {FILTROS.map((f) => (
+          <button
+            key={f.key}
+            onClick={() => setFiltro(f.key)}
+            className={`rounded-full border px-3 py-1 text-xs font-semibold transition-colors ${
+              filtro === f.key
+                ? "border-navy bg-navy text-white"
+                : "border-surface-border text-gray-500 hover:bg-surface"
+            }`}
+          >
+            {f.label}
+          </button>
+        ))}
+      </div>
 
       <div className="flex-1 overflow-y-auto bg-surface px-6 py-5">
         {filtered.length === 0 && (
