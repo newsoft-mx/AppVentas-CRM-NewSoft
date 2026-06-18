@@ -51,8 +51,8 @@ async function main() {
   ]);
 
   await Promise.all([
-    prisma.$executeRaw`UPDATE "user" SET rol = 'ADMIN'::user_role WHERE id = ${userRoldan.id}`,
-    prisma.$executeRaw`UPDATE "user" SET rol = 'GERENTE_COMERCIAL'::user_role WHERE id = ${userElva.id}`,
+    prisma.$executeRaw`UPDATE "user" SET rol = 'ADMIN'::user_role WHERE id = ${userRoldan.id}::uuid`,
+    prisma.$executeRaw`UPDATE "user" SET rol = 'GERENTE_COMERCIAL'::user_role WHERE id = ${userElva.id}::uuid`,
   ]);
 
   console.log(`   ✓ ${userRoldan.email}`);
@@ -507,6 +507,113 @@ async function main() {
     where: { id: "00000000-0000-0000-0000-000000000001" },
     data: { siguiente_folio: 5 },
   });
+
+  // ──────────────────────────────────────────
+  // 6. MÓDULO PIPELINE CRM
+  // ──────────────────────────────────────────
+  console.log("\n🧭 Sembrando módulo Pipeline CRM...");
+
+  // 6.1 Vendedores (dueños de los deals)
+  const vendedores = await Promise.all([
+    prisma.vendedor.upsert({
+      where: { id: "40000000-0000-0000-0000-000000000001" },
+      update: {},
+      create: { id: "40000000-0000-0000-0000-000000000001", nombre: "Roldán Ayala", email: "roldan@newsoft.mx", activo: true },
+    }),
+    prisma.vendedor.upsert({
+      where: { id: "40000000-0000-0000-0000-000000000002" },
+      update: {},
+      create: { id: "40000000-0000-0000-0000-000000000002", nombre: "Gabriela García", email: "gabriela@newsoft.mx", activo: true },
+    }),
+    prisma.vendedor.upsert({
+      where: { id: "40000000-0000-0000-0000-000000000003" },
+      update: {},
+      create: { id: "40000000-0000-0000-0000-000000000003", nombre: "Frania Padilla", email: "frania@newsoft.mx", activo: true },
+    }),
+  ]);
+
+  // 6.2 Stages configurables del pipeline (secuencia actual de Roldán)
+  const stagesDef = [
+    { id: "50000000-0000-0000-0000-000000000001", nombre: "Leads", orden: 1, color: "#9BA5BE" },
+    { id: "50000000-0000-0000-0000-000000000002", nombre: "Calificado", orden: 2, color: "#4A90D9" },
+    { id: "50000000-0000-0000-0000-000000000003", nombre: "Req. Definidos", orden: 3, color: "#F5A623" },
+    { id: "50000000-0000-0000-0000-000000000004", nombre: "Propuesta", orden: 4, color: "#F47920" },
+    { id: "50000000-0000-0000-0000-000000000005", nombre: "Negociación", orden: 5, color: "#E8330A" },
+    { id: "50000000-0000-0000-0000-000000000006", nombre: "Cierre del Mes", orden: 6, color: "#1D9E75" },
+    { id: "50000000-0000-0000-0000-000000000007", nombre: "Pausados", orden: 7, color: "#2A5298" },
+  ];
+  const stages = await Promise.all(
+    stagesDef.map((s) =>
+      prisma.pipelineStage.upsert({ where: { id: s.id }, update: { nombre: s.nombre, orden: s.orden, color: s.color }, create: { ...s, activo: true } })
+    )
+  );
+
+  // Helper: fecha hace N días (para "días en etapa")
+  const hace = (dias: number) => new Date(Date.now() - dias * 86400000);
+
+  // 6.3 Deals demo a lo largo del pipeline
+  const dealsDef = [
+    { id: "60000000-0000-0000-0000-000000000001", nombre: "Portal de Proveedores", cliente: "30000000-0000-0000-0000-000000000001", stage: 3, vend: 0, tipo: "10000000-0000-0000-0000-000000000001", temp: "MUY_CALIENTE", valor: 950000, setup: 150000, mensualidad: 0, prob: 65, dias: 2, canal: "Referido interno", origen: "Referido" },
+    { id: "60000000-0000-0000-0000-000000000002", nombre: "Suite Operativa — Calificación de Leads", cliente: "30000000-0000-0000-0000-000000000002", stage: 5, vend: 0, tipo: "10000000-0000-0000-0000-000000000004", temp: "MUY_CALIENTE", valor: 650000, setup: 25000, mensualidad: 15000, prob: 78, dias: 1, canal: "WhatsApp API", origen: "Inbound web" },
+    { id: "60000000-0000-0000-0000-000000000003", nombre: "Sistema de Cotizaciones", cliente: "30000000-0000-0000-0000-000000000003", stage: 2, vend: 1, tipo: "10000000-0000-0000-0000-000000000001", temp: "TIBIO", valor: 380000, setup: 380000, mensualidad: 0, prob: 30, dias: 7, canal: "Llamada", origen: "Prospección" },
+    { id: "60000000-0000-0000-0000-000000000004", nombre: "Soporte Anual Plataforma", cliente: "30000000-0000-0000-0000-000000000002", stage: 6, vend: 0, tipo: "10000000-0000-0000-0000-000000000003", temp: "CALIENTE", valor: 240000, setup: 0, mensualidad: 20000, prob: 85, dias: 0, canal: "Email", origen: "Cliente actual" },
+    { id: "60000000-0000-0000-0000-000000000005", nombre: "TrackPoint Flota", cliente: "30000000-0000-0000-0000-000000000001", stage: 1, vend: 2, tipo: "10000000-0000-0000-0000-000000000004", temp: "FRIO", valor: 180000, setup: 0, mensualidad: 12000, prob: 15, dias: 14, canal: "Email", origen: "Inbound web" },
+    { id: "60000000-0000-0000-0000-000000000006", nombre: "ERP Manufactura (en pausa)", cliente: "30000000-0000-0000-0000-000000000003", stage: 7, vend: 1, tipo: "10000000-0000-0000-0000-000000000001", temp: "MUY_FRIO", valor: 1800000, setup: 1800000, mensualidad: 0, prob: 10, dias: 45, canal: "Llamada", origen: "Prospección" },
+  ];
+
+  const deals = await Promise.all(
+    dealsDef.map((d) =>
+      prisma.deal.upsert({
+        where: { id: d.id },
+        update: {},
+        create: {
+          id: d.id,
+          nombre: d.nombre,
+          cliente_id: d.cliente,
+          vendedor_id: vendedores[d.vend].id,
+          stage_id: stages[d.stage - 1].id,
+          tipo_cotizacion_id: d.tipo,
+          temperatura: d.temp as never,
+          probabilidad: d.prob,
+          moneda: "MXN",
+          valor: d.valor,
+          setup: d.setup || null,
+          mensualidad: d.mensualidad || null,
+          meses: d.mensualidad ? 12 : null,
+          canal: d.canal,
+          origen: d.origen,
+          fecha_cierre_estimada: new Date("2026-06-30"),
+          fecha_entrada_stage: hace(d.dias),
+          resultado: "ABIERTO",
+        },
+      })
+    )
+  );
+
+  // 6.4 Contactos + bitácora demo en el deal "Suite Operativa"
+  const dealDemo = "60000000-0000-0000-0000-000000000002";
+  await prisma.dealContacto.upsert({
+    where: { id: "61000000-0000-0000-0000-000000000001" },
+    update: {},
+    create: { id: "61000000-0000-0000-0000-000000000001", deal_id: dealDemo, nombre: "Irvin Álvarez", rol: "DECISOR", email: "irvin@cliente.mx", telefono: "+52 81 1111 2222", whatsapp: "+52 81 1111 2222" },
+  });
+  await prisma.dealContacto.upsert({
+    where: { id: "61000000-0000-0000-0000-000000000002" },
+    update: {},
+    create: { id: "61000000-0000-0000-0000-000000000002", deal_id: dealDemo, nombre: "Marcela Robles", rol: "INFLUENCIADOR", email: "marcela@cliente.mx" },
+  });
+  await prisma.dealActividad.upsert({
+    where: { id: "62000000-0000-0000-0000-000000000001" },
+    update: {},
+    create: { id: "62000000-0000-0000-0000-000000000001", deal_id: dealDemo, tipo: "NOTA", autor: "Roldán Ayala", contenido: "Irvin confirmó presupuesto aprobado para Q2. Piden integración con Salesforce. Siguiente paso: enviar adenda esta semana." },
+  });
+  await prisma.dealActividad.upsert({
+    where: { id: "62000000-0000-0000-0000-000000000002" },
+    update: {},
+    create: { id: "62000000-0000-0000-0000-000000000002", deal_id: dealDemo, tipo: "LLAMADA", autor: "Gabriela García", contenido: "Llamada 32 min con Irvin. Dudas sobre modelo de consumo por conversación. Interés alto, pide referencias." },
+  });
+
+  console.log(`   ✓ ${vendedores.length} vendedores, ${stages.length} stages, ${deals.length} deals demo`);
 
   console.log("✅ Seed completado exitosamente!\n");
   console.log("📊 Resumen:");
