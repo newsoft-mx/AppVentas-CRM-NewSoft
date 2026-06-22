@@ -84,6 +84,7 @@ export async function POST(req: NextRequest) {
       moneda: deal.moneda,
       temperatura: deal.temperatura as Temperatura,
       probabilidad: deal.probabilidad,
+      resultado: deal.resultado,
       stage_id: deal.stage_id,
       dias_en_etapa: 0,
       cliente: deal.cliente ? { id: deal.cliente.id, nombre: deal.cliente.nombre } : null,

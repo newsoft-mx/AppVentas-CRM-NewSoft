@@ -540,7 +540,6 @@ async function main() {
     { id: "50000000-0000-0000-0000-000000000004", nombre: "Propuesta", orden: 4, color: "#F47920", probabilidad_base: 60 },
     { id: "50000000-0000-0000-0000-000000000005", nombre: "Negociación", orden: 5, color: "#E8330A", probabilidad_base: 80 },
     { id: "50000000-0000-0000-0000-000000000006", nombre: "Cierre del Mes", orden: 6, color: "#1D9E75", probabilidad_base: 95 },
-    { id: "50000000-0000-0000-0000-000000000007", nombre: "Pausados", orden: 7, color: "#2A5298", probabilidad_base: 0 },
   ];
   const stages = await Promise.all(
     stagesDef.map((s) =>
@@ -552,6 +551,12 @@ async function main() {
     )
   );
 
+  // "Pausados" dejó de ser etapa (ahora es el estado SUSPENDIDO). Desactivar la etapa legacy.
+  await prisma.pipelineStage.updateMany({
+    where: { id: "50000000-0000-0000-0000-000000000007" },
+    data: { activo: false },
+  });
+
   // Helper: fecha hace N días (para "días en etapa")
   const hace = (dias: number) => new Date(Date.now() - dias * 86400000);
 
@@ -562,7 +567,7 @@ async function main() {
     { id: "60000000-0000-0000-0000-000000000003", nombre: "Sistema de Cotizaciones", cliente: "30000000-0000-0000-0000-000000000003", stage: 2, vend: 1, tipo: "10000000-0000-0000-0000-000000000001", temp: "TIBIO", valor: 380000, setup: 380000, mensualidad: 0, prob: 30, dias: 7, canal: "Llamada", origen: "Prospección" },
     { id: "60000000-0000-0000-0000-000000000004", nombre: "Soporte Anual Plataforma", cliente: "30000000-0000-0000-0000-000000000002", stage: 6, vend: 0, tipo: "10000000-0000-0000-0000-000000000003", temp: "CALIENTE", valor: 240000, setup: 0, mensualidad: 20000, prob: 85, dias: 0, canal: "Email", origen: "Cliente actual" },
     { id: "60000000-0000-0000-0000-000000000005", nombre: "TrackPoint Flota", cliente: "30000000-0000-0000-0000-000000000001", stage: 1, vend: 2, tipo: "10000000-0000-0000-0000-000000000004", temp: "FRIO", valor: 180000, setup: 0, mensualidad: 12000, prob: 15, dias: 14, canal: "Email", origen: "Inbound web" },
-    { id: "60000000-0000-0000-0000-000000000006", nombre: "ERP Manufactura (en pausa)", cliente: "30000000-0000-0000-0000-000000000003", stage: 7, vend: 1, tipo: "10000000-0000-0000-0000-000000000001", temp: "MUY_FRIO", valor: 1800000, setup: 1800000, mensualidad: 0, prob: 10, dias: 45, canal: "Llamada", origen: "Prospección" },
+    { id: "60000000-0000-0000-0000-000000000006", nombre: "ERP Manufactura (en pausa)", cliente: "30000000-0000-0000-0000-000000000003", stage: 5, vend: 1, tipo: "10000000-0000-0000-0000-000000000001", temp: "MUY_FRIO", valor: 1800000, setup: 1800000, mensualidad: 0, prob: 10, dias: 45, canal: "Llamada", origen: "Prospección" },
   ];
 
   const deals = await Promise.all(
@@ -593,6 +598,12 @@ async function main() {
       })
     )
   );
+
+  // Deal 006 queda SUSPENDIDO (demo de la columna Pausados)
+  await prisma.deal.update({
+    where: { id: "60000000-0000-0000-0000-000000000006" },
+    data: { resultado: "SUSPENDIDO", stage_id: stages[4].id },
+  }).catch(() => {});
 
   // 6.4 Contactos + bitácora demo en el deal "Suite Operativa"
   const dealDemo = "60000000-0000-0000-0000-000000000002";

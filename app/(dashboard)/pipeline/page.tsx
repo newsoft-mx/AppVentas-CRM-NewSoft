@@ -25,7 +25,7 @@ export default async function PipelinePage() {
       select: { id: true, nombre: true, orden: true, color: true },
     }),
     prisma.deal.findMany({
-      where: { resultado: "ABIERTO" },
+      where: { resultado: { in: ["ABIERTO", "SUSPENDIDO"] } },
       include: {
         cliente: { select: { id: true, nombre: true } },
         vendedor: { select: { id: true, nombre: true } },
@@ -59,6 +59,7 @@ export default async function PipelinePage() {
     moneda: d.moneda,
     temperatura: d.temperatura as Temperatura,
     probabilidad: d.probabilidad,
+    resultado: d.resultado,
     stage_id: d.stage_id,
     dias_en_etapa: diasEnEtapa(d.fecha_entrada_stage),
     cliente: d.cliente ? { id: d.cliente.id, nombre: d.cliente.nombre } : null,

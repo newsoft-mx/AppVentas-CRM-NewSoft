@@ -21,6 +21,7 @@ export interface DealResumen {
   moneda: string;
   temperatura: Temperatura;
   probabilidad: number | null;
+  resultado: string;
   stage_id: string;
   /** Días que lleva el deal en su etapa actual */
   dias_en_etapa: number;

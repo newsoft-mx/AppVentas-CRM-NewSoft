@@ -5,8 +5,11 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   ArrowLeft, Phone, Mail, MessageCircle, StickyNote,
-  Building2, Trophy, Cog,
+  Building2, Trophy, Cog, ChevronDown,
 } from "lucide-react";
+import Modal from "@/components/ui/Modal";
+
+const RAZONES_PERDIDA = ["Precio", "Tiempo / urgencia", "Competencia", "Sin presupuesto", "Sin respuesta", "No era el momento", "Otro"];
 import {
   TEMPERATURA_META, ROL_CONTACTO_LABEL,
   type DealDetalle, type DealActividadItem, type StageResumen, type TipoActividad,
@@ -58,28 +61,41 @@ export default function DealDetalleClient({ deal, stages, canWrite }: Props) {
   const [tipoNueva, setTipoNueva] = useState<TipoActividad>("NOTA");
   const [texto, setTexto] = useState("");
   const [guardando, setGuardando] = useState(false);
-  const [ganando, setGanando] = useState(false);
+  const [procesando, setProcesando] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [modalPerdida, setModalPerdida] = useState(false);
+  const [razon, setRazon] = useState("");
+  const [comentarioP, setComentarioP] = useState("");
 
-  async function marcarGanado() {
-    if (ganando) return;
-    if (!confirm(`¿Marcar "${deal.nombre}" como ganado? Se sugerirá crear la orden de venta.`)) return;
-    setGanando(true);
+  async function cambiarResultado(
+    resultado: "GANADO" | "PERDIDO" | "SUSPENDIDO" | "ABIERTO",
+    extra?: { razon_perdida?: string; comentario_perdida?: string }
+  ) {
+    setProcesando(true);
+    setMenuOpen(false);
     try {
-      const res = await fetch(`/api/crm/deals/${deal.id}/ganar`, { method: "POST" });
+      const res = await fetch(`/api/crm/deals/${deal.id}/resultado`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ resultado, ...extra }),
+      });
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error ?? "Error");
-      // Hand-off: ir a crear la orden con los datos del deal precargados
-      const h = data.handoff;
-      const params = new URLSearchParams();
-      if (h?.cliente_id) params.set("cliente_id", h.cliente_id);
-      if (h?.vendedor_id) params.set("vendedor_id", h.vendedor_id);
-      if (h?.descripcion) params.set("descripcion", h.descripcion);
-      if (h?.valor) params.set("valor", String(h.valor));
-      params.set("deal_id", deal.id);
-      router.push(`/ventas/nueva?${params.toString()}`);
+      if (resultado === "GANADO") {
+        const h = data.handoff;
+        const params = new URLSearchParams();
+        if (h?.cliente_id) params.set("cliente_id", h.cliente_id);
+        if (h?.vendedor_id) params.set("vendedor_id", h.vendedor_id);
+        if (h?.descripcion) params.set("descripcion", h.descripcion);
+        if (h?.valor) params.set("valor", String(h.valor));
+        params.set("deal_id", deal.id);
+        router.push(`/ventas/nueva?${params.toString()}`);
+      } else {
+        router.push("/pipeline");
+      }
     } catch (e) {
-      alert(e instanceof Error ? e.message : "No se pudo marcar como ganado.");
-      setGanando(false);
+      alert(e instanceof Error ? e.message : "No se pudo cambiar el estado.");
+      setProcesando(false);
     }
   }
 
@@ -123,13 +139,35 @@ export default function DealDetalleClient({ deal, stages, canWrite }: Props) {
           <span>›</span>
           <span className="font-semibold text-navy">{deal.nombre}</span>
         </nav>
-        {canWrite && deal.resultado !== "GANADO" && (
+        {canWrite && (deal.resultado === "ABIERTO" || deal.resultado === "SUSPENDIDO") && (
+          <div className="relative">
+            <button
+              onClick={() => setMenuOpen((o) => !o)}
+              disabled={procesando}
+              className="flex items-center gap-1.5 rounded-lg bg-orange px-3.5 py-2 text-sm font-semibold text-white hover:bg-orange/90 disabled:opacity-50"
+            >
+              <Trophy size={15} /> {procesando ? "Procesando…" : "Cambiar estado"} <ChevronDown size={14} />
+            </button>
+            {menuOpen && (
+              <div className="absolute right-0 z-20 mt-1 w-48 overflow-hidden rounded-lg border border-surface-border bg-white py-1 shadow-lg">
+                <button onClick={() => cambiarResultado("GANADO")} className="block w-full px-3 py-2 text-left text-sm text-emerald-700 hover:bg-emerald-50">🏆 Ganado</button>
+                <button onClick={() => { setMenuOpen(false); setRazon(""); setComentarioP(""); setModalPerdida(true); }} className="block w-full px-3 py-2 text-left text-sm text-red-700 hover:bg-red-50">✕ Perdido</button>
+                {deal.resultado === "ABIERTO" ? (
+                  <button onClick={() => cambiarResultado("SUSPENDIDO")} className="block w-full px-3 py-2 text-left text-sm text-blue-700 hover:bg-blue-50">⏸ Suspender (hold)</button>
+                ) : (
+                  <button onClick={() => cambiarResultado("ABIERTO")} className="block w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50">▶ Reactivar</button>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+        {canWrite && (deal.resultado === "GANADO" || deal.resultado === "PERDIDO") && (
           <button
-            onClick={marcarGanado}
-            disabled={ganando}
-            className="flex items-center gap-1.5 rounded-lg bg-orange px-3.5 py-2 text-sm font-semibold text-white hover:bg-orange/90 disabled:opacity-50"
+            onClick={() => cambiarResultado("ABIERTO")}
+            disabled={procesando}
+            className="rounded-lg border border-surface-border px-3.5 py-2 text-sm font-semibold text-gray-600 hover:bg-surface disabled:opacity-50"
           >
-            <Trophy size={15} /> {ganando ? "Procesando…" : "Marcar ganado"}
+            Reabrir deal
           </button>
         )}
       </header>
@@ -298,6 +336,34 @@ export default function DealDetalleClient({ deal, stages, canWrite }: Props) {
         </section>
 
       </div>
+
+      {modalPerdida && (
+        <Modal title="Marcar deal como perdido" onClose={() => setModalPerdida(false)} size="md">
+          <div className="space-y-4">
+            <div>
+              <label className="label">Razón de pérdida *</label>
+              <select className="input" value={razon} onChange={(e) => setRazon(e.target.value)}>
+                <option value="">Selecciona…</option>
+                {RAZONES_PERDIDA.map((r) => <option key={r} value={r}>{r}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="label">Comentarios <span className="font-normal text-gray-400">(opcional)</span></label>
+              <textarea className="input" rows={3} value={comentarioP} onChange={(e) => setComentarioP(e.target.value)} placeholder="Detalle de por qué se perdió…" />
+            </div>
+            <div className="flex justify-end gap-2 border-t border-surface-border pt-4">
+              <button onClick={() => setModalPerdida(false)} className="btn-secondary justify-center">Cancelar</button>
+              <button
+                onClick={() => { if (!razon) return; setModalPerdida(false); cambiarResultado("PERDIDO", { razon_perdida: razon, comentario_perdida: comentarioP }); }}
+                disabled={!razon}
+                className="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-50"
+              >
+                Marcar perdido
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }

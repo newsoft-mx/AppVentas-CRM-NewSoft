@@ -43,15 +43,19 @@ export default function PipelineKanban({ stages, deals, vendedores, clientes, ti
     [items, vendedorFiltro]
   );
 
-  // KPIs
-  const valorTotal = filtered.reduce((s, d) => s + d.valor, 0);
-  const calientes = filtered.filter((d) =>
+  // Deals activos (en etapas) vs suspendidos (columna Pausados)
+  const activos = filtered.filter((d) => d.resultado === "ABIERTO");
+  const pausados = filtered.filter((d) => d.resultado === "SUSPENDIDO");
+
+  // KPIs (solo activos)
+  const valorTotal = activos.reduce((s, d) => s + d.valor, 0);
+  const calientes = activos.filter((d) =>
     TEMPERATURAS_CALIENTES.includes(d.temperatura)
   ).length;
-  const promedio = filtered.length ? valorTotal / filtered.length : 0;
+  const promedio = activos.length ? valorTotal / activos.length : 0;
 
   const dealsByStage = (stageId: string) =>
-    filtered.filter((d) => d.stage_id === stageId);
+    activos.filter((d) => d.stage_id === stageId);
 
   async function moverDeal(dealId: string, nuevoStageId: string) {
     const prev = items;
@@ -128,7 +132,7 @@ export default function PipelineKanban({ stages, deals, vendedores, clientes, ti
       <div className="flex flex-wrap items-center gap-6 border-b border-surface-border bg-white px-6 py-4">
         <Kpi label="Valor del pipeline" value={`${fmt(valorTotal)} MXN`} big />
         <div className="h-9 w-px bg-borde" />
-        <Kpi label="Deals activos" value={String(filtered.length)} />
+        <Kpi label="Deals activos" value={String(activos.length)} />
         <Kpi label="🔥 Calientes" value={String(calientes)} />
         <Kpi label="Promedio deal" value={fmt(promedio)} />
         <div className="ml-auto flex items-center gap-1.5 text-xs text-gray-400">
@@ -198,6 +202,35 @@ export default function PipelineKanban({ stages, deals, vendedores, clientes, ti
               </div>
             );
           })}
+
+          {/* Columna sintética: deals suspendidos (estado, no etapa) */}
+          {pausados.length > 0 && (
+            <div className="flex w-60 shrink-0 flex-col">
+              <div className="rounded-t-xl border border-b-0 border-surface-border bg-white px-3.5 py-2.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-navy">⏸ Pausados</span>
+                  <span className="rounded-full bg-surface px-2 py-0.5 text-[11px] font-semibold text-gray-400">{pausados.length}</span>
+                </div>
+                <div className="mt-1.5 h-[3px] rounded-full" style={{ background: "#2A5298", opacity: 0.7 }} />
+                <div className="mt-1.5 text-[13px] font-bold text-navy">
+                  {fmt(pausados.reduce((s, d) => s + d.valor, 0))}{" "}
+                  <span className="text-[10px] font-medium text-gray-400">MXN</span>
+                </div>
+              </div>
+              <div className="flex min-h-[120px] flex-col gap-2 rounded-b-xl border border-t-0 border-surface-border bg-surface p-2">
+                {pausados.map((deal) => (
+                  <DealCard
+                    key={deal.id}
+                    deal={deal}
+                    draggable={false}
+                    onDragStart={() => {}}
+                    onDragEnd={() => {}}
+                    onClick={() => router.push(`/pipeline/${deal.id}`)}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
