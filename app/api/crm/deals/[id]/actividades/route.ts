@@ -25,11 +25,12 @@ export async function POST(
     return NextResponse.json({ error: "JSON inválido" }, { status: 400 });
   }
 
-  const { tipo, contenido, es_tarea, fecha_tarea } = (body ?? {}) as {
+  const { tipo, contenido, contacto_id, fecha_evento, exitosa } = (body ?? {}) as {
     tipo?: string;
     contenido?: string;
-    es_tarea?: boolean;
-    fecha_tarea?: string;
+    contacto_id?: string;
+    fecha_evento?: string;
+    exitosa?: boolean;
   };
 
   if (!tipo || !TIPOS.includes(tipo as (typeof TIPOS)[number])) {
@@ -43,15 +44,25 @@ export async function POST(
     const deal = await prisma.deal.findUnique({ where: { id }, select: { id: true } });
     if (!deal) return NextResponse.json({ error: "Deal no encontrado" }, { status: 404 });
 
+    // Validar que el contacto (si viene) pertenece al deal
+    let contactoId: string | null = null;
+    if (contacto_id) {
+      const c = await prisma.dealContacto.findFirst({ where: { id: contacto_id, deal_id: id }, select: { id: true } });
+      contactoId = c?.id ?? null;
+    }
+
     const actividad = await prisma.dealActividad.create({
       data: {
         deal_id: id,
         tipo: tipo as (typeof TIPOS)[number],
         contenido: contenido.trim(),
         autor: session.email,
-        es_tarea: Boolean(es_tarea),
-        fecha_tarea: es_tarea && fecha_tarea ? new Date(fecha_tarea) : null,
+        contacto_id: contactoId,
+        // Email registra la fecha automáticamente (now); los demás pueden indicarla
+        fecha_evento: fecha_evento ? new Date(fecha_evento) : tipo === "EMAIL" ? new Date() : null,
+        exitosa: tipo === "LLAMADA" ? (typeof exitosa === "boolean" ? exitosa : null) : null,
       },
+      include: { contacto: { select: { nombre: true } } },
     });
 
     return NextResponse.json(
@@ -60,6 +71,9 @@ export async function POST(
         tipo: actividad.tipo,
         contenido: actividad.contenido,
         autor: actividad.autor,
+        contacto_nombre: actividad.contacto?.nombre ?? null,
+        fecha_evento: actividad.fecha_evento ? actividad.fecha_evento.toISOString() : null,
+        exitosa: actividad.exitosa,
         es_tarea: actividad.es_tarea,
         completada: actividad.completada,
         fecha_tarea: actividad.fecha_tarea ? actividad.fecha_tarea.toISOString().slice(0, 10) : null,

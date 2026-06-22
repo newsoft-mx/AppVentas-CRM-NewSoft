@@ -74,6 +74,9 @@ export interface DealActividadItem {
   tipo: TipoActividad;
   contenido: string;
   autor: string;
+  contacto_nombre: string | null;
+  fecha_evento: string | null;
+  exitosa: boolean | null;
   es_tarea: boolean;
   completada: boolean;
   fecha_tarea: string | null;

@@ -38,7 +38,13 @@ function fmtHora(iso: string): string {
   return new Date(iso).toLocaleString("es-MX", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" });
 }
 
-const ACT_TABS = ["Actividad", "Emails", "Llamadas", "Archivos"] as const;
+const FILTROS_VER: { key: "TODAS" | "NOTA" | "LLAMADA" | "EMAIL" | "WHATSAPP"; label: string }[] = [
+  { key: "TODAS", label: "Todas" },
+  { key: "NOTA", label: "Notas" },
+  { key: "LLAMADA", label: "Llamadas" },
+  { key: "EMAIL", label: "Emails" },
+  { key: "WHATSAPP", label: "WhatsApp" },
+];
 const TIPO_PILLS: { tipo: TipoActividad; label: string; icon: typeof StickyNote }[] = [
   { tipo: "NOTA", label: "Nota", icon: StickyNote },
   { tipo: "LLAMADA", label: "Llamada", icon: Phone },
@@ -52,14 +58,24 @@ const ACT_ICON: Record<TipoActividad, { icon: typeof StickyNote; color: string; 
   WHATSAPP: { icon: MessageCircle, color: "#1D9E75", bg: "#E8F8F2" },
   SISTEMA: { icon: Cog, color: "#6B7A99", bg: "#F3F5F9" },
 };
+const PLACEHOLDER: Record<TipoActividad, string> = {
+  NOTA: "Escribe una nota interna…",
+  LLAMADA: "¿Qué pasó en la llamada?",
+  EMAIL: "Pega o resume el correo…",
+  WHATSAPP: "¿Qué se conversó por WhatsApp?",
+  SISTEMA: "",
+};
 
 export default function DealDetalleClient({ deal, stages, canWrite }: Props) {
   const router = useRouter();
   const temp = TEMPERATURA_META[deal.temperatura];
   const [actividades, setActividades] = useState<DealActividadItem[]>(deal.actividades);
-  const [tab, setTab] = useState<(typeof ACT_TABS)[number]>("Actividad");
+  const [filtroVer, setFiltroVer] = useState<"TODAS" | "NOTA" | "LLAMADA" | "EMAIL" | "WHATSAPP">("TODAS");
   const [tipoNueva, setTipoNueva] = useState<TipoActividad>("NOTA");
   const [texto, setTexto] = useState("");
+  const [contactoSel, setContactoSel] = useState("");
+  const [fechaEvento, setFechaEvento] = useState("");
+  const [exitosa, setExitosa] = useState(true);
   const [guardando, setGuardando] = useState(false);
   const [procesando, setProcesando] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -99,12 +115,9 @@ export default function DealDetalleClient({ deal, stages, canWrite }: Props) {
     }
   }
 
-  const actividadesFiltradas = actividades.filter((a) => {
-    if (tab === "Emails") return a.tipo === "EMAIL";
-    if (tab === "Llamadas") return a.tipo === "LLAMADA";
-    if (tab === "Archivos") return false; // adjuntos: fase futura
-    return true;
-  });
+  const actividadesFiltradas = actividades.filter((a) =>
+    filtroVer === "TODAS" ? true : a.tipo === filtroVer
+  );
 
   async function guardarActividad() {
     if (!texto.trim() || guardando) return;
@@ -113,12 +126,21 @@ export default function DealDetalleClient({ deal, stages, canWrite }: Props) {
       const res = await fetch(`/api/crm/deals/${deal.id}/actividades`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ tipo: tipoNueva, contenido: texto.trim() }),
+        body: JSON.stringify({
+          tipo: tipoNueva,
+          contenido: texto.trim(),
+          contacto_id: contactoSel || undefined,
+          fecha_evento: fechaEvento || undefined,
+          exitosa: tipoNueva === "LLAMADA" ? exitosa : undefined,
+        }),
       });
       if (!res.ok) throw new Error();
       const nueva: DealActividadItem = await res.json();
       setActividades((cur) => [nueva, ...cur]);
       setTexto("");
+      setContactoSel("");
+      setFechaEvento("");
+      setExitosa(true);
     } catch {
       alert("No se pudo guardar la actividad.");
     } finally {
@@ -255,52 +277,85 @@ export default function DealDetalleClient({ deal, stages, canWrite }: Props) {
 
         {/* ── CENTRO: bitácora ── */}
         <section className="flex flex-col overflow-hidden bg-surface">
-          <div className="flex items-center gap-1 border-b border-surface-border bg-white px-5 py-2.5">
-            {ACT_TABS.map((t) => (
-              <button
-                key={t}
-                onClick={() => setTab(t)}
-                className={`border-b-2 px-3 py-1.5 text-xs font-semibold transition-colors ${
-                  tab === t ? "border-orange text-orange" : "border-transparent text-gray-400 hover:text-gray-600"
-                }`}
-              >
-                {t}
-              </button>
-            ))}
-          </div>
-
-          {/* Compositor */}
+          {/* Compositor: arriba el TIPO de entrada → cambian los campos */}
           {canWrite && (
             <div className="border-b border-surface-border bg-white px-5 py-3">
-              <textarea
-                value={texto}
-                onChange={(e) => setTexto(e.target.value)}
-                placeholder="Registrar nota, llamada, email…"
-                rows={2}
-                className="w-full resize-none rounded-lg border border-surface-border bg-surface px-3 py-2 text-sm text-navy outline-none focus:border-orange focus:bg-white"
-              />
-              <div className="mt-2 flex items-center gap-1.5">
+              <div className="mb-2.5 flex items-center gap-1.5">
                 {TIPO_PILLS.map(({ tipo, label, icon: Icon }) => (
                   <button
                     key={tipo}
                     onClick={() => setTipoNueva(tipo)}
-                    className={`flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-semibold transition-colors ${
+                    className={`flex items-center gap-1 rounded-lg border px-2.5 py-1.5 text-xs font-semibold transition-colors ${
                       tipoNueva === tipo ? "border-navy bg-navy text-white" : "border-surface-border text-gray-500 hover:bg-surface"
                     }`}
                   >
-                    <Icon size={11} /> {label}
+                    <Icon size={12} /> {label}
                   </button>
                 ))}
+              </div>
+
+              {/* Campos según el tipo */}
+              {tipoNueva !== "NOTA" && (
+                <div className="mb-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  <select
+                    value={contactoSel}
+                    onChange={(e) => setContactoSel(e.target.value)}
+                    className="rounded-lg border border-surface-border bg-white px-3 py-2 text-sm text-navy outline-none"
+                  >
+                    <option value="">{tipoNueva === "EMAIL" ? "¿A quién?" : "¿Con quién?"} (contacto)</option>
+                    {deal.contactos.map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}
+                  </select>
+                  {tipoNueva === "LLAMADA" && (
+                    <input
+                      type="datetime-local"
+                      value={fechaEvento}
+                      onChange={(e) => setFechaEvento(e.target.value)}
+                      className="rounded-lg border border-surface-border bg-white px-3 py-2 text-sm text-navy outline-none"
+                    />
+                  )}
+                  {tipoNueva === "LLAMADA" && (
+                    <label className="flex items-center gap-2 text-sm text-gray-600">
+                      <input type="checkbox" checked={exitosa} onChange={(e) => setExitosa(e.target.checked)} /> ¿Contestó / fue exitosa?
+                    </label>
+                  )}
+                </div>
+              )}
+
+              <textarea
+                value={texto}
+                onChange={(e) => setTexto(e.target.value)}
+                placeholder={PLACEHOLDER[tipoNueva]}
+                rows={2}
+                className="w-full resize-none rounded-lg border border-surface-border bg-surface px-3 py-2 text-sm text-navy outline-none focus:border-orange focus:bg-white"
+              />
+              <div className="mt-2 flex justify-end">
                 <button
                   onClick={guardarActividad}
                   disabled={!texto.trim() || guardando}
-                  className="ml-auto rounded-lg bg-navy px-3.5 py-1.5 text-xs font-semibold text-white disabled:opacity-50"
+                  className="rounded-lg bg-navy px-3.5 py-1.5 text-xs font-semibold text-white disabled:opacity-50"
                 >
-                  {guardando ? "Guardando…" : "Guardar"}
+                  {guardando ? "Guardando…" : "Registrar"}
                 </button>
               </div>
             </div>
           )}
+
+          {/* Filtros (ver bitácora por tipo) */}
+          <div className="flex flex-wrap items-center gap-1.5 border-b border-surface-border bg-gray-50 px-5 py-2">
+            <span className="mr-1 text-[11px] font-semibold uppercase tracking-wide text-gray-400">Ver:</span>
+            {FILTROS_VER.map((f) => (
+              <button
+                key={f.key}
+                onClick={() => setFiltroVer(f.key)}
+                className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${
+                  filtroVer === f.key ? "bg-navy text-white" : "text-gray-500 hover:bg-gray-200"
+                }`}
+              >
+                {f.label}
+              </button>
+            ))}
+            <span className="rounded-full px-2.5 py-0.5 text-[11px] font-semibold text-gray-300" title="Próximamente (adjuntos)">Archivos</span>
+          </div>
 
           {/* Timeline */}
           <div className="flex-1 overflow-y-auto px-5 py-4">
@@ -317,9 +372,15 @@ export default function DealDetalleClient({ deal, stages, canWrite }: Props) {
                       <Icon size={13} />
                     </div>
                     <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2 text-xs">
+                      <div className="flex flex-wrap items-center gap-2 text-xs">
                         <span className="font-semibold text-navy">{a.autor}</span>
-                        <span className="ml-auto text-[11px] text-gray-400">{fmtHora(a.created_at)}</span>
+                        {a.contacto_nombre && <span className="text-gray-400">· con {a.contacto_nombre}</span>}
+                        {a.tipo === "LLAMADA" && a.exitosa !== null && (
+                          <span className={`rounded px-1.5 py-0.5 text-[10px] font-semibold ${a.exitosa ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700"}`}>
+                            {a.exitosa ? "Contestó" : "No contestó"}
+                          </span>
+                        )}
+                        <span className="ml-auto text-[11px] text-gray-400">{fmtHora(a.fecha_evento ?? a.created_at)}</span>
                       </div>
                       <div
                         className="mt-1 rounded-lg border border-surface-border bg-white px-3 py-2 text-sm leading-relaxed text-gray-700"
