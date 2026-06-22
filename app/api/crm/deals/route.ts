@@ -42,12 +42,13 @@ export async function POST(req: NextRequest) {
     // Validar FKs (cliente activo, stage activo)
     const [cliente, stage] = await Promise.all([
       prisma.cliente.findFirst({ where: { id: cliente_id, activo: true }, select: { id: true } }),
-      prisma.pipelineStage.findFirst({ where: { id: stage_id, activo: true }, select: { id: true } }),
+      prisma.pipelineStage.findFirst({ where: { id: stage_id, activo: true }, select: { id: true, probabilidad_base: true } }),
     ]);
     if (!cliente) return NextResponse.json({ error: "Cliente inválido", campo: "cliente_id" }, { status: 422 });
     if (!stage) return NextResponse.json({ error: "Etapa inválida", campo: "stage_id" }, { status: 422 });
 
-    const probabilidad = num(body.probabilidad);
+    // Probabilidad automática: deriva de la etapa (no se captura a mano)
+    const probabilidad = stage.probabilidad_base;
     const fechaCierre = typeof body.fecha_cierre_estimada === "string" && body.fecha_cierre_estimada
       ? new Date(body.fecha_cierre_estimada) : null;
 

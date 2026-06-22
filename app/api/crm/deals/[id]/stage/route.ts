@@ -36,7 +36,7 @@ export async function PATCH(
       }),
       prisma.pipelineStage.findUnique({
         where: { id: stageId },
-        select: { id: true, nombre: true, activo: true },
+        select: { id: true, nombre: true, activo: true, probabilidad_base: true },
       }),
     ]);
 
@@ -51,7 +51,12 @@ export async function PATCH(
     await prisma.$transaction([
       prisma.deal.update({
         where: { id },
-        data: { stage_id: nuevoStage.id, fecha_entrada_stage: new Date() },
+        data: {
+          stage_id: nuevoStage.id,
+          fecha_entrada_stage: new Date(),
+          // Probabilidad automática: se ajusta a la de la nueva etapa
+          probabilidad: nuevoStage.probabilidad_base,
+        },
       }),
       prisma.dealActividad.create({
         data: {

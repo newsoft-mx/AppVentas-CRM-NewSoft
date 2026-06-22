@@ -10,10 +10,11 @@ interface FormState {
   nombre: string;
   color: string;
   orden: number;
+  probabilidad_base: number;
   activo: boolean;
 }
 
-const emptyForm: FormState = { nombre: "", color: "#9BA5BE", orden: 0, activo: true };
+const emptyForm: FormState = { nombre: "", color: "#9BA5BE", orden: 0, probabilidad_base: 0, activo: true };
 
 export default function TabPipelineStages({ initialStages }: { initialStages: PipelineStageConfig[] }) {
   const [stages, setStages] = useState<PipelineStageConfig[]>(initialStages);
@@ -39,7 +40,7 @@ export default function TabPipelineStages({ initialStages }: { initialStages: Pi
   };
   const openEdit = (s: PipelineStageConfig) => {
     setEditing(s);
-    setForm({ nombre: s.nombre, color: s.color, orden: s.orden, activo: s.activo });
+    setForm({ nombre: s.nombre, color: s.color, orden: s.orden, probabilidad_base: s.probabilidad_base, activo: s.activo });
     setFormError("");
     setIsModalOpen(true);
   };
@@ -60,7 +61,7 @@ export default function TabPipelineStages({ initialStages }: { initialStages: Pi
     if (!form.nombre.trim()) { setFormError("El nombre es requerido"); return; }
     setIsSaving(true); setFormError("");
     try {
-      const payload = { nombre: form.nombre.trim(), color: form.color, orden: form.orden, ...(editing && { activo: form.activo }) };
+      const payload = { nombre: form.nombre.trim(), color: form.color, orden: form.orden, probabilidad_base: form.probabilidad_base, ...(editing && { activo: form.activo }) };
       const saved = await save(payload, editing ?? undefined);
       setStages((prev) => editing ? prev.map((s) => (s.id === saved.id ? saved : s)) : [...prev, saved]);
       setToast({ type: "success", message: editing ? "Etapa actualizada" : "Etapa creada" });
@@ -115,13 +116,14 @@ export default function TabPipelineStages({ initialStages }: { initialStages: Pi
             <tr className="border-b border-surface-border bg-gray-50">
               <th className="w-28 px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Orden</th>
               <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Etapa</th>
+              <th className="w-20 px-4 py-3 text-center text-xs font-semibold uppercase tracking-wide text-gray-500">Prob.</th>
               <th className="w-24 px-4 py-3 text-center text-xs font-semibold uppercase tracking-wide text-gray-500">Estado</th>
               <th className="w-28 px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-gray-500">Acciones</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-surface-border">
             {ordered.length === 0 && (
-              <tr><td colSpan={4} className="px-4 py-8 text-center text-sm text-gray-400">No hay etapas</td></tr>
+              <tr><td colSpan={5} className="px-4 py-8 text-center text-sm text-gray-400">No hay etapas</td></tr>
             )}
             {ordered.map((s) => {
               const activeIdx = activos.findIndex((x) => x.id === s.id);
@@ -146,6 +148,7 @@ export default function TabPipelineStages({ initialStages }: { initialStages: Pi
                       {s.nombre}
                     </div>
                   </td>
+                  <td className="px-4 py-3 text-center text-sm font-semibold text-navy">{s.probabilidad_base}%</td>
                   <td className="px-4 py-3 text-center">
                     <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${s.activo ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}>
                       {s.activo ? "Activa" : "Inactiva"}
@@ -180,6 +183,10 @@ export default function TabPipelineStages({ initialStages }: { initialStages: Pi
               <div className="flex-1">
                 <label className="label">Orden</label>
                 <input type="number" className="input" value={form.orden} onChange={(e) => setForm((p) => ({ ...p, orden: Number(e.target.value) }))} />
+              </div>
+              <div className="flex-1">
+                <label className="label">Probabilidad base (%)</label>
+                <input type="number" min={0} max={100} className="input" value={form.probabilidad_base} onChange={(e) => setForm((p) => ({ ...p, probabilidad_base: Number(e.target.value) }))} />
               </div>
             </div>
             {editing && (

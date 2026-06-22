@@ -23,6 +23,9 @@ export async function PUT(
     }
     if (typeof body.color === "string" && /^#[0-9A-Fa-f]{6}$/.test(body.color)) data.color = body.color;
     if (body.orden !== undefined && Number.isFinite(Number(body.orden))) data.orden = Math.round(Number(body.orden));
+    if (body.probabilidad_base !== undefined && Number.isFinite(Number(body.probabilidad_base))) {
+      data.probabilidad_base = Math.min(100, Math.max(0, Math.round(Number(body.probabilidad_base))));
+    }
     if (typeof body.activo === "boolean") data.activo = body.activo;
 
     if (Object.keys(data).length === 0) {
@@ -32,7 +35,7 @@ export async function PUT(
     const stage = await prisma.pipelineStage.update({
       where: { id },
       data,
-      select: { id: true, nombre: true, orden: true, color: true, activo: true },
+      select: { id: true, nombre: true, orden: true, color: true, activo: true, probabilidad_base: true },
     });
     return NextResponse.json(stage);
   } catch {

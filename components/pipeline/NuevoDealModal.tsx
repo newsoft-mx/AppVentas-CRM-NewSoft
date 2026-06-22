@@ -29,7 +29,6 @@ export default function NuevoDealModal({ stages, vendedores, clientes, tipos, on
     canal: "",
     origen: "",
     fecha_cierre_estimada: "",
-    probabilidad: "",
   });
   const [error, setError] = useState<string | null>(null);
   const [guardando, setGuardando] = useState(false);
@@ -91,9 +90,6 @@ export default function NuevoDealModal({ stages, vendedores, clientes, tipos, on
           <select className={inputCls} value={form.temperatura} onChange={(e) => set("temperatura", e.target.value as Temperatura)}>
             {TEMPS.map((t) => <option key={t} value={t}>{TEMPERATURA_META[t].label}</option>)}
           </select>
-        </Campo>
-        <Campo label="Probabilidad (%)">
-          <input type="number" min={0} max={100} className={inputCls} value={form.probabilidad} onChange={(e) => set("probabilidad", e.target.value)} placeholder="0-100" />
         </Campo>
         <Campo label="Valor total (MXN)">
           <input type="number" min={0} className={inputCls} value={form.valor} onChange={(e) => set("valor", e.target.value)} placeholder="0" />

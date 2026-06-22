@@ -11,13 +11,12 @@ import {
   TEMPERATURA_META, ROL_CONTACTO_LABEL,
   type DealDetalle, type DealActividadItem, type StageResumen, type TipoActividad,
 } from "@/types/crm";
-import DealAIPanel, { type AnalisisHistItem } from "@/components/pipeline/DealAIPanel";
+// El panel de IA (DealAIPanel) está construido pero se libera en Fase 2.
 
 interface Props {
   deal: DealDetalle;
   stages: StageResumen[];
   canWrite: boolean;
-  analisis: AnalisisHistItem[];
 }
 
 function fmt(n: number): string {
@@ -51,7 +50,7 @@ const ACT_ICON: Record<TipoActividad, { icon: typeof StickyNote; color: string; 
   SISTEMA: { icon: Cog, color: "#6B7A99", bg: "#F3F5F9" },
 };
 
-export default function DealDetalleClient({ deal, stages, canWrite, analisis }: Props) {
+export default function DealDetalleClient({ deal, stages, canWrite }: Props) {
   const router = useRouter();
   const temp = TEMPERATURA_META[deal.temperatura];
   const [actividades, setActividades] = useState<DealActividadItem[]>(deal.actividades);
@@ -135,7 +134,7 @@ export default function DealDetalleClient({ deal, stages, canWrite, analisis }: 
         )}
       </header>
 
-      <div className="grid flex-1 grid-cols-1 gap-0 overflow-hidden lg:grid-cols-[300px_1fr_340px]">
+      <div className="grid flex-1 grid-cols-1 gap-0 overflow-hidden lg:grid-cols-[320px_1fr]">
         {/* ── IZQUIERDA: info del deal ── */}
         <aside className="overflow-y-auto border-r border-surface-border bg-white p-5">
           <span
@@ -298,8 +297,6 @@ export default function DealDetalleClient({ deal, stages, canWrite, analisis }: 
           </div>
         </section>
 
-        {/* ── DERECHA: panel de IA ── */}
-        <DealAIPanel dealId={deal.id} canWrite={canWrite} initialHistorial={analisis} />
       </div>
     </div>
   );

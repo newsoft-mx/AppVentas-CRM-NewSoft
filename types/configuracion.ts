@@ -65,4 +65,5 @@ export interface PipelineStageConfig {
   orden: number;
   color: string;
   activo: boolean;
+  probabilidad_base: number;
 }

@@ -30,11 +30,6 @@ export default async function DealDetallePage({
       tipo_cotizacion: { select: { id: true, nombre: true } },
       contactos: { orderBy: { created_at: "asc" } },
       actividades: { orderBy: { created_at: "desc" } },
-      analisis: {
-        orderBy: { created_at: "desc" },
-        take: 5,
-        select: { id: true, created_at: true, resultado: true },
-      },
     },
   });
 
@@ -108,19 +103,7 @@ export default async function DealDetallePage({
 
   const stagesSerialized: StageResumen[] = stages;
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const analisis = deal.analisis.map((a) => ({
-    id: a.id,
-    created_at: a.created_at.toISOString(),
-    resultado: a.resultado as any,
-  }));
-
   return (
-    <DealDetalleClient
-      deal={detalle}
-      stages={stagesSerialized}
-      canWrite={canWrite(session)}
-      analisis={analisis}
-    />
+    <DealDetalleClient deal={detalle} stages={stagesSerialized} canWrite={canWrite(session)} />
   );
 }

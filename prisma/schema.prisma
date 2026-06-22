@@ -306,7 +306,8 @@ enum TemperaturaDeal {
 enum DealResultado {
   ABIERTO // En seguimiento activo
   GANADO // Cerrado como venta → hand-off a OrdenVenta
-  PERDIDO // Cerrado sin venta
+  PERDIDO // Cerrado sin venta (requiere razón)
+  SUSPENDIDO // En pausa / hold — se muestra en la columna "Pausados"
 
   @@map("deal_resultado")
 }
@@ -338,15 +339,17 @@ enum RolContacto {
 // Soft delete: activo = false
 // ============================================================
 model PipelineStage {
-  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  nombre     String   @db.VarChar(100)
+  id                String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  nombre            String   @db.VarChar(100)
   // Posición en el tablero (orden de las columnas, ascendente)
-  orden      Int
+  orden             Int
   // Color de la columna/barra (hex, ej. #F47920)
-  color      String   @default("#9BA5BE") @db.VarChar(20)
-  activo     Boolean  @default(true)
-  created_at DateTime @default(now()) @db.Timestamptz(6)
-  updated_at DateTime @updatedAt @db.Timestamptz(6)
+  color             String   @default("#9BA5BE") @db.VarChar(20)
+  // Probabilidad de cierre base (0-100) para los deals en esta etapa
+  probabilidad_base Int      @default(0)
+  activo            Boolean  @default(true)
+  created_at        DateTime @default(now()) @db.Timestamptz(6)
+  updated_at        DateTime @updatedAt @db.Timestamptz(6)
 
   deals Deal[]
 
@@ -396,11 +399,14 @@ model Deal {
   fecha_entrada_stage   DateTime  @default(now()) @db.Timestamptz(6)
 
   // Outcome
-  resultado         DealResultado @default(ABIERTO)
-  fecha_cierre_real DateTime?     @db.Date
+  resultado          DealResultado @default(ABIERTO)
+  fecha_cierre_real  DateTime?     @db.Date
+  // Solo cuando resultado = PERDIDO (para estadísticas de pérdida)
+  razon_perdida      String?       @db.VarChar(150)
+  comentario_perdida String?       @db.Text
   // Orden generada al ganar el deal (hand-off al módulo Ventas)
-  orden_id          String?       @unique @db.Uuid
-  orden             OrdenVenta?   @relation(fields: [orden_id], references: [id], onDelete: SetNull)
+  orden_id           String?       @unique @db.Uuid
+  orden              OrdenVenta?   @relation(fields: [orden_id], references: [id], onDelete: SetNull)
 
   notas      String?  @db.Text
   created_at DateTime @default(now()) @db.Timestamptz(6)
@@ -433,6 +439,8 @@ model DealContacto {
   whatsapp   String?     @db.VarChar(20)
   created_at DateTime    @default(now()) @db.Timestamptz(6)
 
+  actividades DealActividad[]
+
   @@index([deal_id])
   @@map("deal_contacto")
 }
@@ -443,20 +451,28 @@ model DealContacto {
 // Puede ser una tarea con check.
 // ============================================================
 model DealActividad {
-  id          String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  deal_id     String        @db.Uuid
-  deal        Deal          @relation(fields: [deal_id], references: [id], onDelete: Cascade)
-  tipo        TipoActividad
-  contenido   String        @db.Text
+  id           String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  deal_id      String        @db.Uuid
+  deal         Deal          @relation(fields: [deal_id], references: [id], onDelete: Cascade)
+  tipo         TipoActividad
+  contenido    String        @db.Text
   // Nombre del autor (ej. "Roldán Ayala", "Sistema")
-  autor       String        @db.VarChar(150)
-  // Si es una tarea pendiente con check
-  es_tarea    Boolean       @default(false)
-  completada  Boolean       @default(false)
-  fecha_tarea DateTime?     @db.Date
-  created_at  DateTime      @default(now()) @db.Timestamptz(6)
+  autor        String        @db.VarChar(150)
+  // Contacto del lead con quien fue la interacción (llamada/email/whatsapp)
+  contacto_id  String?       @db.Uuid
+  contacto     DealContacto? @relation(fields: [contacto_id], references: [id], onDelete: SetNull)
+  // Cuándo ocurrió el evento (puede diferir del registro). Email = automático.
+  fecha_evento DateTime?     @db.Timestamptz(6)
+  // Solo para LLAMADA: si contestó / fue exitosa
+  exitosa      Boolean?
+  // Si es una tarea pendiente con check (uso futuro — Fase 2 / inbox)
+  es_tarea     Boolean       @default(false)
+  completada   Boolean       @default(false)
+  fecha_tarea  DateTime?     @db.Date
+  created_at   DateTime      @default(now()) @db.Timestamptz(6)
 
   @@index([deal_id])
+  @@index([contacto_id])
   @@map("deal_actividad")
 }
 

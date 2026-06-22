@@ -12,7 +12,6 @@ import {
   ChevronRight,
   LogOut,
   Workflow,
-  ListChecks,
 } from "lucide-react";
 import type { UserRole } from "@/lib/session";
 
@@ -36,11 +35,6 @@ const navItems = [
     href: "/pipeline",
     label: "Pipeline CRM",
     icon: Workflow,
-  },
-  {
-    href: "/acciones",
-    label: "Mis acciones",
-    icon: ListChecks,
   },
   {
     href: "/configuracion",

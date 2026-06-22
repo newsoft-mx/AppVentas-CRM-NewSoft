@@ -10,7 +10,7 @@ export async function GET(req: NextRequest) {
 
   const stages = await prisma.pipelineStage.findMany({
     orderBy: [{ activo: "desc" }, { orden: "asc" }],
-    select: { id: true, nombre: true, orden: true, color: true, activo: true },
+    select: { id: true, nombre: true, orden: true, color: true, activo: true, probabilidad_base: true },
   });
   return NextResponse.json(stages);
 }
@@ -33,9 +33,12 @@ export async function POST(req: NextRequest) {
       orden = (last?.orden ?? 0) + 1;
     }
 
+    const prob = Number(body.probabilidad_base);
+    const probabilidad_base = Number.isFinite(prob) ? Math.min(100, Math.max(0, Math.round(prob))) : 0;
+
     const stage = await prisma.pipelineStage.create({
-      data: { nombre, color, orden: Math.round(orden) },
-      select: { id: true, nombre: true, orden: true, color: true, activo: true },
+      data: { nombre, color, orden: Math.round(orden), probabilidad_base },
+      select: { id: true, nombre: true, orden: true, color: true, activo: true, probabilidad_base: true },
     });
     return NextResponse.json(stage, { status: 201 });
   } catch {

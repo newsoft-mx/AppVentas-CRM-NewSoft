@@ -534,17 +534,21 @@ async function main() {
 
   // 6.2 Stages configurables del pipeline (secuencia actual de Roldán)
   const stagesDef = [
-    { id: "50000000-0000-0000-0000-000000000001", nombre: "Leads", orden: 1, color: "#9BA5BE" },
-    { id: "50000000-0000-0000-0000-000000000002", nombre: "Calificado", orden: 2, color: "#4A90D9" },
-    { id: "50000000-0000-0000-0000-000000000003", nombre: "Req. Definidos", orden: 3, color: "#F5A623" },
-    { id: "50000000-0000-0000-0000-000000000004", nombre: "Propuesta", orden: 4, color: "#F47920" },
-    { id: "50000000-0000-0000-0000-000000000005", nombre: "Negociación", orden: 5, color: "#E8330A" },
-    { id: "50000000-0000-0000-0000-000000000006", nombre: "Cierre del Mes", orden: 6, color: "#1D9E75" },
-    { id: "50000000-0000-0000-0000-000000000007", nombre: "Pausados", orden: 7, color: "#2A5298" },
+    { id: "50000000-0000-0000-0000-000000000001", nombre: "Leads", orden: 1, color: "#9BA5BE", probabilidad_base: 10 },
+    { id: "50000000-0000-0000-0000-000000000002", nombre: "Calificado", orden: 2, color: "#4A90D9", probabilidad_base: 25 },
+    { id: "50000000-0000-0000-0000-000000000003", nombre: "Req. Definidos", orden: 3, color: "#F5A623", probabilidad_base: 40 },
+    { id: "50000000-0000-0000-0000-000000000004", nombre: "Propuesta", orden: 4, color: "#F47920", probabilidad_base: 60 },
+    { id: "50000000-0000-0000-0000-000000000005", nombre: "Negociación", orden: 5, color: "#E8330A", probabilidad_base: 80 },
+    { id: "50000000-0000-0000-0000-000000000006", nombre: "Cierre del Mes", orden: 6, color: "#1D9E75", probabilidad_base: 95 },
+    { id: "50000000-0000-0000-0000-000000000007", nombre: "Pausados", orden: 7, color: "#2A5298", probabilidad_base: 0 },
   ];
   const stages = await Promise.all(
     stagesDef.map((s) =>
-      prisma.pipelineStage.upsert({ where: { id: s.id }, update: { nombre: s.nombre, orden: s.orden, color: s.color }, create: { ...s, activo: true } })
+      prisma.pipelineStage.upsert({
+        where: { id: s.id },
+        update: { nombre: s.nombre, orden: s.orden, color: s.color, probabilidad_base: s.probabilidad_base },
+        create: { ...s, activo: true },
+      })
     )
   );
 
