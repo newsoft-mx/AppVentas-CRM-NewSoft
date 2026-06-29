@@ -333,6 +333,15 @@ enum RolContacto {
   @@map("rol_contacto")
 }
 
+// Estado de una acción/seguimiento de la bitácora (toggle de color en la UI)
+enum EstadoAccion {
+  PENDIENTE // Agendada, aún no se trabajó
+  EN_PROCESO // Se empezó a trabajar
+  TERMINADO // Hecha, con resultado registrado (sale de Próximas Acciones)
+
+  @@map("estado_accion")
+}
+
 // ============================================================
 // PIPELINE STAGE (etapa del pipeline)
 // Catálogo CONFIGURABLE (requisito explícito de Roldán). Ordenable.
@@ -468,6 +477,8 @@ model DealActividad {
   // Seguimiento agendado: próximo paso con fecha y hora (alimenta inbox/IA Fase 2)
   es_tarea     Boolean       @default(false)
   completada   Boolean       @default(false)
+  // Estado de la acción (3 estados). Se mantiene en sync con completada: TERMINADO ⟺ completada=true
+  estado_accion EstadoAccion @default(PENDIENTE)
   fecha_tarea  DateTime?     @db.Timestamptz(6)
   created_at   DateTime      @default(now()) @db.Timestamptz(6)
 

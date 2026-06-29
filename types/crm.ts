@@ -29,10 +29,24 @@ export interface DealResumen {
   actividades_count: number;
   /** Próximo seguimiento agendado pendiente (ISO con hora), o null */
   proximo_seguimiento: string | null;
+  /** Estado de atención derivado (stand-by): EN_SEGUIMIENTO | VENCIDO | SIN_PROXIMA */
+  atencion: EstadoAtencion;
   cliente: { id: string; nombre: string } | null;
   vendedor: { id: string; nombre: string } | null;
   tipo: { id: string; nombre: string } | null;
 }
+
+export type EstadoAtencion = "EN_SEGUIMIENTO" | "VENCIDO" | "SIN_PROXIMA";
+
+// Metadata de presentación del estado de atención (REQ-01 stand-by)
+export const ATENCION_META: Record<
+  EstadoAtencion,
+  { label: string; chip: string; dot: string }
+> = {
+  EN_SEGUIMIENTO: { label: "En seguimiento", chip: "bg-emerald-50 text-emerald-700", dot: "#1D9E75" },
+  VENCIDO: { label: "Vencido", chip: "bg-red-50 text-red-700", dot: "#E8330A" },
+  SIN_PROXIMA: { label: "Sin próxima acción", chip: "bg-amber-50 text-amber-700", dot: "#F5A623" },
+};
 
 // Metadata de presentación de la temperatura (color + etiqueta)
 export const TEMPERATURA_META: Record<
@@ -61,6 +75,20 @@ export const TEMPERATURA_RANK: Record<Temperatura, number> = {
 
 export type TipoActividad = "NOTA" | "LLAMADA" | "EMAIL" | "WHATSAPP" | "SISTEMA";
 export type RolContacto = "DECISOR" | "INFLUENCIADOR" | "USUARIO" | "OTRO";
+export type EstadoAccion = "PENDIENTE" | "EN_PROCESO" | "TERMINADO";
+
+// Metadata del estado de la acción (toggle de color liviano, REQ-01)
+export const ESTADO_ACCION_META: Record<
+  EstadoAccion,
+  { label: string; dot: string; chip: string }
+> = {
+  PENDIENTE: { label: "Pendiente", dot: "#9BA5BE", chip: "bg-gray-100 text-gray-600" },
+  EN_PROCESO: { label: "En proceso", dot: "#4A90D9", chip: "bg-blue-50 text-blue-700" },
+  TERMINADO: { label: "Terminado", dot: "#1D9E75", chip: "bg-emerald-50 text-emerald-700" },
+};
+
+// Orden de ciclado del toggle (un toque avanza al siguiente)
+export const ESTADO_ACCION_CICLO: EstadoAccion[] = ["PENDIENTE", "EN_PROCESO", "TERMINADO"];
 
 export interface DealContactoItem {
   id: string;
@@ -81,6 +109,7 @@ export interface DealActividadItem {
   exitosa: boolean | null;
   es_tarea: boolean;
   completada: boolean;
+  estado_accion: EstadoAccion;
   fecha_tarea: string | null;
   created_at: string;
 }
@@ -110,12 +139,14 @@ export interface DealDetalle {
   historial: { ordenes_total: number; proyectos_ganados: number; total_facturado: number };
 }
 
-// ── Inbox de acciones ──
+// ── Próximas Acciones (agregador de seguimientos de la bitácora) ──
 export interface AccionItem {
   id: string;
   tipo: TipoActividad;
   contenido: string;
   fecha_tarea: string | null;
+  estado_accion: EstadoAccion;
+  contacto_nombre: string | null;
   deal: {
     id: string;
     nombre: string;
@@ -124,6 +155,15 @@ export interface AccionItem {
     vendedor: { id: string; nombre: string } | null;
   };
 }
+
+// Grupos de urgencia temporal para Próximas Acciones (REQ-01)
+export type GrupoUrgencia = "VENCIDAS" | "HOY" | "SEMANA" | "DESPUES";
+export const GRUPO_URGENCIA_META: Record<GrupoUrgencia, { label: string }> = {
+  VENCIDAS: { label: "Vencidas" },
+  HOY: { label: "Hoy" },
+  SEMANA: { label: "Esta semana" },
+  DESPUES: { label: "Más adelante" },
+};
 
 export const ROL_CONTACTO_LABEL: Record<RolContacto, string> = {
   DECISOR: "Decisor",

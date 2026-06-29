@@ -12,6 +12,7 @@ import {
   ChevronRight,
   LogOut,
   Workflow,
+  CalendarClock,
 } from "lucide-react";
 import type { UserRole } from "@/lib/session";
 
@@ -35,6 +36,11 @@ const navItems = [
     href: "/pipeline",
     label: "Pipeline CRM",
     icon: Workflow,
+  },
+  {
+    href: "/acciones",
+    label: "Próximas Acciones",
+    icon: CalendarClock,
   },
   {
     href: "/configuracion",

@@ -7,6 +7,7 @@ import {
   TEMPERATURA_META,
   TEMPERATURAS_CALIENTES,
   TEMPERATURA_RANK,
+  ATENCION_META,
   type DealResumen,
   type StageResumen,
 } from "@/types/crm";
@@ -447,23 +448,21 @@ function DealCard({
           {iniciales}
         </div>
       </div>
-      {deal.proximo_seguimiento && (
-        <div
-          className={`mt-1.5 flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-semibold ${
-            new Date(deal.proximo_seguimiento).getTime() < Date.now()
-              ? "bg-red-50 text-red-700"
-              : "bg-blue-50 text-blue-700"
-          }`}
-        >
-          <CalendarClock size={10} />
-          {new Date(deal.proximo_seguimiento).toLocaleString("es-MX", {
-            day: "2-digit",
-            month: "short",
-            hour: "2-digit",
-            minute: "2-digit",
-          })}
-        </div>
-      )}
+      {/* Estado de atención (stand-by): un seguimiento futuro deja el deal "en seguimiento"
+          (verde), no en rojo. Vencido = rojo. Sin próxima acción = ámbar. */}
+      <div
+        className={`mt-1.5 flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-semibold ${
+          ATENCION_META[deal.atencion].chip
+        }`}
+      >
+        <CalendarClock size={10} />
+        {deal.proximo_seguimiento
+          ? `${ATENCION_META[deal.atencion].label} · ${new Date(deal.proximo_seguimiento).toLocaleString(
+              "es-MX",
+              { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }
+            )}`
+          : ATENCION_META[deal.atencion].label}
+      </div>
     </div>
   );
 }

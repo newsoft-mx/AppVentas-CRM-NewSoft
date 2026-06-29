@@ -107,6 +107,7 @@ export async function POST(req: NextRequest) {
       dias_en_etapa: 0,
       actividades_count: 0,
       proximo_seguimiento: null,
+      atencion: "SIN_PROXIMA",
       cliente: deal.cliente ? { id: deal.cliente.id, nombre: deal.cliente.nombre } : null,
       vendedor: deal.vendedor ? { id: deal.vendedor.id, nombre: deal.vendedor.nombre } : null,
       tipo: deal.tipo_cotizacion ? { id: deal.tipo_cotizacion.id, nombre: deal.tipo_cotizacion.nombre } : null,

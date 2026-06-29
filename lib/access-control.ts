@@ -41,3 +41,13 @@ export function canMutateOrden(session: SessionPayload | null, orden?: { vendedo
 export function assignedVendedorId(session: SessionPayload, requestedVendedorId: string) {
   return session.rol === "VENDEDOR" ? session.vendedorId : requestedVendedorId;
 }
+
+// Scope de deals "por vendedor en sesión": el VENDEDOR solo ve los suyos;
+// ADMIN/GERENTE/ADMINISTRATIVO ven todos (filtran con el dropdown de la UI).
+export function scopeDealWhere(session: SessionPayload | null, where: WhereInput = {}): WhereInput {
+  if (!session) return { id: "__no-session__" };
+  if (session.rol === "VENDEDOR") {
+    return andWhere(where, { vendedor_id: session.vendedorId ?? "__sin-vendedor-asignado__" });
+  }
+  return where;
+}
