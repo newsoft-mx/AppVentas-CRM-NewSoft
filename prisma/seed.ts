@@ -292,6 +292,24 @@ async function main() {
   ]);
 
   clientes.forEach((c) => console.log(`   ✓ ${c.nombre} (${c.rfc})`));
+
+  // Prospecto demo (REQ-02): alta rápida desde el pipeline, sin datos fiscales aún
+  await prisma.cliente.upsert({
+    where: { id: "30000000-0000-0000-0000-000000000009" },
+    update: {},
+    create: {
+      id: "30000000-0000-0000-0000-000000000009",
+      nombre: "Innovatec Soluciones (prospecto)",
+      contacto: "Laura Méndez",
+      ciudad: "",
+      email: "laura@innovatec.mx",
+      telefono: "+52 55 4444 3333",
+      condicion_pago_id: "20000000-0000-0000-0000-000000000001",
+      estatus: "PROSPECTO",
+      activo: true,
+    },
+  });
+  console.log("   ✓ Innovatec Soluciones (PROSPECTO)");
   console.log();
 
   // ──────────────────────────────────────────

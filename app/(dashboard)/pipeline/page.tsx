@@ -61,20 +61,29 @@ export default async function PipelinePage() {
     }),
   ]);
 
-  // Última actividad por deal — acotada a los deals cargados (no escanea todo el histórico)
-  // + parámetros del termómetro/atención
+  // KPIs de altas por período (REQ-04): nuevos deals hoy / esta semana / este mes
+  const ahora = new Date();
+  const inicioDia = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate());
+  const diaSemana = (inicioDia.getDay() + 6) % 7; // lunes = 0
+  const inicioSemana = new Date(inicioDia);
+  inicioSemana.setDate(inicioDia.getDate() - diaSemana);
+  const inicioMes = new Date(ahora.getFullYear(), ahora.getMonth(), 1);
+
+  // Última actividad por deal — acotada a los deals cargados; + config + conteos por período
   const dealIds = deals.map((d) => d.id);
-  const [ultimas, config] = await Promise.all([
+  const [ultimas, config, nuevosHoy, nuevosSemana, nuevosMes] = await Promise.all([
     prisma.dealActividad.groupBy({
       by: ["deal_id"],
       where: { deal_id: { in: dealIds } },
       _max: { created_at: true },
     }),
     getCrmConfig(),
+    prisma.deal.count({ where: { created_at: { gte: inicioDia } } }),
+    prisma.deal.count({ where: { created_at: { gte: inicioSemana } } }),
+    prisma.deal.count({ where: { created_at: { gte: inicioMes } } }),
   ]);
   const ultimaPorDeal = new Map(ultimas.map((u) => [u.deal_id, u._max.created_at]));
   const params = toParametrosTermometro(config);
-  const ahora = new Date();
 
   const stagesSerialized: StageResumen[] = stages;
 
@@ -128,6 +137,7 @@ export default async function PipelinePage() {
       clientes={clientes}
       tipos={tipos}
       canWrite={canWrite(session)}
+      altas={{ hoy: nuevosHoy, semana: nuevosSemana, mes: nuevosMes }}
     />
   );
 }

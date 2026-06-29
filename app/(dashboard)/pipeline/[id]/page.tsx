@@ -25,7 +25,7 @@ export default async function DealDetallePage({
     where: { id },
     include: {
       stage: { select: { id: true, nombre: true, orden: true, umbral_avance: true } },
-      cliente: { select: { id: true, nombre: true } },
+      cliente: { select: { id: true, nombre: true, estatus: true } },
       vendedor: { select: { id: true, nombre: true } },
       tipo_cotizacion: { select: { id: true, nombre: true } },
       contactos: { orderBy: { created_at: "asc" } },

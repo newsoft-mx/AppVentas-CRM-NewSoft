@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import {
   ArrowLeft, Phone, Mail, MessageCircle, StickyNote,
   Building2, Trophy, Cog, ChevronDown, XCircle, PauseCircle, Play, CalendarClock,
-  Star, Link2, ArrowUpCircle, ChevronRight,
+  Star, Link2, ArrowUpCircle, ChevronRight, UserPlus, Pencil,
 } from "lucide-react";
 import Modal from "@/components/ui/Modal";
 import Termometro from "@/components/pipeline/Termometro";
@@ -93,6 +93,18 @@ export default function DealDetalleClient({ deal, stages, canWrite }: Props) {
   const [sugerirAvance, setSugerirAvance] = useState(
     Boolean(siguienteStage) && cruzaUmbralAvance(deal.temperatura, deal.stage.umbral_avance)
   );
+
+  // Resumen / descripción del proyecto (REQ-05.3) — editable inline
+  const [notas, setNotas] = useState(deal.notas ?? "");
+  const [editandoNotas, setEditandoNotas] = useState(false);
+  async function guardarNotas() {
+    setEditandoNotas(false);
+    await fetch(`/api/crm/deals/${deal.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ notas }),
+    }).catch(() => {});
+  }
 
   async function avanzarEtapa() {
     if (!siguienteStage) return;
@@ -281,7 +293,18 @@ export default function DealDetalleClient({ deal, stages, canWrite }: Props) {
           <div className="mt-1.5 flex items-center gap-1.5 text-sm text-gray-500">
             <Building2 size={14} className="text-gray-400" />
             {deal.cliente?.nombre ?? "Sin cliente"}
+            {deal.cliente?.estatus === "PROSPECTO" && (
+              <span className="rounded-full bg-amber-50 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700">Prospecto</span>
+            )}
           </div>
+          {canWrite && deal.cliente?.estatus === "PROSPECTO" && (
+            <Link
+              href="/clientes?estatus=PROSPECTO"
+              className="mt-2 flex w-fit items-center gap-1.5 rounded-lg border border-orange/40 bg-orange/5 px-2.5 py-1.5 text-[11px] font-semibold text-orange hover:bg-orange/10"
+            >
+              <UserPlus size={13} /> Convertir a Cliente
+            </Link>
+          )}
 
           {proximoSeguimiento && (
             <div
@@ -319,6 +342,34 @@ export default function DealDetalleClient({ deal, stages, canWrite }: Props) {
             <KpiCard label="Días abierto" value={`${deal.dias_abierto} días`} />
             <KpiCard label="Probabilidad" value={deal.probabilidad != null ? `${deal.probabilidad}%` : "—"} accent="green" />
           </div>
+
+          {/* Resumen / descripción del proyecto (REQ-05.3) */}
+          <Section title="Resumen del proyecto">
+            {editandoNotas ? (
+              <div className="space-y-2">
+                <textarea
+                  value={notas}
+                  onChange={(e) => setNotas(e.target.value)}
+                  rows={3}
+                  autoFocus
+                  placeholder="¿De qué trata este deal? (contexto, alcance, notas)…"
+                  className="w-full resize-none rounded-lg border border-surface-border bg-white px-3 py-2 text-xs text-navy outline-none focus:border-orange"
+                />
+                <div className="flex justify-end gap-2">
+                  <button onClick={() => { setNotas(deal.notas ?? ""); setEditandoNotas(false); }} className="text-[11px] font-semibold text-gray-400 hover:text-navy">Cancelar</button>
+                  <button onClick={guardarNotas} className="rounded bg-navy px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-navy-700">Guardar</button>
+                </div>
+              </div>
+            ) : (
+              <button
+                onClick={() => canWrite && setEditandoNotas(true)}
+                className="flex w-full items-start gap-1.5 text-left text-xs text-gray-600 hover:text-navy"
+              >
+                <span className="flex-1">{notas || <span className="text-gray-400">Sin descripción — clic para agregar</span>}</span>
+                {canWrite && <Pencil size={12} className="mt-0.5 shrink-0 text-gray-300" />}
+              </button>
+            )}
+          </Section>
 
           {/* Datos del deal */}
           <Section title="Datos del deal">

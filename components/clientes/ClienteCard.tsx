@@ -3,7 +3,7 @@
 import { MapPin, Mail, Phone, User, Briefcase, Pencil, PowerOff } from "lucide-react";
 import { formatMXN, formatUSD } from "@/lib/utils";
 import { getCondicionBadgeClasses, getAvatarClasses, getInitials } from "@/lib/ui-helpers";
-import type { ClienteConStats } from "@/types/clientes";
+import { ESTATUS_CLIENTE_META, type ClienteConStats } from "@/types/clientes";
 
 interface ClienteCardProps {
   cliente: ClienteConStats;
@@ -32,9 +32,14 @@ export default function ClienteCard({ cliente, onEdit, onDesactivar }: ClienteCa
           {initials}
         </div>
         <div className="min-w-0 flex-1">
-          <h3 className="font-semibold text-navy text-sm leading-tight line-clamp-2">
-            {cliente.nombre}
-          </h3>
+          <div className="flex items-start justify-between gap-2">
+            <h3 className="font-semibold text-navy text-sm leading-tight line-clamp-2">
+              {cliente.nombre}
+            </h3>
+            <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold ${ESTATUS_CLIENTE_META[cliente.estatus].chip}`}>
+              {ESTATUS_CLIENTE_META[cliente.estatus].label}
+            </span>
+          </div>
           <p className="text-xs text-gray-400 font-mono mt-0.5">
             {cliente.rfc || "RFC no registrado"}
           </p>

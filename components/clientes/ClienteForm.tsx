@@ -10,6 +10,8 @@ interface ClienteFormProps {
   condiciones: CondicionResumen[];
   onSuccess: (cliente: ClienteConStats) => void;
   onCancel: () => void;
+  /** Modo conversión Prospecto → Cliente (REQ-02): postea al endpoint de conversión */
+  convertir?: boolean;
 }
 
 type FormErrors = Partial<Record<keyof ClienteInput | "general", string>>;
@@ -19,6 +21,7 @@ export default function ClienteForm({
   condiciones,
   onSuccess,
   onCancel,
+  convertir = false,
 }: ClienteFormProps) {
   const isEditing = !!cliente;
 
@@ -67,10 +70,12 @@ export default function ClienteForm({
     setErrors({});
 
     try {
-      const url = isEditing
+      const url = convertir && cliente
+        ? `/api/clientes/${cliente.id}/convertir`
+        : isEditing
         ? `/api/clientes/${cliente.id}`
         : "/api/clientes";
-      const method = isEditing ? "PUT" : "POST";
+      const method = convertir ? "POST" : isEditing ? "PUT" : "POST";
 
       const payload: ClienteInput = {
         nombre: form.nombre.trim(),
