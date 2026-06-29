@@ -2,6 +2,8 @@ import { prisma } from "@/lib/prisma";
 import { getServerSession } from "@/lib/server-session";
 import { canWrite } from "@/lib/session";
 import { estadoAtencion } from "@/lib/atencion";
+import { getCrmConfig, toParametrosTermometro } from "@/lib/crm-config";
+import { temperaturaEfectiva } from "@/lib/termometro";
 import PipelineKanban from "@/components/pipeline/PipelineKanban";
 import type { Metadata } from "next";
 import type { DealResumen, StageResumen, Temperatura } from "@/types/crm";
@@ -60,13 +62,19 @@ export default async function PipelinePage() {
   ]);
 
   // Última actividad por deal — acotada a los deals cargados (no escanea todo el histórico)
+  // + parámetros del termómetro/atención
   const dealIds = deals.map((d) => d.id);
-  const ultimas = await prisma.dealActividad.groupBy({
-    by: ["deal_id"],
-    where: { deal_id: { in: dealIds } },
-    _max: { created_at: true },
-  });
+  const [ultimas, config] = await Promise.all([
+    prisma.dealActividad.groupBy({
+      by: ["deal_id"],
+      where: { deal_id: { in: dealIds } },
+      _max: { created_at: true },
+    }),
+    getCrmConfig(),
+  ]);
   const ultimaPorDeal = new Map(ultimas.map((u) => [u.deal_id, u._max.created_at]));
+  const params = toParametrosTermometro(config);
+  const ahora = new Date();
 
   const stagesSerialized: StageResumen[] = stages;
 
@@ -83,14 +91,22 @@ export default async function PipelinePage() {
             created_at: ultimaPorDeal.get(d.id) ?? d.created_at,
           },
         ];
-    const atencion = estadoAtencion(atencionInput).estado;
+    const atencion = estadoAtencion(atencionInput, ahora, config.umbral_inactividad_dias).estado;
+    // Temperatura efectiva: enfriada si el deal lleva inactivo más del umbral (display)
+    const tempEfectiva = temperaturaEfectiva(
+      d.temperatura as Temperatura,
+      ultimaPorDeal.get(d.id) ?? null,
+      config.umbral_inactividad_dias,
+      params,
+      ahora
+    );
 
     return {
       id: d.id,
       nombre: d.nombre,
       valor: Number(d.valor),
       moneda: d.moneda,
-      temperatura: d.temperatura as Temperatura,
+      temperatura: tempEfectiva,
       probabilidad: d.probabilidad,
       resultado: d.resultado,
       stage_id: d.stage_id,

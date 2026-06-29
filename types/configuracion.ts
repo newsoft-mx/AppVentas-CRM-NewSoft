@@ -66,4 +66,5 @@ export interface PipelineStageConfig {
   color: string;
   activo: boolean;
   probabilidad_base: number;
+  umbral_avance: string | null;
 }

@@ -4,6 +4,7 @@ import { useState, useCallback } from "react";
 import { Pencil, Plus, ChevronUp, ChevronDown } from "lucide-react";
 import Modal from "@/components/ui/Modal";
 import Toast, { ToastData } from "@/components/ui/Toast";
+import CrmConfigPanel from "@/components/configuracion/CrmConfigPanel";
 import type { PipelineStageConfig } from "@/types/configuracion";
 
 interface FormState {
@@ -11,10 +12,25 @@ interface FormState {
   color: string;
   orden: number;
   probabilidad_base: number;
+  umbral_avance: string; // "" = sin umbral
   activo: boolean;
 }
 
-const emptyForm: FormState = { nombre: "", color: "#9BA5BE", orden: 0, probabilidad_base: 0, activo: true };
+const emptyForm: FormState = {
+  nombre: "",
+  color: "#9BA5BE",
+  orden: 0,
+  probabilidad_base: 0,
+  umbral_avance: "",
+  activo: true,
+};
+
+const TEMP_OPCIONES: { value: string; label: string }[] = [
+  { value: "", label: "Sin avance automático" },
+  { value: "TIBIO", label: "Tibio" },
+  { value: "CALIENTE", label: "Caliente" },
+  { value: "MUY_CALIENTE", label: "Muy caliente" },
+];
 
 export default function TabPipelineStages({ initialStages }: { initialStages: PipelineStageConfig[] }) {
   const [stages, setStages] = useState<PipelineStageConfig[]>(initialStages);
@@ -40,13 +56,20 @@ export default function TabPipelineStages({ initialStages }: { initialStages: Pi
   };
   const openEdit = (s: PipelineStageConfig) => {
     setEditing(s);
-    setForm({ nombre: s.nombre, color: s.color, orden: s.orden, probabilidad_base: s.probabilidad_base, activo: s.activo });
+    setForm({
+      nombre: s.nombre,
+      color: s.color,
+      orden: s.orden,
+      probabilidad_base: s.probabilidad_base,
+      umbral_avance: s.umbral_avance ?? "",
+      activo: s.activo,
+    });
     setFormError("");
     setIsModalOpen(true);
   };
   const closeModal = () => { setIsModalOpen(false); setEditing(null); setFormError(""); };
 
-  async function save(body: Partial<FormState>, target?: PipelineStageConfig): Promise<PipelineStageConfig> {
+  async function save(body: Record<string, unknown>, target?: PipelineStageConfig): Promise<PipelineStageConfig> {
     const res = await fetch(
       target ? `/api/configuracion/pipeline-stages/${target.id}` : "/api/configuracion/pipeline-stages",
       { method: target ? "PUT" : "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }
@@ -61,7 +84,14 @@ export default function TabPipelineStages({ initialStages }: { initialStages: Pi
     if (!form.nombre.trim()) { setFormError("El nombre es requerido"); return; }
     setIsSaving(true); setFormError("");
     try {
-      const payload = { nombre: form.nombre.trim(), color: form.color, orden: form.orden, probabilidad_base: form.probabilidad_base, ...(editing && { activo: form.activo }) };
+      const payload = {
+        nombre: form.nombre.trim(),
+        color: form.color,
+        orden: form.orden,
+        probabilidad_base: form.probabilidad_base,
+        umbral_avance: form.umbral_avance || null,
+        ...(editing && { activo: form.activo }),
+      };
       const saved = await save(payload, editing ?? undefined);
       setStages((prev) => editing ? prev.map((s) => (s.id === saved.id ? saved : s)) : [...prev, saved]);
       setToast({ type: "success", message: editing ? "Etapa actualizada" : "Etapa creada" });
@@ -101,6 +131,8 @@ export default function TabPipelineStages({ initialStages }: { initialStages: Pi
     <>
       {toast && <Toast {...toast} onClose={closeToast} />}
 
+      <CrmConfigPanel />
+
       <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-sm text-gray-500">
           Define las etapas del pipeline CRM y su orden. Los deals se mueven entre estas columnas.
@@ -117,13 +149,14 @@ export default function TabPipelineStages({ initialStages }: { initialStages: Pi
               <th className="w-28 px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Orden</th>
               <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Etapa</th>
               <th className="w-20 px-4 py-3 text-center text-xs font-semibold uppercase tracking-wide text-gray-500">Prob.</th>
+              <th className="w-32 px-4 py-3 text-center text-xs font-semibold uppercase tracking-wide text-gray-500">Umbral avance</th>
               <th className="w-24 px-4 py-3 text-center text-xs font-semibold uppercase tracking-wide text-gray-500">Estado</th>
               <th className="w-28 px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-gray-500">Acciones</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-surface-border">
             {ordered.length === 0 && (
-              <tr><td colSpan={5} className="px-4 py-8 text-center text-sm text-gray-400">No hay etapas</td></tr>
+              <tr><td colSpan={6} className="px-4 py-8 text-center text-sm text-gray-400">No hay etapas</td></tr>
             )}
             {ordered.map((s) => {
               const activeIdx = activos.findIndex((x) => x.id === s.id);
@@ -149,6 +182,9 @@ export default function TabPipelineStages({ initialStages }: { initialStages: Pi
                     </div>
                   </td>
                   <td className="px-4 py-3 text-center text-sm font-semibold text-navy">{s.probabilidad_base}%</td>
+                  <td className="px-4 py-3 text-center text-xs text-gray-500">
+                    {TEMP_OPCIONES.find((o) => o.value === (s.umbral_avance ?? ""))?.label ?? "—"}
+                  </td>
                   <td className="px-4 py-3 text-center">
                     <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${s.activo ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}>
                       {s.activo ? "Activa" : "Inactiva"}
@@ -188,6 +224,13 @@ export default function TabPipelineStages({ initialStages }: { initialStages: Pi
                 <label className="label">Probabilidad base (%)</label>
                 <input type="number" min={0} max={100} className="input" value={form.probabilidad_base} onChange={(e) => setForm((p) => ({ ...p, probabilidad_base: Number(e.target.value) }))} />
               </div>
+            </div>
+            <div>
+              <label className="label">Umbral de avance (termómetro)</label>
+              <select className="input" value={form.umbral_avance} onChange={(e) => setForm((p) => ({ ...p, umbral_avance: e.target.value }))}>
+                {TEMP_OPCIONES.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+              </select>
+              <p className="mt-1 text-xs text-gray-400">Al alcanzar esta temperatura, el deal sugiere (o avanza) a la siguiente etapa.</p>
             </div>
             {editing && (
               <label className="flex items-center gap-2 text-sm text-gray-700">

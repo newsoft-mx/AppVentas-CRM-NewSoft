@@ -2,6 +2,8 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getServerSession } from "@/lib/server-session";
 import { canWrite } from "@/lib/session";
+import { getCrmConfig, toParametrosTermometro } from "@/lib/crm-config";
+import { temperaturaEfectiva } from "@/lib/termometro";
 import DealDetalleClient from "@/components/pipeline/DealDetalleClient";
 import type { Metadata } from "next";
 import type { DealDetalle, StageResumen, Temperatura } from "@/types/crm";
@@ -24,7 +26,7 @@ export default async function DealDetallePage({
   const deal = await prisma.deal.findUnique({
     where: { id },
     include: {
-      stage: { select: { id: true, nombre: true, orden: true } },
+      stage: { select: { id: true, nombre: true, orden: true, umbral_avance: true } },
       cliente: { select: { id: true, nombre: true } },
       vendedor: { select: { id: true, nombre: true } },
       tipo_cotizacion: { select: { id: true, nombre: true } },
@@ -38,7 +40,7 @@ export default async function DealDetallePage({
 
   if (!deal) notFound();
 
-  const [stages, historial] = await Promise.all([
+  const [stages, historial, config] = await Promise.all([
     prisma.pipelineStage.findMany({
       where: { activo: true },
       orderBy: { orden: "asc" },
@@ -50,10 +52,24 @@ export default async function DealDetallePage({
           select: { estatus: true, total_mxn: true },
         })
       : Promise.resolve([]),
+    getCrmConfig(),
   ]);
 
   const ganadas = historial.filter((o) => o.estatus === "VENTA");
   const totalFacturado = ganadas.reduce((s, o) => s + Number(o.total_mxn), 0);
+
+  // Temperatura efectiva: enfriada por inactividad desde la última actividad (display)
+  const ultimaActividad = deal.actividades.reduce<Date | null>((max, a) => {
+    const f = a.fecha_evento ?? a.created_at;
+    return !max || f > max ? f : max;
+  }, null);
+  const tempEfectiva = temperaturaEfectiva(
+    deal.temperatura as Temperatura,
+    ultimaActividad,
+    config.umbral_inactividad_dias,
+    toParametrosTermometro(config),
+    new Date()
+  );
 
   const detalle: DealDetalle = {
     id: deal.id,
@@ -63,7 +79,7 @@ export default async function DealDetallePage({
     setup: deal.setup != null ? Number(deal.setup) : null,
     mensualidad: deal.mensualidad != null ? Number(deal.mensualidad) : null,
     meses: deal.meses,
-    temperatura: deal.temperatura as Temperatura,
+    temperatura: tempEfectiva,
     probabilidad: deal.probabilidad,
     canal: deal.canal,
     origen: deal.origen,
@@ -73,7 +89,12 @@ export default async function DealDetallePage({
       : null,
     dias_abierto: diasDesde(deal.created_at),
     notas: deal.notas,
-    stage: deal.stage,
+    stage: {
+      id: deal.stage.id,
+      nombre: deal.stage.nombre,
+      orden: deal.stage.orden,
+      umbral_avance: deal.stage.umbral_avance as Temperatura | null,
+    },
     cliente: deal.cliente,
     vendedor: deal.vendedor,
     tipo: deal.tipo_cotizacion
@@ -98,6 +119,8 @@ export default async function DealDetallePage({
       es_tarea: a.es_tarea,
       completada: a.completada,
       estado_accion: a.estado_accion,
+      destacada: a.destacada,
+      enlace_url: a.enlace_url,
       fecha_tarea: a.fecha_tarea ? a.fecha_tarea.toISOString() : null,
       created_at: a.created_at.toISOString(),
     })),

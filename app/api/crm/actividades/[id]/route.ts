@@ -29,17 +29,27 @@ export async function PATCH(
     return NextResponse.json({ error: "JSON inválido" }, { status: 400 });
   }
 
-  const { estado_accion, completada, fecha_tarea } = (body ?? {}) as {
+  const { estado_accion, completada, fecha_tarea, destacada } = (body ?? {}) as {
     estado_accion?: unknown;
     completada?: unknown;
     fecha_tarea?: unknown;
+    destacada?: unknown;
   };
 
   const data: {
     estado_accion?: EstadoAccion;
     completada?: boolean;
     fecha_tarea?: Date | null;
+    destacada?: boolean;
   } = {};
+
+  // Destacar/pin (bookmark)
+  if (destacada !== undefined) {
+    if (typeof destacada !== "boolean") {
+      return NextResponse.json({ error: "destacada (boolean) requerido" }, { status: 422 });
+    }
+    data.destacada = destacada;
+  }
 
   // Estado de acción (fuente de verdad); sincroniza completada
   if (estado_accion !== undefined) {
