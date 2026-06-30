@@ -532,7 +532,7 @@ export default function DealDetalleClient({ deal, stages, canWrite }: Props) {
                         style={{ borderLeftWidth: 3, borderLeftColor: a.destacada ? "#F5A623" : meta.color }}
                       >
                         {a.contenido}
-                        {a.enlace_url && (
+                        {a.enlace_url && /^https?:\/\//i.test(a.enlace_url) && (
                           <a
                             href={a.enlace_url}
                             target="_blank"

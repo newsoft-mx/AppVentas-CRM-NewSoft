@@ -32,8 +32,16 @@ export async function PUT(req: NextRequest) {
     if (body.enfriamiento_nivel !== undefined && Number.isFinite(Number(body.enfriamiento_nivel))) {
       data.enfriamiento_nivel = Math.max(0, Math.round(Number(body.enfriamiento_nivel)));
     }
-    if (body.puntos_actividad && typeof body.puntos_actividad === "object") {
-      data.puntos_actividad = body.puntos_actividad;
+    // puntos_actividad: solo claves de TipoActividad y valores enteros acotados [0,5].
+    // Evita claves arbitrarias / valores fuera de rango en la config global del termómetro.
+    if (body.puntos_actividad && typeof body.puntos_actividad === "object" && !Array.isArray(body.puntos_actividad)) {
+      const TIPOS_VALIDOS = ["NOTA", "LLAMADA", "EMAIL", "WHATSAPP"];
+      const saneado: Record<string, number> = {};
+      for (const tipo of TIPOS_VALIDOS) {
+        const v = Number((body.puntos_actividad as Record<string, unknown>)[tipo]);
+        if (Number.isFinite(v)) saneado[tipo] = Math.max(0, Math.min(5, Math.round(v)));
+      }
+      data.puntos_actividad = saneado;
     }
 
     if (Object.keys(data).length === 0) {

@@ -49,6 +49,18 @@ export async function POST(
   if (!contenido || !contenido.trim()) {
     return NextResponse.json({ error: "El contenido es obligatorio", campo: "contenido" }, { status: 422 });
   }
+  if (contenido.length > 5000) {
+    return NextResponse.json({ error: "El contenido es demasiado largo (máx. 5000)", campo: "contenido" }, { status: 422 });
+  }
+
+  // Enlace externo: solo http/https. Bloquea javascript:/data: (XSS almacenado vía href).
+  const enlaceLimpio = typeof enlace_url === "string" ? enlace_url.trim() : "";
+  if (enlaceLimpio && !/^https?:\/\//i.test(enlaceLimpio)) {
+    return NextResponse.json({ error: "El enlace debe empezar con http:// o https://", campo: "enlace_url" }, { status: 422 });
+  }
+  if (enlaceLimpio.length > 500) {
+    return NextResponse.json({ error: "El enlace es demasiado largo (máx. 500)", campo: "enlace_url" }, { status: 422 });
+  }
 
   const tipoActividad = tipo as (typeof TIPOS)[number];
 
@@ -75,7 +87,7 @@ export async function POST(
         contenido: contenido.trim(),
         autor: session.email,
         contacto_id: contactoId,
-        enlace_url: enlace_url?.trim() || null,
+        enlace_url: enlaceLimpio || null,
         // Las interacciones (llamada/email/whatsapp) registran cuándo ocurrieron;
         // si no se indica, se asume "ahora". Las notas no tienen fecha de evento.
         fecha_evento: tipoActividad === "NOTA" ? null : fecha_evento ? new Date(fecha_evento) : new Date(),
