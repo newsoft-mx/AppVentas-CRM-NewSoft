@@ -90,15 +90,18 @@ export async function POST(
     // ── Termómetro (REQ-06): una actividad exitosa sube la temperatura; la fallida no.
     let temperaturaActual = deal.temperatura as Temperatura;
     let sugerirAvance = false;
+    let avanzoEtapa = false;
     if (actividadExitosa(tipoActividad, exitosaVal)) {
       const config = await getCrmConfig();
       const nueva = subirTemperatura(temperaturaActual, tipoActividad, toParametrosTermometro(config));
-      if (nueva !== temperaturaActual) {
+      const subio = nueva !== temperaturaActual;
+      if (subio) {
         temperaturaActual = nueva;
         await prisma.deal.update({ where: { id }, data: { temperatura: nueva } });
       }
       const cruza = cruzaUmbralAvance(temperaturaActual, deal.stage.umbral_avance as Temperatura | null);
-      if (cruza) {
+      // Solo actuar cuando la temperatura cambió (evita re-sugerir en cada nota a tope)
+      if (cruza && subio) {
         if (config.avance_modo === "AUTOMATICO") {
           // Avanzar a la siguiente etapa activa (por orden)
           const siguiente = await prisma.pipelineStage.findFirst({
@@ -123,6 +126,7 @@ export async function POST(
                 contenido: `Avance automático a "${siguiente.nombre}" (termómetro en ${temperaturaActual}).`,
               },
             });
+            avanzoEtapa = true;
           }
         } else {
           sugerirAvance = true; // modo SUGERIR → el front muestra el banner
@@ -150,6 +154,7 @@ export async function POST(
         },
         temperatura: temperaturaActual,
         sugerir_avance: sugerirAvance,
+        avanzo_etapa: avanzoEtapa,
       },
       { status: 201 }
     );

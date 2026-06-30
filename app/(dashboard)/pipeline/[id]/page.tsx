@@ -2,8 +2,6 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getServerSession } from "@/lib/server-session";
 import { canWrite } from "@/lib/session";
-import { getCrmConfig, toParametrosTermometro } from "@/lib/crm-config";
-import { temperaturaEfectiva } from "@/lib/termometro";
 import DealDetalleClient from "@/components/pipeline/DealDetalleClient";
 import type { Metadata } from "next";
 import type { DealDetalle, StageResumen, Temperatura } from "@/types/crm";
@@ -40,7 +38,7 @@ export default async function DealDetallePage({
 
   if (!deal) notFound();
 
-  const [stages, historial, config] = await Promise.all([
+  const [stages, historial] = await Promise.all([
     prisma.pipelineStage.findMany({
       where: { activo: true },
       orderBy: { orden: "asc" },
@@ -52,24 +50,10 @@ export default async function DealDetallePage({
           select: { estatus: true, total_mxn: true },
         })
       : Promise.resolve([]),
-    getCrmConfig(),
   ]);
 
   const ganadas = historial.filter((o) => o.estatus === "VENTA");
   const totalFacturado = ganadas.reduce((s, o) => s + Number(o.total_mxn), 0);
-
-  // Temperatura efectiva: enfriada por inactividad desde la última actividad (display)
-  const ultimaActividad = deal.actividades.reduce<Date | null>((max, a) => {
-    const f = a.fecha_evento ?? a.created_at;
-    return !max || f > max ? f : max;
-  }, null);
-  const tempEfectiva = temperaturaEfectiva(
-    deal.temperatura as Temperatura,
-    ultimaActividad,
-    config.umbral_inactividad_dias,
-    toParametrosTermometro(config),
-    new Date()
-  );
 
   const detalle: DealDetalle = {
     id: deal.id,
@@ -79,7 +63,9 @@ export default async function DealDetallePage({
     setup: deal.setup != null ? Number(deal.setup) : null,
     mensualidad: deal.mensualidad != null ? Number(deal.mensualidad) : null,
     meses: deal.meses,
-    temperatura: tempEfectiva,
+    // Temperatura GUARDADA (el termómetro del detalle es editable; el override debe escribir
+    // el valor real). El enfriamiento por inactividad se muestra solo como pista en el Kanban.
+    temperatura: deal.temperatura as Temperatura,
     probabilidad: deal.probabilidad,
     canal: deal.canal,
     origen: deal.origen,

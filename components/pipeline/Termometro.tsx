@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Thermometer } from "lucide-react";
 import { TEMPERATURA_META, type Temperatura } from "@/types/crm";
 
@@ -20,6 +20,8 @@ export default function Termometro({
 }) {
   const [valor, setValor] = useState<Temperatura>(temperatura);
   const [guardando, setGuardando] = useState(false);
+  // Re-sincronizar si el padre actualiza la temperatura (ej. tras registrar actividad exitosa)
+  useEffect(() => setValor(temperatura), [temperatura]);
   const meta = TEMPERATURA_META[valor];
   const nivel = ESCALA.indexOf(valor);
 
