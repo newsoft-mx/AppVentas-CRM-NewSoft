@@ -4,7 +4,6 @@ const nextConfig = {
   serverExternalPackages: [
     "@prisma/client",
     "prisma",
-    "@react-pdf/renderer",
   ],
   turbopack: {
     root: process.cwd(),

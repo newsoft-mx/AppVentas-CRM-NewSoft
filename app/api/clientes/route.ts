@@ -1,6 +1,7 @@
 export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { Prisma } from "@prisma/client";
 import { clienteCreateSchema } from "@/lib/validations/clientes";
 import { canManageClients, requireAuth } from "@/lib/session";
 import { netAmount, netAmountMxn } from "@/lib/net-amounts";
@@ -33,9 +34,19 @@ export async function GET(req: NextRequest) {
     // Filtro opcional por estatus (PROSPECTO / ACTIVO / INACTIVO)
     const estatusParam = req.nextUrl.searchParams.get("estatus");
     const ESTATUS = ["PROSPECTO", "ACTIVO", "INACTIVO"];
-    const where: { activo: boolean; estatus?: "PROSPECTO" | "ACTIVO" | "INACTIVO" } = { activo: true };
+    const where: Prisma.ClienteWhereInput = { activo: true };
     if (estatusParam && ESTATUS.includes(estatusParam)) {
       where.estatus = estatusParam as "PROSPECTO" | "ACTIVO" | "INACTIVO";
+    }
+    // Scoping por vendedor: el VENDEDOR solo ve SUS clientes (con órdenes o deals
+    // asignados a él). ADMIN/GERENTE/ADMINISTRATIVO ven todos.
+    if (session.rol === "VENDEDOR") {
+      where.OR = session.vendedorId
+        ? [
+            { ordenes: { some: { vendedor_id: session.vendedorId } } },
+            { deals: { some: { vendedor_id: session.vendedorId } } },
+          ]
+        : [{ id: { in: [] } }];
     }
 
     const clientes = await prisma.cliente.findMany({
