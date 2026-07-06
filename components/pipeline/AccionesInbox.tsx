@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   Phone, Mail, MessageCircle, StickyNote, ListChecks, CalendarClock, ChevronRight,
@@ -54,7 +54,13 @@ export default function AccionesInbox({
   const [tipoFiltro, setTipoFiltro] = useState<"todos" | TipoActividad>("todos");
   const [estadoFiltro, setEstadoFiltro] = useState<"todos" | EstadoAccion>("todos");
   const [reprogramando, setReprogramando] = useState<string | null>(null);
-  const ahora = useMemo(() => new Date(), []);
+  // "Ahora" debe avanzar: si el inbox queda abierto (o cruza medianoche), el
+  // agrupamiento Vencidas/Hoy/Semana se recalcula en vez de quedar congelado al montar.
+  const [ahora, setAhora] = useState(() => new Date());
+  useEffect(() => {
+    const id = setInterval(() => setAhora(new Date()), 60_000);
+    return () => clearInterval(id);
+  }, []);
 
   const filtered = useMemo(
     () =>
