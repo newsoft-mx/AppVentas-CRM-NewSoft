@@ -15,10 +15,12 @@ export interface SessionPayload {
 
 const ROLES = new Set<UserRole>(["ADMIN", "GERENTE_COMERCIAL", "VENDEDOR", "ADMINISTRATIVO"]);
 
-export function normalizeRole(value: unknown): UserRole {
+// Fail-closed: un valor de rol desconocido devuelve null (sin sesión válida),
+// NUNCA ADMIN. Solo se mapean los alias legacy conocidos.
+export function normalizeRole(value: unknown): UserRole | null {
   if (value === "VENTAS") return "GERENTE_COMERCIAL";
   if (value === "CONSULTA") return "ADMINISTRATIVO";
-  return ROLES.has(value as UserRole) ? (value as UserRole) : "ADMIN";
+  return ROLES.has(value as UserRole) ? (value as UserRole) : null;
 }
 
 function getSecret(): Uint8Array {
@@ -40,10 +42,12 @@ export async function verifySession(token: string): Promise<SessionPayload | nul
     const { payload } = await jwtVerify(token, getSecret());
     const raw = payload as unknown as Partial<SessionPayload>;
     if (!raw.userId || !raw.email) return null;
+    const rol = normalizeRole(raw.rol);
+    if (!rol) return null; // rol no reconocido → sesión inválida (fail-closed)
     return {
       userId: raw.userId,
       email: raw.email,
-      rol: normalizeRole(raw.rol),
+      rol,
       vendedorId: typeof raw.vendedorId === "string" ? raw.vendedorId : null,
     };
   } catch {

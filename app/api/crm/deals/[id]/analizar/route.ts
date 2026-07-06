@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { prisma } from "@/lib/prisma";
 import { canWrite, requireAuth } from "@/lib/session";
+import { scopeDealWhere } from "@/lib/access-control";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -62,8 +63,8 @@ export async function POST(
   }
 
   // Contexto del deal (datos + bitácora reciente) para mejor análisis
-  const deal = await prisma.deal.findUnique({
-    where: { id },
+  const deal = await prisma.deal.findFirst({
+    where: scopeDealWhere(session, { id }),
     include: {
       cliente: { select: { nombre: true } },
       stage: { select: { nombre: true } },

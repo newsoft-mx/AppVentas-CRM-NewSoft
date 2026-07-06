@@ -55,6 +55,8 @@ export interface Usuario {
   nombre: string;
   email: string;
   activo: boolean;
+  rol: "ADMIN" | "GERENTE_COMERCIAL" | "VENDEDOR" | "ADMINISTRATIVO";
+  vendedor_id: string | null;
   created_at: string;
   updated_at: string;
 }

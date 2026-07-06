@@ -32,6 +32,8 @@ export default async function ConfiguracionPage() {
         nombre: true,
         email: true,
         activo: true,
+        rol: true,
+        vendedor_id: true,
         created_at: true,
         updated_at: true,
       },
