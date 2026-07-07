@@ -32,9 +32,11 @@ interface AnatData {
 }
 
 const PERIODOS: { value: string; label: string }[] = [
+  { value: "hoy", label: "Hoy" },
   { value: "semana", label: "Última semana" },
   { value: "mes", label: "Último mes" },
   { value: "semestre", label: "Último semestre" },
+  { value: "custom", label: "Personalizado…" },
 ];
 
 // LLAMADA se presenta como "Reunión/Llamada" (decisión de negocio).
@@ -56,7 +58,9 @@ export default function FunnelReportes({
   puedeElegir: boolean;
   vendedores: Vendedor[];
 }) {
-  const [periodo, setPeriodo] = useState("mes");
+  const [preset, setPreset] = useState("mes"); // hoy | semana | mes | semestre | custom
+  const [desde, setDesde] = useState("");
+  const [hasta, setHasta] = useState("");
   const [vendedor, setVendedor] = useState(""); // "" = todo el equipo (agregado)
   const [funnel, setFunnel] = useState<FunnelData | null>(null);
   const [resultados, setResultados] = useState<ResultadosData | null>(null);
@@ -67,7 +71,17 @@ export default function FunnelReportes({
   const cargar = useCallback(async () => {
     setCargando(true);
     setError("");
-    const qs = new URLSearchParams({ periodo });
+    const qs = new URLSearchParams();
+    if (preset === "custom") {
+      if (desde) qs.set("desde", desde);
+      if (hasta) qs.set("hasta", hasta);
+    } else if (preset === "hoy") {
+      const hoy = new Date().toISOString().slice(0, 10);
+      qs.set("desde", hoy);
+      qs.set("hasta", hoy);
+    } else {
+      qs.set("periodo", preset);
+    }
     if (vendedor) qs.set("vendedor", vendedor);
     try {
       const [f, r, a] = await Promise.all([
@@ -83,7 +97,7 @@ export default function FunnelReportes({
     } finally {
       setCargando(false);
     }
-  }, [periodo, vendedor]);
+  }, [preset, desde, hasta, vendedor]);
 
   useEffect(() => {
     cargar();
@@ -101,14 +115,33 @@ export default function FunnelReportes({
         </div>
         <div className="flex flex-wrap gap-2">
           <select
-            value={periodo}
-            onChange={(e) => setPeriodo(e.target.value)}
+            value={preset}
+            onChange={(e) => setPreset(e.target.value)}
             className="rounded-lg border border-surface-border bg-white px-3 py-2 text-sm text-navy outline-none focus:border-orange"
           >
             {PERIODOS.map((p) => (
               <option key={p.value} value={p.value}>{p.label}</option>
             ))}
           </select>
+          {preset === "custom" && (
+            <div className="flex items-center gap-1.5">
+              <input
+                type="date"
+                value={desde}
+                max={hasta || undefined}
+                onChange={(e) => setDesde(e.target.value)}
+                className="rounded-lg border border-surface-border bg-white px-2 py-2 text-sm text-navy outline-none focus:border-orange"
+              />
+              <span className="text-xs text-gray-400">a</span>
+              <input
+                type="date"
+                value={hasta}
+                min={desde || undefined}
+                onChange={(e) => setHasta(e.target.value)}
+                className="rounded-lg border border-surface-border bg-white px-2 py-2 text-sm text-navy outline-none focus:border-orange"
+              />
+            </div>
+          )}
           {puedeElegir && (
             <select
               value={vendedor}
@@ -159,8 +192,10 @@ export default function FunnelReportes({
             </div>
           </div>
 
+          {/* Fila: embudo (dónde están / dónde se fugan) + resultados (outcome), juntos */}
+          <div className="grid gap-6 lg:grid-cols-5">
           {/* ── Bloque 1: Embudo de conversión ── */}
-          <section className="rounded-xl border border-surface-border bg-white p-5 shadow-sm">
+          <section className="rounded-xl border border-surface-border bg-white p-5 shadow-sm lg:col-span-3">
             <div className="mb-4 flex items-center gap-2">
               <TrendingUp size={18} className="text-orange" />
               <h2 className="text-sm font-bold uppercase tracking-wide text-navy">Embudo de conversión</h2>
@@ -204,7 +239,7 @@ export default function FunnelReportes({
           </section>
 
           {/* ── Bloque 2: Resultados (ganados vs perdidos) ── */}
-          <section className="rounded-xl border border-surface-border bg-white p-5 shadow-sm">
+          <section className="rounded-xl border border-surface-border bg-white p-5 shadow-sm lg:col-span-2">
             <div className="mb-4 flex items-center gap-2">
               <Trophy size={18} className="text-orange" />
               <h2 className="text-sm font-bold uppercase tracking-wide text-navy">Resultados</h2>
@@ -240,6 +275,7 @@ export default function FunnelReportes({
               </div>
             )}
           </section>
+          </div>
 
           {/* ── Bloque 3: Anatomía de conversión (ganado vs perdido) ── */}
           <section className="rounded-xl border border-surface-border bg-white p-5 shadow-sm">
