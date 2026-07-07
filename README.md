@@ -1,32 +1,78 @@
-# Newsoft Sales
+# NewSoft Sales
 
-Sistema interno de gestión de ventas y cotizaciones para Newsoft Technologies.
+Sistema interno de ventas y CRM de NewSoft. Este documento cubre tanto la parte de
+**desarrollo** (stack, comandos, estructura) como la de **operación/entrega** del
+despliegue actual.
 
 ## Stack
 
 - **Next.js 16** (App Router) + **TypeScript** + **Tailwind CSS**
-- **Prisma ORM** + **PostgreSQL** (AWS Lightsail en producción, Neon en staging)
+- **Prisma ORM** + **PostgreSQL** (AWS Lightsail en producción, Neon en staging — migración a Vercel + Supabase en curso, ver `MIGRACION_VERCEL_SUPABASE.md`)
 - **Autenticación propia por cookie/JWT** (firmada con `jose`) — ver `lib/session.ts` y `lib/access-control.ts`
-- **recharts** (gráficas) · **@react-pdf/renderer** + **puppeteer-core** (generación de PDF)
-- **Jest** (pruebas) · **Docker** + **Terraform** (despliegue alternativo en AWS Lightsail)
+- **recharts** (gráficas) · **puppeteer-core** (generación de PDF; usa `@sparticuz/chromium` en Vercel serverless, Chromium del sistema en Docker)
+- **Jest** (pruebas) · **Docker** + **Terraform** (despliegue en AWS Lightsail)
 
----
+## Estado actual (operación)
 
-## Setup local
+- La aplicación está desplegada en AWS Lightsail.
+- El acceso público actualmente es por IP, no por dominio.
+- La aplicación corre en Docker dentro del servidor.
+- El código desplegado se deja en el servidor en `/opt/newsoft-sales`.
+- La infraestructura principal se administra con Terraform desde `infra/lightsail`.
+- Migración a Vercel + Supabase en curso — ver `MIGRACION_VERCEL_SUPABASE.md`.
 
-### 1. Clonar e instalar dependencias
+## Archivos de referencia (entrega/operación)
 
-```bash
-git clone <repo>
-cd newsoft-sales
-npm install   # corre `prisma generate` automáticamente (postinstall)
+- `FLUJO_DESPLIEGUE.md`: explica el flujo completo de despliegue.
+- `OPERACION_SERVIDOR.md`: comandos útiles para SSH, Docker, logs y validación.
+- `INVENTARIO_SERVICIOS.md`: servicios/cuentas involucrados.
+- `MIGRACION_VERCEL_SUPABASE.md`: plan de migración a Vercel + Supabase.
+- `checklists/ARCHIVOS_SENSIBLES.md`: lista de archivos que NO deben ir por Slack/correo.
+- `checklists/VALIDACION_PRE_DEPLOY.md`: checklist antes de ejecutar despliegue.
+- `terraform_lightsail_sin_secretos/`: copia de Terraform sin estado, variables sensibles, planes ni builds.
+- `sensibles_no_incluir/`: carpeta placeholder para recordar que los sensibles se comparten aparte por canal seguro.
+
+## Importante
+
+Nunca se sube a git ni se comparte por canales inseguros:
+
+- `terraform.tfvars`
+- `terraform.tfstate`
+- backups de estado Terraform
+- llaves SSH privadas
+- `.env`
+- paquetes de build
+- credenciales o secretos
+
+Esos archivos deben compartirse solo por canal seguro o revisarse en una reunión.
+
+## Acceso SSH (Lightsail)
+
+La configuración usada por Terraform apunta a:
+
+```hcl
+ssh_public_key_path  = "~/.ssh/newsoft_lightsail.pub"
+ssh_private_key_path = "~/.ssh/newsoft_lightsail"
+ssh_user             = "ubuntu"
 ```
 
-### 2. Configurar variables de entorno
+Comando de referencia:
 
 ```bash
-cp .env.example .env.local
+ssh -i ~/.ssh/newsoft_lightsail ubuntu@13.218.0.179
 ```
+
+## Servidor actual
+
+- IP pública: `13.218.0.179`
+- Usuario SSH: `ubuntu`
+- Ruta app: `/opt/newsoft-sales`
+- Contenedor principal: `newsoft-sales-app`
+- Puerto público: `80`
+
+## Desarrollo local
+
+### Variables de entorno
 
 Edita `.env.local` con tus credenciales. La app (Next.js runtime) usa estas variables:
 
@@ -40,20 +86,21 @@ Edita `.env.local` con tus credenciales. La app (Next.js runtime) usa estas vari
 > (no `.env.local`). El `schema.prisma` espera `POSTGRES_PRISMA_URL` y `POSTGRES_URL_NON_POOLING`,
 > así que define esos mismos nombres también en `.env` para que la CLI funcione.
 
-### 3. Migraciones y datos iniciales
+### Migraciones y datos iniciales
 
 ```bash
 npm run db:migrate    # aplica migraciones en desarrollo
-npm run db:seed       # usuarios, empresa, catálogos y datos demo
+npm run db:seed       # usuarios, empresa y catálogos (production-safe, sin datos demo)
+npm run db:seed:demo  # + datos demo (clientes, órdenes, deals, bitácora)
 ```
 
-### 4. Iniciar el servidor de desarrollo
+### Iniciar el servidor de desarrollo
 
 ```bash
 npm run dev
 ```
 
-Abre [http://localhost:3000](http://localhost:3000) → redirige a `/login`.
+Abre [http://localhost:3001](http://localhost:3001) (ver `.claude/launch.json` para el puerto configurado) → redirige a `/login`.
 
 ---
 
@@ -61,12 +108,13 @@ Abre [http://localhost:3000](http://localhost:3000) → redirige a `/login`.
 
 ```bash
 npm run dev          # Servidor de desarrollo
-npm run build        # Build de producción (prisma generate + next build)
+npm run build        # Build de producción (prisma generate + migrate deploy + next build)
 npm run lint         # ESLint
 npm test             # Pruebas (Jest)
 npm run db:generate  # Regenerar cliente Prisma tras cambios de schema
 npm run db:migrate   # Nueva migración en desarrollo
-npm run db:seed      # Seed de datos iniciales
+npm run db:seed      # Seed de configuración (production-safe)
+npm run db:seed:demo # Seed de configuración + datos demo
 npm run db:studio    # Prisma Studio (explorador visual de la BD)
 npm run db:reset     # Reset completo (destructivo)
 npm run user:role    # Asignar rol a un usuario (scripts/set-user-role.ts)
@@ -79,13 +127,10 @@ npm run user:role    # Asignar rol a un usuario (scripts/set-user-role.ts)
 | Ambiente | Dónde | Base de datos | Cómo se actualiza |
 |---|---|---|---|
 | **Local** | `localhost:3001` (Docker) | PostgreSQL en Docker (`localhost:5433`) | `npm run dev` |
-| **Staging / demo** | `app-ventas-new-soft.vercel.app` | Neon (free tier) | Automático en cada push / PR |
-| **Producción** | AWS Lightsail (`13.218.0.179`) | Lightsail Managed PostgreSQL | Manual: `terraform apply` |
+| **Staging / demo** | Vercel (ver `MIGRACION_VERCEL_SUPABASE.md`) | Supabase (migración en curso) / Neon (legado) | Automático en cada push / PR |
+| **Producción** | AWS Lightsail (`13.218.0.179`) — migración a Vercel en curso | Lightsail Managed PostgreSQL | Manual: `terraform apply` (mientras dure la migración) |
 
-> ⚠️ Mergear a `main` **NO despliega automáticamente** a producción. El deploy a Lightsail
-> es siempre manual desde `infra/lightsail/` con Terraform.
-
-## Despliegue a producción (Lightsail)
+## Despliegue a producción (Lightsail — vigente hasta completar la migración a Vercel)
 
 ```bash
 # 1. Asegurarse de estar en main y sin cambios pendientes
@@ -104,16 +149,12 @@ ssh -i ~/.ssh/newsoft_lightsail ubuntu@13.218.0.179 "sudo -n docker ps && sudo -
 Requiere: credenciales AWS en `~/.aws/credentials`, `terraform.tfvars` y `terraform.tfstate`
 en `infra/lightsail/` (gitignored — ver `C:\Users\Usuario\newsoft-handoff\`).
 
-## Despliegue a staging (Vercel)
+## Despliegue a staging/producción (Vercel)
 
-Automático: cada push a cualquier rama genera una URL de preview.
-Para promover a la URL principal (`app-ventas-new-soft.vercel.app`):
-
-```bash
-vercel deploy --prod
-```
-
-Variables de entorno en **Vercel → Project → Settings → Environment Variables**:
+Ver `MIGRACION_VERCEL_SUPABASE.md` para el plan completo. En resumen: el build de Vercel
+corre `prisma generate && prisma migrate deploy && next build --webpack` — las migraciones
+se aplican solas en cada deploy. Variables de entorno en
+**Vercel → Project → Settings → Environment Variables**:
 `POSTGRES_PRISMA_URL`, `POSTGRES_URL_NON_POOLING`, `SESSION_SECRET`.
 
 ---
@@ -129,27 +170,30 @@ desde una rama `feature/`, `fix/` o `chore/`.
 
 ```
 app/
-  (dashboard)/      # Rutas protegidas (ventas, clientes, reportes, configuración)
-  api/              # Route handlers (incl. import, reportes, configuración)
+  (dashboard)/      # Rutas protegidas (ventas, clientes, reportes, pipeline CRM, configuración)
+  api/              # Route handlers (incl. import, reportes, configuración, crm)
   login/            # Página de inicio de sesión
 components/
   layout/           # Sidebar
   ordenes/          # Formularios y tablas de órdenes
   clientes/         # Gestión de clientes
-  reportes/         # Gráficas y tablas de reportes
-  configuracion/    # Tabs (empresa, tipos, condiciones, usuarios, vendedores)
-  pdf/              # Template PDF de cotización
-  ui/               # Componentes reutilizables (MultiSelect, Modal, etc.)
+  reportes/         # Gráficas y tablas de reportes (ventas + funnel del pipeline)
+  pipeline/         # Kanban, detalle de deal, próximas acciones
+  configuracion/    # Tabs (empresa, tipos, condiciones, usuarios, vendedores, pipeline)
+  ui/               # Componentes reutilizables (SearchableSelect, Modal, Toast, etc.)
 lib/
   session.ts        # Sesión por cookie/JWT
-  access-control.ts # Roles y permisos
+  access-control.ts # Roles, permisos y scoping por vendedor
   net-amounts.ts    # Cálculo de montos netos sin IVA
   filter-utils.ts   # Helpers de filtros y rangos de fecha
+  atencion.ts        # Estado de atención del deal (stand-by/vencido)
+  termometro.ts      # Lógica del termómetro del deal
+  reportes-funnel.ts # Helpers de periodo/scope para reportes de funnel
   prisma.ts         # Singleton Prisma Client
 prisma/
   schema.prisma     # Modelos de datos
-  migrations/        # Historial de migraciones SQL
-  seed.ts           # Datos iniciales
+  migrations/       # Historial de migraciones SQL
+  seed.ts           # Datos iniciales (config + demo opcional)
 __tests__/          # Pruebas (Jest)
 infra/lightsail/    # Terraform para despliegue en AWS Lightsail
 types/              # Tipos TypeScript compartidos
