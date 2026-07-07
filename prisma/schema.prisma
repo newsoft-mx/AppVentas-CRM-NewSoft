@@ -1,6 +1,10 @@
 // Newsoft Sales — Schema de Prisma
 // Versión 1.0 — Abril 2026
 // Sigue estrictamente el Documento Funcional-Técnico v1.0, sección 3
+//
+// NOTA (2026-06): los `id` y claves foráneas se declaran @db.Uuid para
+// reflejar el tipo real en la BD (uuid). Antes el schema los declaraba como
+// String/TEXT, lo que causaba drift y el bug `uuid = text` en queries raw.
 
 generator client {
   provider = "prisma-client-js"
@@ -18,16 +22,16 @@ datasource db {
 // Soft delete: activo = false
 // ============================================================
 model User {
-  id            String   @id @default(uuid())
-  nombre        String   @db.VarChar(150)
-  email         String   @unique @db.VarChar(100)
-  password_hash String   @db.VarChar(255)
-  rol           UserRole @default(ADMIN)
-  vendedor_id   String?  @db.Uuid
+  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  nombre        String    @db.VarChar(150)
+  email         String    @unique @db.VarChar(100)
+  password_hash String    @db.VarChar(255)
+  rol           UserRole  @default(ADMIN)
+  vendedor_id   String?   @db.Uuid
   vendedor      Vendedor? @relation(fields: [vendedor_id], references: [id], onDelete: SetNull)
-  activo        Boolean  @default(true)
-  created_at    DateTime @default(now())
-  updated_at    DateTime @updatedAt
+  activo        Boolean   @default(true)
+  created_at    DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at    DateTime  @updatedAt @db.Timestamptz(6)
 
   @@map("user")
 }
@@ -37,7 +41,7 @@ model User {
 // Registro único — no se crean múltiples empresas
 // ============================================================
 model Empresa {
-  id                       String   @id @default(uuid())
+  id                       String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   nombre                   String   @db.VarChar(200)
   nombre_comercial         String?  @db.VarChar(200)
   rfc                      String   @db.VarChar(13)
@@ -52,8 +56,8 @@ model Empresa {
   tasa_iva                 Decimal  @default(16.00) @db.Decimal(5, 2)
   // Soporta variable {vigencia} que se resuelve al generar PDF
   notas_documentos         String?  @db.Text
-  created_at               DateTime @default(now())
-  updated_at               DateTime @updatedAt
+  created_at               DateTime @default(now()) @db.Timestamptz(6)
+  updated_at               DateTime @updatedAt @db.Timestamptz(6)
 
   @@map("empresa")
 }
@@ -64,15 +68,16 @@ model Empresa {
 // Soft delete: activo = false (nunca borrar, órdenes mantienen referencia)
 // ============================================================
 model TipoCotizacion {
-  id          String       @id @default(uuid())
-  nombre      String       @db.VarChar(100)
-  descripcion String?      @db.VarChar(300)
-  texto_contrato String?   @db.Text
-  activo      Boolean      @default(true)
-  created_at  DateTime     @default(now())
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  nombre         String   @db.VarChar(100)
+  descripcion    String?  @db.VarChar(300)
+  texto_contrato String?  @db.Text
+  activo         Boolean  @default(true)
+  created_at     DateTime @default(now()) @db.Timestamptz(6)
 
   // Relaciones
-  ordenes     OrdenVenta[]
+  ordenes OrdenVenta[]
+  deals   Deal[]
 
   @@map("tipo_cotizacion")
 }
@@ -83,17 +88,17 @@ model TipoCotizacion {
 // Soft delete: activo = false
 // ============================================================
 model CondicionComercial {
-  id           String       @id @default(uuid())
-  nombre       String       @db.VarChar(150)
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  nombre       String   @db.VarChar(150)
   // null = contado; número = días de crédito
   dias_credito Int?
-  descripcion  String?      @db.Text
-  activo       Boolean      @default(true)
-  created_at   DateTime     @default(now())
+  descripcion  String?  @db.Text
+  activo       Boolean  @default(true)
+  created_at   DateTime @default(now()) @db.Timestamptz(6)
 
   // Relaciones
-  clientes     Cliente[]
-  ordenes      OrdenVenta[]
+  clientes Cliente[]
+  ordenes  OrdenVenta[]
 
   @@map("condicion_comercial")
 }
@@ -104,16 +109,17 @@ model CondicionComercial {
 // Soft delete: activo = false
 // ============================================================
 model Vendedor {
-  id         String       @id @default(uuid()) @db.Uuid
-  nombre     String       @db.VarChar(150)
-  email      String?      @db.VarChar(100)
-  telefono   String?      @db.VarChar(20)
-  activo     Boolean      @default(true)
-  created_at DateTime     @default(now())
-  updated_at DateTime     @updatedAt
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  nombre     String   @db.VarChar(150)
+  email      String?  @db.VarChar(100)
+  telefono   String?  @db.VarChar(20)
+  activo     Boolean  @default(true)
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  updated_at DateTime @updatedAt @db.Timestamptz(6)
 
-  ordenes    OrdenVenta[]
-  usuarios   User[]
+  ordenes  OrdenVenta[]
+  usuarios User[]
+  deals    Deal[]
 
   @@map("vendedor")
 }
@@ -124,24 +130,25 @@ model Vendedor {
 // RFC único en el sistema
 // ============================================================
 model Cliente {
-  id                 String             @id @default(uuid())
-  nombre             String             @db.VarChar(200)
-  rfc                String?            @unique @db.VarChar(13)
-  contacto           String             @db.VarChar(150)
-  ciudad             String             @db.VarChar(100)
-  email              String?            @db.VarChar(100)
-  telefono           String?            @db.VarChar(20)
+  id                String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  nombre            String             @db.VarChar(200)
+  rfc               String?            @unique @db.VarChar(13)
+  contacto          String             @db.VarChar(150)
+  ciudad            String             @db.VarChar(100)
+  email             String?            @db.VarChar(100)
+  telefono          String?            @db.VarChar(20)
   // Condición de pago por defecto del cliente
-  condicion_pago_id  String
-  condicion_pago     CondicionComercial @relation(fields: [condicion_pago_id], references: [id])
-  notas              String?            @db.Text
+  condicion_pago_id String             @db.Uuid
+  condicion_pago    CondicionComercial @relation(fields: [condicion_pago_id], references: [id])
+  notas             String?            @db.Text
   // Soft delete
-  activo             Boolean            @default(true)
-  created_at         DateTime           @default(now())
-  updated_at         DateTime           @updatedAt
+  activo            Boolean            @default(true)
+  created_at        DateTime           @default(now()) @db.Timestamptz(6)
+  updated_at        DateTime           @updatedAt @db.Timestamptz(6)
 
   // Relaciones
-  ordenes            OrdenVenta[]
+  ordenes OrdenVenta[]
+  deals   Deal[]
 
   @@map("cliente")
 }
@@ -152,9 +159,9 @@ model Cliente {
 
 // Ciclo de vida de una orden de venta
 enum EstatusOrden {
-  BORRADOR  // En elaboración, no enviado al cliente
-  COTIZADO  // Enviado al cliente como cotización formal
-  VENTA     // Ganado/cerrado como venta
+  BORRADOR // En elaboración, no enviado al cliente
+  COTIZADO // Enviado al cliente como cotización formal
+  VENTA // Ganado/cerrado como venta
 
   @@map("estatus_orden")
 }
@@ -182,68 +189,71 @@ enum UserRole {
 // Los campos "Calc." se recalculan en backend al guardar/actualizar.
 // ============================================================
 model OrdenVenta {
-  id                     String             @id @default(uuid())
+  id    String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   // Folio autogenerado: prefijo + consecutivo zero-padded 5 dígitos
-  folio                  String             @unique @db.VarChar(20)
+  folio String @unique @db.VarChar(20)
 
   // Relaciones principales
-  cliente_id             String
-  cliente                Cliente            @relation(fields: [cliente_id], references: [id])
-  tipo_cotizacion_id     String
-  tipo_cotizacion        TipoCotizacion     @relation(fields: [tipo_cotizacion_id], references: [id])
+  cliente_id         String             @db.Uuid
+  cliente            Cliente            @relation(fields: [cliente_id], references: [id])
+  tipo_cotizacion_id String             @db.Uuid
+  tipo_cotizacion    TipoCotizacion     @relation(fields: [tipo_cotizacion_id], references: [id])
   // Condición de esta orden específica (puede diferir del default del cliente)
-  condicion_pago_id      String
-  condicion_pago         CondicionComercial @relation(fields: [condicion_pago_id], references: [id])
-  vendedor_id            String?            @db.Uuid
-  vendedor               Vendedor?          @relation(fields: [vendedor_id], references: [id], onDelete: SetNull)
+  condicion_pago_id  String             @db.Uuid
+  condicion_pago     CondicionComercial @relation(fields: [condicion_pago_id], references: [id])
+  vendedor_id        String?            @db.Uuid
+  vendedor           Vendedor?          @relation(fields: [vendedor_id], references: [id], onDelete: SetNull)
 
-  descripcion            String             @db.VarChar(500)
-  estatus                EstatusOrden       @default(BORRADOR)
-  moneda                 Moneda             @default(MXN)
+  descripcion String       @db.VarChar(500)
+  estatus     EstatusOrden @default(BORRADOR)
+  moneda      Moneda       @default(MXN)
   // Obligatorio si moneda = USD
-  tipo_cambio            Decimal?           @db.Decimal(10, 4)
+  tipo_cambio Decimal?     @db.Decimal(10, 4)
 
   // Fechas
   // Editable retroactivamente en cualquier estatus (requisito explícito)
-  fecha_venta            DateTime?          @db.Date
+  fecha_venta DateTime? @db.Date
   // Calculada al crear: created_at + vigencia_cotizacion_dias de Empresa
-  vigencia               DateTime?          @db.Date
+  vigencia    DateTime? @db.Date
 
   // IVA — hereda de Empresa pero es editable por orden
-  aplica_iva             Boolean
-  tasa_iva               Decimal?           @db.Decimal(5, 2)
+  aplica_iva Boolean
+  tasa_iva   Decimal? @db.Decimal(5, 2)
 
   // Descuento global opcional
-  descuento_porcentaje   Decimal?           @db.Decimal(5, 2)
-  descuento_descripcion  String?            @db.VarChar(200)
+  descuento_porcentaje  Decimal? @db.Decimal(5, 2)
+  descuento_descripcion String?  @db.VarChar(200)
 
   // ── Campos calculados (calculados en backend, NO en frontend) ──
   // Suma de (cantidad * precio_unitario) de todas las partidas
-  subtotal               Decimal            @default(0) @db.Decimal(12, 2)
+  subtotal               Decimal @default(0) @db.Decimal(12, 2)
   // subtotal * (descuento_porcentaje / 100)
-  monto_descuento        Decimal            @default(0) @db.Decimal(12, 2)
+  monto_descuento        Decimal @default(0) @db.Decimal(12, 2)
   // subtotal - monto_descuento
-  subtotal_con_descuento Decimal            @default(0) @db.Decimal(12, 2)
+  subtotal_con_descuento Decimal @default(0) @db.Decimal(12, 2)
   // subtotal_con_descuento * (tasa_iva / 100) — si aplica_iva = true
-  monto_iva              Decimal            @default(0) @db.Decimal(12, 2)
+  monto_iva              Decimal @default(0) @db.Decimal(12, 2)
   // subtotal_con_descuento + monto_iva — en moneda original
-  total                  Decimal            @default(0) @db.Decimal(12, 2)
+  total                  Decimal @default(0) @db.Decimal(12, 2)
   // Si MXN: igual a total. Si USD: total * tipo_cambio
-  total_mxn              Decimal            @default(0) @db.Decimal(12, 2)
+  total_mxn              Decimal @default(0) @db.Decimal(12, 2)
 
-  notas                  String?            @db.Text
+  notas String? @db.Text
 
   // Referencia a orden original si fue duplicada
-  duplicada_de_id        String?
-  duplicada_de           OrdenVenta?        @relation("Duplicaciones", fields: [duplicada_de_id], references: [id])
-  duplicaciones          OrdenVenta[]       @relation("Duplicaciones")
+  duplicada_de_id String?      @db.Uuid
+  duplicada_de    OrdenVenta?  @relation("Duplicaciones", fields: [duplicada_de_id], references: [id])
+  duplicaciones   OrdenVenta[] @relation("Duplicaciones")
 
-  created_at             DateTime           @default(now())
-  updated_at             DateTime           @updatedAt
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  updated_at DateTime @updatedAt @db.Timestamptz(6)
 
   // Relaciones
-  partidas               Partida[]
+  partidas Partida[]
+  // Deal de origen (si la orden se generó desde el pipeline CRM)
+  deal     Deal?
 
+  @@index([vendedor_id])
   @@map("orden_venta")
 }
 
@@ -253,8 +263,8 @@ model OrdenVenta {
 // Se eliminan físicamente solo en cascade con la orden (si orden BORRADOR)
 // ============================================================
 model Partida {
-  id              String     @id @default(uuid())
-  orden_id        String
+  id              String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  orden_id        String     @db.Uuid
   // onDelete: Cascade — si se elimina la orden, se eliminan sus partidas
   orden           OrdenVenta @relation(fields: [orden_id], references: [id], onDelete: Cascade)
   descripcion     String     @db.VarChar(500)
@@ -264,7 +274,243 @@ model Partida {
   total_partida   Decimal    @db.Decimal(12, 2)
   // Posición de display en la orden (para ordenamiento)
   orden_display   Int
-  created_at      DateTime   @default(now())
+  created_at      DateTime   @default(now()) @db.Timestamptz(6)
 
   @@map("partida")
+}
+
+// ============================================================
+// ============================================================
+// MÓDULO PIPELINE CRM
+// Pipeline de ventas con deals (prospectos/oportunidades), bitácora
+// de actividades y copiloto de IA. Un Deal es pre-venta: al ganarse
+// hace hand-off al módulo de Ventas (genera/sugiere una OrdenVenta).
+// Ver docs/modulos/pipeline-crm.md
+// ============================================================
+// ============================================================
+
+// ── ENUMS CRM ──
+
+// Temperatura del deal (qué tan caliente está la oportunidad)
+enum TemperaturaDeal {
+  MUY_FRIO
+  FRIO
+  TIBIO
+  CALIENTE
+  MUY_CALIENTE
+
+  @@map("temperatura_deal")
+}
+
+// Resultado/outcome del deal — separado del stage (posición en el pipeline)
+enum DealResultado {
+  ABIERTO // En seguimiento activo
+  GANADO // Cerrado como venta → hand-off a OrdenVenta
+  PERDIDO // Cerrado sin venta (requiere razón)
+  SUSPENDIDO // En pausa / hold — se muestra en la columna "Pausados"
+
+  @@map("deal_resultado")
+}
+
+// Tipo de actividad en la bitácora del deal
+enum TipoActividad {
+  NOTA
+  LLAMADA
+  EMAIL
+  WHATSAPP
+  SISTEMA // Evento automático (cambio de stage, etc.)
+
+  @@map("tipo_actividad")
+}
+
+// Rol de un contacto dentro del deal
+enum RolContacto {
+  DECISOR
+  INFLUENCIADOR
+  USUARIO
+  OTRO
+
+  @@map("rol_contacto")
+}
+
+// ============================================================
+// PIPELINE STAGE (etapa del pipeline)
+// Catálogo CONFIGURABLE (requisito explícito de Roldán). Ordenable.
+// Soft delete: activo = false
+// ============================================================
+model PipelineStage {
+  id                String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  nombre            String   @db.VarChar(100)
+  // Posición en el tablero (orden de las columnas, ascendente)
+  orden             Int
+  // Color de la columna/barra (hex, ej. #F47920)
+  color             String   @default("#9BA5BE") @db.VarChar(20)
+  // Probabilidad de cierre base (0-100) para los deals en esta etapa
+  probabilidad_base Int      @default(0)
+  activo            Boolean  @default(true)
+  created_at        DateTime @default(now()) @db.Timestamptz(6)
+  updated_at        DateTime @updatedAt @db.Timestamptz(6)
+
+  deals Deal[]
+
+  @@map("pipeline_stage")
+}
+
+// ============================================================
+// DEAL (prospecto / oportunidad)
+// Entidad central del CRM. Vive en un stage configurable.
+// Al ganarse (resultado = GANADO) enlaza/precarga una OrdenVenta.
+// ============================================================
+model Deal {
+  id     String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  nombre String @db.VarChar(200)
+
+  // Relaciones principales
+  cliente_id         String          @db.Uuid
+  cliente            Cliente         @relation(fields: [cliente_id], references: [id])
+  // Dueño del deal ("quién lo trae")
+  vendedor_id        String?         @db.Uuid
+  vendedor           Vendedor?       @relation(fields: [vendedor_id], references: [id], onDelete: SetNull)
+  stage_id           String          @db.Uuid
+  stage              PipelineStage   @relation(fields: [stage_id], references: [id])
+  // Tipo / línea de producto (reutiliza el catálogo de tipos de cotización)
+  tipo_cotizacion_id String?         @db.Uuid
+  tipo_cotizacion    TipoCotizacion? @relation(fields: [tipo_cotizacion_id], references: [id])
+
+  // Clasificación
+  temperatura  TemperaturaDeal @default(TIBIO)
+  // Probabilidad de cierre 0-100 (motor híbrido: base por stage ajustada por IA)
+  probabilidad Int?
+
+  // Montos (Decimal — regla del proyecto)
+  moneda      Moneda   @default(MXN)
+  valor       Decimal  @default(0) @db.Decimal(12, 2)
+  setup       Decimal? @db.Decimal(12, 2)
+  mensualidad Decimal? @db.Decimal(12, 2)
+  meses       Int?
+
+  // Origen / canal
+  canal  String? @db.VarChar(100)
+  origen String? @db.VarChar(100)
+
+  // Fechas
+  fecha_cierre_estimada DateTime? @db.Date
+  // Para calcular "días en etapa" — se reinicia al mover de stage
+  fecha_entrada_stage   DateTime  @default(now()) @db.Timestamptz(6)
+
+  // Outcome
+  resultado          DealResultado @default(ABIERTO)
+  fecha_cierre_real  DateTime?     @db.Date
+  // Solo cuando resultado = PERDIDO (para estadísticas de pérdida)
+  razon_perdida      String?       @db.VarChar(150)
+  comentario_perdida String?       @db.Text
+  // Orden generada al ganar el deal (hand-off al módulo Ventas)
+  orden_id           String?       @unique @db.Uuid
+  orden              OrdenVenta?   @relation(fields: [orden_id], references: [id], onDelete: SetNull)
+
+  notas      String?  @db.Text
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  updated_at DateTime @updatedAt @db.Timestamptz(6)
+
+  // Relaciones CRM
+  contactos   DealContacto[]
+  actividades DealActividad[]
+  adjuntos    DealAdjunto[]
+  analisis    DealAnalisisIA[]
+
+  @@index([stage_id])
+  @@index([vendedor_id])
+  @@index([cliente_id])
+  @@map("deal")
+}
+
+// ============================================================
+// DEAL CONTACTO
+// Múltiples contactos por deal, con rol (decisor/influenciador/etc.)
+// ============================================================
+model DealContacto {
+  id         String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  deal_id    String      @db.Uuid
+  deal       Deal        @relation(fields: [deal_id], references: [id], onDelete: Cascade)
+  nombre     String      @db.VarChar(150)
+  rol        RolContacto @default(OTRO)
+  email      String?     @db.VarChar(100)
+  telefono   String?     @db.VarChar(20)
+  whatsapp   String?     @db.VarChar(20)
+  created_at DateTime    @default(now()) @db.Timestamptz(6)
+
+  actividades DealActividad[]
+
+  @@index([deal_id])
+  @@map("deal_contacto")
+}
+
+// ============================================================
+// DEAL ACTIVIDAD (bitácora)
+// Nota / llamada / email / WhatsApp (manual) + eventos de sistema.
+// Puede ser una tarea con check.
+// ============================================================
+model DealActividad {
+  id           String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  deal_id      String        @db.Uuid
+  deal         Deal          @relation(fields: [deal_id], references: [id], onDelete: Cascade)
+  tipo         TipoActividad
+  contenido    String        @db.Text
+  // Nombre del autor (ej. "Roldán Ayala", "Sistema")
+  autor        String        @db.VarChar(150)
+  // Contacto del lead con quien fue la interacción (llamada/email/whatsapp)
+  contacto_id  String?       @db.Uuid
+  contacto     DealContacto? @relation(fields: [contacto_id], references: [id], onDelete: SetNull)
+  // Cuándo ocurrió el evento (puede diferir del registro). Email = automático.
+  fecha_evento DateTime?     @db.Timestamptz(6)
+  // Solo para LLAMADA: si contestó / fue exitosa
+  exitosa      Boolean?
+  // Seguimiento agendado: próximo paso con fecha y hora (alimenta inbox/IA Fase 2)
+  es_tarea     Boolean       @default(false)
+  completada   Boolean       @default(false)
+  fecha_tarea  DateTime?     @db.Timestamptz(6)
+  created_at   DateTime      @default(now()) @db.Timestamptz(6)
+
+  @@index([deal_id])
+  @@index([contacto_id])
+  @@map("deal_actividad")
+}
+
+// ============================================================
+// DEAL ADJUNTO
+// Archivos del deal (transcripts, propuestas). Para el panel de IA.
+// ============================================================
+model DealAdjunto {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  deal_id    String   @db.Uuid
+  deal       Deal     @relation(fields: [deal_id], references: [id], onDelete: Cascade)
+  nombre     String   @db.VarChar(255)
+  tipo       String?  @db.VarChar(50)
+  // Ubicación del archivo (ruta/URL); para MVP puede ser texto/base64 ref
+  url        String   @db.Text
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+
+  @@index([deal_id])
+  @@map("deal_adjunto")
+}
+
+// ============================================================
+// DEAL ANÁLISIS IA
+// Resultado del copiloto: 3 acciones + objeciones + señales de riesgo.
+// Generado server-side con Claude (salida estructurada). Histórico.
+// ============================================================
+model DealAnalisisIA {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  deal_id    String   @db.Uuid
+  deal       Deal     @relation(fields: [deal_id], references: [id], onDelete: Cascade)
+  // Transcript / texto analizado (input)
+  transcript String?  @db.Text
+  // Resultado estructurado: { acciones[], objeciones[], riesgo{} }
+  resultado  Json
+  // Modelo usado (ej. claude-opus-4-8)
+  modelo     String   @db.VarChar(50)
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+
+  @@index([deal_id])
+  @@map("deal_analisis_ia")
 }

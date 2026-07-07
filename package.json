@@ -19,6 +19,7 @@
     "test:watch": "jest --watch"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.104.2",
     "@eslint/eslintrc": "^3.3.5",
     "@prisma/client": "^5.14.0",
     "@react-pdf/renderer": "^3.4.4",

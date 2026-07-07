@@ -58,3 +58,12 @@ export interface Usuario {
   created_at: string;
   updated_at: string;
 }
+
+export interface PipelineStageConfig {
+  id: string;
+  nombre: string;
+  orden: number;
+  color: string;
+  activo: boolean;
+  probabilidad_base: number;
+}

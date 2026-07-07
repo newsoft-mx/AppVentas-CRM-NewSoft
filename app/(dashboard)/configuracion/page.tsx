@@ -15,7 +15,7 @@ export default async function ConfiguracionPage() {
   if (session?.rol !== "ADMIN") redirect("/ventas");
 
   // Fetch en paralelo desde el servidor — sin waterfall
-  const [empresa, tipos, condiciones, vendedores, usuarios] = await Promise.all([
+  const [empresa, tipos, condiciones, vendedores, usuarios, stages] = await Promise.all([
     prisma.empresa.findFirst(),
     prisma.tipoCotizacion.findMany({
       orderBy: [{ activo: "desc" }, { nombre: "asc" }],
@@ -37,6 +37,10 @@ export default async function ConfiguracionPage() {
       },
       orderBy: [{ activo: "desc" }, { nombre: "asc" }],
     }),
+    prisma.pipelineStage.findMany({
+      select: { id: true, nombre: true, orden: true, color: true, activo: true, probabilidad_base: true },
+      orderBy: [{ activo: "desc" }, { orden: "asc" }],
+    }),
   ]);
 
   return (
@@ -46,6 +50,7 @@ export default async function ConfiguracionPage() {
       initialCondiciones={condiciones.map(serializeCondicion)}
       initialVendedores={vendedores.map(serializeVendedor)}
       initialUsuarios={usuarios.map(serializeUsuario)}
+      initialStages={stages}
     />
   );
 }

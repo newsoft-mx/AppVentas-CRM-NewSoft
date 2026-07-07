@@ -1,13 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import { Building2, Tag, CreditCard, UserRound, Users } from "lucide-react";
+import { Building2, Tag, CreditCard, UserRound, Users, Workflow } from "lucide-react";
 import TabEmpresa from "./TabEmpresa";
 import TabTipos from "./TabTipos";
 import TabCondiciones from "./TabCondiciones";
 import TabVendedores from "./TabVendedores";
 import TabUsuarios from "./TabUsuarios";
-import type { Empresa, TipoCotizacion, CondicionComercial, Vendedor, Usuario } from "@/types/configuracion";
+import TabPipelineStages from "./TabPipelineStages";
+import type { Empresa, TipoCotizacion, CondicionComercial, Vendedor, Usuario, PipelineStageConfig } from "@/types/configuracion";
 
 interface ConfiguracionClientProps {
   initialEmpresa: Empresa | null;
@@ -15,6 +16,7 @@ interface ConfiguracionClientProps {
   initialCondiciones: CondicionComercial[];
   initialVendedores: Vendedor[];
   initialUsuarios: Usuario[];
+  initialStages: PipelineStageConfig[];
 }
 
 const TABS = [
@@ -23,6 +25,7 @@ const TABS = [
   { id: "condiciones", label: "Condiciones Comerciales", icon: CreditCard },
   { id: "vendedores", label: "Vendedores", icon: UserRound },
   { id: "usuarios", label: "Usuarios", icon: Users },
+  { id: "pipeline", label: "Etapas del Pipeline", icon: Workflow },
 ] as const;
 
 type TabId = (typeof TABS)[number]["id"];
@@ -33,6 +36,7 @@ export default function ConfiguracionClient({
   initialCondiciones,
   initialVendedores,
   initialUsuarios,
+  initialStages,
 }: ConfiguracionClientProps) {
   const [activeTab, setActiveTab] = useState<TabId>("empresa");
 
@@ -102,6 +106,10 @@ export default function ConfiguracionClient({
 
           {activeTab === "usuarios" && (
             <TabUsuarios initialUsuarios={initialUsuarios} />
+          )}
+
+          {activeTab === "pipeline" && (
+            <TabPipelineStages initialStages={initialStages} />
           )}
         </div>
       </div>
