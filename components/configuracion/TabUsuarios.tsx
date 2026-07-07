@@ -8,6 +8,7 @@ import type { Usuario } from "@/types/configuracion";
 
 interface TabUsuariosProps {
   initialUsuarios: Usuario[];
+  vendedores: { id: string; nombre: string }[];
 }
 
 type RolUsuario = "ADMIN" | "GERENTE_COMERCIAL" | "VENDEDOR" | "ADMINISTRATIVO";
@@ -26,6 +27,7 @@ interface FormState {
   passwordConfirm: string;
   activo: boolean;
   rol: RolUsuario;
+  vendedor_id: string;
 }
 
 const emptyForm: FormState = {
@@ -35,9 +37,10 @@ const emptyForm: FormState = {
   passwordConfirm: "",
   activo: true,
   rol: "VENDEDOR",
+  vendedor_id: "",
 };
 
-export default function TabUsuarios({ initialUsuarios }: TabUsuariosProps) {
+export default function TabUsuarios({ initialUsuarios, vendedores }: TabUsuariosProps) {
   const [usuarios, setUsuarios] = useState<Usuario[]>(initialUsuarios);
   const [editing, setEditing] = useState<Usuario | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -64,6 +67,7 @@ export default function TabUsuarios({ initialUsuarios }: TabUsuariosProps) {
       passwordConfirm: "",
       activo: usuario.activo,
       rol: usuario.rol,
+      vendedor_id: usuario.vendedor_id ?? "",
     });
     setFormError("");
     setIsModalOpen(true);
@@ -85,6 +89,7 @@ export default function TabUsuarios({ initialUsuarios }: TabUsuariosProps) {
           nombre: body.nombre.trim(),
           email: body.email.trim(),
           rol: body.rol,
+          vendedor_id: body.rol === "VENDEDOR" && body.vendedor_id ? body.vendedor_id : null,
           ...(body.password.trim() && { password: body.password.trim() }),
           ...(target && { activo: body.activo }),
         }),
@@ -113,6 +118,10 @@ export default function TabUsuarios({ initialUsuarios }: TabUsuariosProps) {
     }
     if (form.password.trim() && form.password.trim() !== form.passwordConfirm.trim()) {
       setFormError("La confirmación de contraseña no coincide");
+      return;
+    }
+    if (form.rol === "VENDEDOR" && !form.vendedor_id) {
+      setFormError("Seleccioná la ficha de vendedor para un usuario VENDEDOR");
       return;
     }
 
@@ -146,6 +155,7 @@ export default function TabUsuarios({ initialUsuarios }: TabUsuariosProps) {
           passwordConfirm: "",
           activo: !usuario.activo,
           rol: usuario.rol,
+          vendedor_id: usuario.vendedor_id ?? "",
         },
         usuario
       );
@@ -277,9 +287,22 @@ export default function TabUsuarios({ initialUsuarios }: TabUsuariosProps) {
                 ))}
               </select>
               {form.rol === "VENDEDOR" && (
-                <p className="mt-1 text-xs text-gray-400">
-                  Un usuario VENDEDOR solo verá sus propios deals/órdenes. La vinculación a su ficha de vendedor se asigna aparte.
-                </p>
+                <div className="mt-3">
+                  <label className="label">Ficha de vendedor *</label>
+                  <select
+                    className="input"
+                    value={form.vendedor_id}
+                    onChange={(e) => setForm((p) => ({ ...p, vendedor_id: e.target.value }))}
+                  >
+                    <option value="">— Seleccionar —</option>
+                    {vendedores.map((v) => (
+                      <option key={v.id} value={v.id}>{v.nombre}</option>
+                    ))}
+                  </select>
+                  <p className="mt-1 text-xs text-gray-400">
+                    Vincula el usuario a su ficha para que solo vea sus propios deals y órdenes.
+                  </p>
+                </div>
               )}
             </div>
             <div>

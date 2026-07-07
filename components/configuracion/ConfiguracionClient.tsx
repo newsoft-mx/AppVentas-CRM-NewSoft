@@ -105,7 +105,7 @@ export default function ConfiguracionClient({
           )}
 
           {activeTab === "usuarios" && (
-            <TabUsuarios initialUsuarios={initialUsuarios} />
+            <TabUsuarios initialUsuarios={initialUsuarios} vendedores={initialVendedores} />
           )}
 
           {activeTab === "pipeline" && (
