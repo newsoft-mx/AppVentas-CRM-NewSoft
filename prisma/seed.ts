@@ -51,8 +51,8 @@ async function main() {
   ]);
 
   await Promise.all([
-    prisma.$executeRaw`UPDATE "user" SET rol = 'ADMIN'::user_role WHERE id = ${userRoldan.id}`,
-    prisma.$executeRaw`UPDATE "user" SET rol = 'GERENTE_COMERCIAL'::user_role WHERE id = ${userElva.id}`,
+    prisma.$executeRaw`UPDATE "user" SET rol = 'ADMIN'::user_role WHERE id = ${userRoldan.id}::uuid`,
+    prisma.$executeRaw`UPDATE "user" SET rol = 'GERENTE_COMERCIAL'::user_role WHERE id = ${userElva.id}::uuid`,
   ]);
 
   console.log(`   ✓ ${userRoldan.email}`);
