@@ -1,5 +1,7 @@
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
+// Generar el PDF con Chromium puede tardar unos segundos, especialmente en cold start.
+export const maxDuration = 60;
 
 import { NextRequest, NextResponse } from "next/server";
 import { readFileSync } from "node:fs";
@@ -346,11 +348,40 @@ function htmlDocument({
 </html>`;
 }
 
-async function renderPdf(html: string) {
-  const browser = await puppeteer.launch({
-    executablePath: process.env.CHROMIUM_PATH || "/usr/bin/chromium",
-    userDataDir: "/tmp/chromium",
+// En Docker/Lightsail hay un Chromium del sistema instalado (apt) y basta con
+// apuntar a su ruta. En Vercel (o cualquier entorno serverless) no existe ese
+// binario, así que ahí usamos @sparticuz/chromium, que empaqueta un Chromium
+// compilado para funciones serverless. process.env.VERCEL lo define Vercel
+// automáticamente en runtime; CHROMIUM_PATH sigue permitiendo forzar una ruta
+// manual si algún día se necesita.
+async function resolveChromium() {
+  if (process.env.CHROMIUM_PATH) {
+    return {
+      executablePath: process.env.CHROMIUM_PATH,
+      args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"],
+    };
+  }
+
+  if (process.env.VERCEL) {
+    const chromium = (await import("@sparticuz/chromium")).default;
+    return {
+      executablePath: await chromium.executablePath(),
+      args: chromium.args,
+    };
+  }
+
+  return {
+    executablePath: "/usr/bin/chromium",
     args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"],
+  };
+}
+
+async function renderPdf(html: string) {
+  const { executablePath, args } = await resolveChromium();
+  const browser = await puppeteer.launch({
+    executablePath,
+    userDataDir: "/tmp/chromium",
+    args,
     headless: true,
   });
 

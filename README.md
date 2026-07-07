@@ -1,130 +1,60 @@
-# Newsoft Sales
+# Entrega operativa - NewSoft Sales
 
-Sistema interno de gestión de ventas y cotizaciones para Newsoft Technologies.
+Este paquete contiene la informacion necesaria para que otra persona pueda entender y operar el despliegue actual de NewSoft Sales.
 
-## Stack
+## Estado actual
 
-- **Next.js 16** (App Router) + **TypeScript** + **Tailwind CSS**
-- **Prisma ORM** + **PostgreSQL** (Supabase en producción)
-- **Autenticación propia por cookie/JWT** (firmada con `jose`) — ver `lib/session.ts` y `lib/access-control.ts`
-- **recharts** (gráficas) · **@react-pdf/renderer** + **puppeteer-core** (generación de PDF)
-- **Jest** (pruebas) · **Docker** + **Terraform** (despliegue alternativo en AWS Lightsail)
+- La aplicacion esta desplegada en AWS Lightsail.
+- El acceso publico actualmente es por IP, no por dominio.
+- La aplicacion corre en Docker dentro del servidor.
+- El codigo desplegado se deja en el servidor en `/opt/newsoft-sales`.
+- La infraestructura principal se administra con Terraform desde `infra/lightsail`.
 
----
+## Archivos incluidos
 
-## Setup local
+- `FLUJO_DESPLIEGUE.md`: explica el flujo completo de despliegue.
+- `OPERACION_SERVIDOR.md`: comandos utiles para SSH, Docker, logs y validacion.
+- `INVENTARIO_SERVICIOS.md`: servicios/cuentas involucrados.
+- `checklists/ARCHIVOS_SENSIBLES.md`: lista de archivos que NO deben ir por Slack/correo.
+- `checklists/VALIDACION_PRE_DEPLOY.md`: checklist antes de ejecutar despliegue.
+- `terraform_lightsail_sin_secretos/`: copia de Terraform sin estado, variables sensibles, planes ni builds.
+- `sensibles_no_incluir/`: carpeta placeholder para recordar que los sensibles se comparten aparte por canal seguro.
 
-### 1. Clonar e instalar dependencias
+## Importante
+
+Este paquete no incluye:
+
+- `terraform.tfvars`
+- `terraform.tfstate`
+- backups de estado Terraform
+- llaves SSH privadas
+- `.env`
+- paquetes de build
+- credenciales o secretos
+
+Esos archivos deben compartirse solo por canal seguro o revisarse en una reunion.
+
+## Acceso SSH
+
+La configuracion usada por Terraform apunta a:
+
+```hcl
+ssh_public_key_path  = "~/.ssh/newsoft_lightsail.pub"
+ssh_private_key_path = "~/.ssh/newsoft_lightsail"
+ssh_user             = "ubuntu"
+```
+
+Comando de referencia:
 
 ```bash
-git clone <repo>
-cd newsoft-sales
-npm install   # corre `prisma generate` automáticamente (postinstall)
+ssh -i ~/.ssh/newsoft_lightsail ubuntu@13.218.0.179
 ```
 
-### 2. Configurar variables de entorno
+## Servidor actual
 
-```bash
-cp .env.example .env.local
-```
+- IP publica: `13.218.0.179`
+- Usuario SSH: `ubuntu`
+- Ruta app: `/opt/newsoft-sales`
+- Contenedor principal: `newsoft-sales-app`
+- Puerto publico: `80`
 
-Edita `.env.local` con tus credenciales. La app (Next.js runtime) usa estas variables:
-
-| Variable | Descripción |
-|---|---|
-| `POSTGRES_PRISMA_URL` | URL pooled (pgbouncer, puerto 6543, `?pgbouncer=true`) |
-| `POSTGRES_URL_NON_POOLING` | URL directa (puerto 5432), usada por las migraciones |
-| `SESSION_SECRET` | Secreto para firmar la sesión JWT. Generar con `openssl rand -base64 32` (mín. 32 chars) |
-
-> **Importante (CLI de Prisma):** `prisma migrate`, `prisma studio`, etc. solo leen `.env`
-> (no `.env.local`). El `schema.prisma` espera `POSTGRES_PRISMA_URL` y `POSTGRES_URL_NON_POOLING`,
-> así que define esos mismos nombres también en `.env` para que la CLI funcione.
-
-### 3. Migraciones y datos iniciales
-
-```bash
-npm run db:migrate    # aplica migraciones en desarrollo
-npm run db:seed       # usuarios, empresa, catálogos y datos demo
-```
-
-### 4. Iniciar el servidor de desarrollo
-
-```bash
-npm run dev
-```
-
-Abre [http://localhost:3000](http://localhost:3000) → redirige a `/login`.
-
----
-
-## Comandos útiles
-
-```bash
-npm run dev          # Servidor de desarrollo
-npm run build        # Build de producción (prisma generate + next build)
-npm run lint         # ESLint
-npm test             # Pruebas (Jest)
-npm run db:generate  # Regenerar cliente Prisma tras cambios de schema
-npm run db:migrate   # Nueva migración en desarrollo
-npm run db:seed      # Seed de datos iniciales
-npm run db:studio    # Prisma Studio (explorador visual de la BD)
-npm run db:reset     # Reset completo (destructivo)
-npm run user:role    # Asignar rol a un usuario (scripts/set-user-role.ts)
-```
-
----
-
-## Despliegue
-
-La producción corre en **Vercel** (`app-ventas-new-soft.vercel.app`).
-
-- **Cada push a `main` despliega a producción automáticamente** y ejecuta
-  `prisma generate && next build` (ver `vercel.json`). Las migraciones se aplican
-  contra la base de datos real.
-- Cada rama / Pull Request genera un **preview deployment** propio para probar antes de mergear.
-- Variables de entorno: configuradas en **Vercel → Project → Settings → Environment Variables**
-  (`POSTGRES_PRISMA_URL`, `POSTGRES_URL_NON_POOLING`, `SESSION_SECRET`).
-
-### Alternativa: AWS Lightsail (preparada, no en uso)
-
-El directorio `infra/lightsail/` contiene un stack de Terraform que levanta una VM con
-PostgreSQL administrado y despliega vía Docker Compose. Ver `infra/lightsail/README.md`.
-
----
-
-## Flujo de trabajo
-
-`main` está **protegido**: no se hace push directo. Todo cambio entra por Pull Request
-desde una rama `feature/`, `fix/` o `chore/`. Ver **[docs/FLUJO-GIT.md](docs/FLUJO-GIT.md)**.
-
----
-
-## Estructura del proyecto
-
-```
-app/
-  (dashboard)/      # Rutas protegidas (ventas, clientes, reportes, configuración)
-  api/              # Route handlers (incl. import, reportes, configuración)
-  login/            # Página de inicio de sesión
-components/
-  layout/           # Sidebar
-  ordenes/          # Formularios y tablas de órdenes
-  clientes/         # Gestión de clientes
-  reportes/         # Gráficas y tablas de reportes
-  configuracion/    # Tabs (empresa, tipos, condiciones, usuarios, vendedores)
-  pdf/              # Template PDF de cotización
-  ui/               # Componentes reutilizables (MultiSelect, Modal, etc.)
-lib/
-  session.ts        # Sesión por cookie/JWT
-  access-control.ts # Roles y permisos
-  net-amounts.ts    # Cálculo de montos netos sin IVA
-  filter-utils.ts   # Helpers de filtros y rangos de fecha
-  prisma.ts         # Singleton Prisma Client
-prisma/
-  schema.prisma     # Modelos de datos
-  migrations/        # Historial de migraciones SQL
-  seed.ts           # Datos iniciales
-__tests__/          # Pruebas (Jest)
-infra/lightsail/    # Terraform para despliegue en AWS Lightsail
-types/              # Tipos TypeScript compartidos
-```
