@@ -97,6 +97,7 @@ export default async function DealDetallePage({
       exitosa: a.exitosa,
       es_tarea: a.es_tarea,
       completada: a.completada,
+      estado_accion: a.estado_accion,
       fecha_tarea: a.fecha_tarea ? a.fecha_tarea.toISOString() : null,
       created_at: a.created_at.toISOString(),
     })),

@@ -7,10 +7,12 @@ import {
   TEMPERATURA_META,
   TEMPERATURAS_CALIENTES,
   TEMPERATURA_RANK,
+  ATENCION_META,
   type DealResumen,
   type StageResumen,
 } from "@/types/crm";
 import NuevoDealModal from "@/components/pipeline/NuevoDealModal";
+import { formatCompacto, formatFechaHora } from "@/lib/utils";
 
 interface Props {
   stages: StageResumen[];
@@ -21,12 +23,6 @@ interface Props {
   canWrite: boolean;
 }
 
-// Formato compacto de monto: $1.2M / $950K / $500
-function fmt(n: number): string {
-  if (n >= 1_000_000) return "$" + (n / 1_000_000).toFixed(1) + "M";
-  if (n >= 1_000) return "$" + Math.round(n / 1_000) + "K";
-  return "$" + n.toLocaleString("es-MX");
-}
 
 export default function PipelineKanban({ stages, deals, vendedores, clientes, tipos, canWrite }: Props) {
   const router = useRouter();
@@ -181,11 +177,11 @@ export default function PipelineKanban({ stages, deals, vendedores, clientes, ti
 
       {/* Barra de KPIs */}
       <div className="flex flex-wrap items-center gap-6 border-b border-surface-border bg-white px-6 py-4">
-        <Kpi label="Valor del pipeline" value={`${fmt(valorTotal)} MXN`} big />
+        <Kpi label="Valor del pipeline" value={`${formatCompacto(valorTotal)} MXN`} big />
         <div className="h-9 w-px bg-borde" />
         <Kpi label="Deals activos" value={String(activos.length)} />
         <Kpi label={<span className="inline-flex items-center gap-1"><Flame size={11} className="text-orange" /> Calientes</span>} value={String(calientes)} />
-        <Kpi label="Promedio deal" value={fmt(promedio)} />
+        <Kpi label="Promedio deal" value={formatCompacto(promedio)} />
         <div className="ml-auto flex items-center gap-2">
           <ArrowDownUp size={14} className="text-gray-400" />
           <select
@@ -227,7 +223,7 @@ export default function PipelineKanban({ stages, deals, vendedores, clientes, ti
                     style={{ background: stage.color, opacity: 0.7 }}
                   />
                   <div className="mt-1.5 text-[13px] font-bold text-navy">
-                    {fmt(totalStage)}{" "}
+                    {formatCompacto(totalStage)}{" "}
                     <span className="text-[10px] font-medium text-gray-400">MXN</span>
                   </div>
                 </div>
@@ -278,7 +274,7 @@ export default function PipelineKanban({ stages, deals, vendedores, clientes, ti
                 </div>
                 <div className="mt-1.5 h-[3px] rounded-full" style={{ background: "#2A5298", opacity: 0.7 }} />
                 <div className="mt-1.5 text-[13px] font-bold text-navy">
-                  {fmt(pausados.reduce((s, d) => s + d.valor, 0))}{" "}
+                  {formatCompacto(pausados.reduce((s, d) => s + d.valor, 0))}{" "}
                   <span className="text-[10px] font-medium text-gray-400">MXN</span>
                 </div>
               </div>
@@ -334,7 +330,7 @@ export default function PipelineKanban({ stages, deals, vendedores, clientes, ti
                       <td className="px-4 py-2.5 text-center text-gray-600">{d.probabilidad ?? 0}%</td>
                       <td className="px-4 py-2.5 text-center text-gray-600">{d.dias_en_etapa}d</td>
                       <td className="px-4 py-2.5 text-center text-gray-600">{d.actividades_count}</td>
-                      <td className="px-4 py-2.5 text-right font-bold text-navy">{fmt(d.valor)}</td>
+                      <td className="px-4 py-2.5 text-right font-bold text-navy">{formatCompacto(d.valor)}</td>
                       <td className="px-4 py-2.5 text-gray-600">{d.vendedor?.nombre ?? "Sin asignar"}</td>
                     </tr>
                   );
@@ -347,7 +343,7 @@ export default function PipelineKanban({ stages, deals, vendedores, clientes, ti
                 <tfoot>
                   <tr className="border-t border-surface-border bg-gray-50 font-bold text-navy">
                     <td className="px-4 py-3" colSpan={7}>Total ({activos.length} deals)</td>
-                    <td className="px-4 py-3 text-right">{fmt(activos.reduce((s, d) => s + d.valor, 0))}</td>
+                    <td className="px-4 py-3 text-right">{formatCompacto(activos.reduce((s, d) => s + d.valor, 0))}</td>
                     <td className="px-4 py-3" />
                   </tr>
                 </tfoot>
@@ -425,7 +421,7 @@ function DealCard({
         {deal.cliente?.nombre ?? "Sin cliente"}
       </div>
       <div className="mt-2 flex items-center justify-between">
-        <div className="text-sm font-bold tracking-tight text-navy">{fmt(deal.valor)}</div>
+        <div className="text-sm font-bold tracking-tight text-navy">{formatCompacto(deal.valor)}</div>
         <span
           className="flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase"
           style={{ background: `${temp.color}1A`, color: temp.color }}
@@ -447,23 +443,18 @@ function DealCard({
           {iniciales}
         </div>
       </div>
-      {deal.proximo_seguimiento && (
-        <div
-          className={`mt-1.5 flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-semibold ${
-            new Date(deal.proximo_seguimiento).getTime() < Date.now()
-              ? "bg-red-50 text-red-700"
-              : "bg-blue-50 text-blue-700"
-          }`}
-        >
-          <CalendarClock size={10} />
-          {new Date(deal.proximo_seguimiento).toLocaleString("es-MX", {
-            day: "2-digit",
-            month: "short",
-            hour: "2-digit",
-            minute: "2-digit",
-          })}
-        </div>
-      )}
+      {/* Estado de atención (stand-by): un seguimiento futuro deja el deal "en seguimiento"
+          (verde), no en rojo. Vencido = rojo. Sin próxima acción = ámbar. */}
+      <div
+        className={`mt-1.5 flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-semibold ${
+          ATENCION_META[deal.atencion].chip
+        }`}
+      >
+        <CalendarClock size={10} />
+        {deal.proximo_seguimiento
+          ? `${ATENCION_META[deal.atencion].label} · ${formatFechaHora(deal.proximo_seguimiento)}`
+          : ATENCION_META[deal.atencion].label}
+      </div>
     </div>
   );
 }

@@ -1,18 +1,30 @@
 import { prisma } from "@/lib/prisma";
+import { getServerSession } from "@/lib/server-session";
+import { scopeDealWhere } from "@/lib/access-control";
 import AccionesInbox from "@/components/pipeline/AccionesInbox";
 import type { Metadata } from "next";
 import type { AccionItem, Temperatura } from "@/types/crm";
 
-export const metadata: Metadata = { title: "Mis acciones" };
+export const metadata: Metadata = { title: "Próximas Acciones" };
 export const dynamic = "force-dynamic";
 
 export default async function AccionesPage() {
-  // Inbox: tareas pendientes de la bitácora, de deals activos.
-  // Visibilidad abierta (todos ven todo) — coherente con el pipeline.
+  const session = await getServerSession();
+  // Próximas Acciones: seguimientos pendientes / en proceso (no terminados) de
+  // deals activos. Scope por vendedor en sesión (REQ-01): el VENDEDOR solo ve los
+  // suyos; ADMIN/GERENTE ven todos y filtran con el dropdown.
+  const dealScope = scopeDealWhere(session, { resultado: "ABIERTO" });
+
   const [tareas, vendedores] = await Promise.all([
     prisma.dealActividad.findMany({
-      where: { es_tarea: true, completada: false, deal: { resultado: "ABIERTO" } },
+      where: {
+        es_tarea: true,
+        completada: false,
+        fecha_tarea: { not: null },
+        deal: dealScope,
+      },
       include: {
+        contacto: { select: { nombre: true } },
         deal: {
           select: {
             id: true,
@@ -36,7 +48,9 @@ export default async function AccionesPage() {
     id: t.id,
     tipo: t.tipo,
     contenido: t.contenido,
-    fecha_tarea: t.fecha_tarea ? t.fecha_tarea.toISOString().slice(0, 10) : null,
+    fecha_tarea: t.fecha_tarea ? t.fecha_tarea.toISOString() : null,
+    estado_accion: t.estado_accion,
+    contacto_nombre: t.contacto?.nombre ?? null,
     deal: {
       id: t.deal.id,
       nombre: t.deal.nombre,
@@ -46,5 +60,14 @@ export default async function AccionesPage() {
     },
   }));
 
-  return <AccionesInbox acciones={acciones} vendedores={vendedores} />;
+  // El VENDEDOR no necesita el dropdown (ya está scopeado a lo suyo)
+  const mostrarFiltroVendedor = session?.rol !== "VENDEDOR";
+
+  return (
+    <AccionesInbox
+      acciones={acciones}
+      vendedores={vendedores}
+      mostrarFiltroVendedor={mostrarFiltroVendedor}
+    />
+  );
 }

@@ -81,6 +81,7 @@ export async function POST(
         exitosa: actividad.exitosa,
         es_tarea: actividad.es_tarea,
         completada: actividad.completada,
+        estado_accion: actividad.estado_accion,
         fecha_tarea: actividad.fecha_tarea ? actividad.fecha_tarea.toISOString() : null,
         created_at: actividad.created_at.toISOString(),
       },

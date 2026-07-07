@@ -46,6 +46,23 @@ export function formatMoneda(
   return moneda === "MXN" ? formatMXN(amount) : formatUSD(amount);
 }
 
+// Monto compacto para tarjetas/listas del CRM: $1.2M / $950K / $500
+export function formatCompacto(n: number): string {
+  if (n >= 1_000_000) return "$" + (n / 1_000_000).toFixed(1) + "M";
+  if (n >= 1_000) return "$" + Math.round(n / 1_000) + "K";
+  return "$" + n.toLocaleString("es-MX");
+}
+
+// Fecha + hora corta es-MX: "29 jun, 03:00 p.m." (usado en bitácora, Kanban y acciones)
+export function formatFechaHora(iso: string | Date): string {
+  return new Date(iso).toLocaleString("es-MX", {
+    day: "2-digit",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
 // ── Cálculos de orden (se usan en el backend) ────────────────
 
 export interface CalculoOrden {

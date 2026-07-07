@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { getServerSession } from "@/lib/server-session";
 import { canWrite } from "@/lib/session";
+import { estadoAtencion } from "@/lib/atencion";
 import PipelineKanban from "@/components/pipeline/PipelineKanban";
 import type { Metadata } from "next";
 import type { DealResumen, StageResumen, Temperatura } from "@/types/crm";
@@ -58,26 +59,50 @@ export default async function PipelinePage() {
     }),
   ]);
 
+  // Última actividad por deal — acotada a los deals cargados (no escanea todo el histórico)
+  const dealIds = deals.map((d) => d.id);
+  const ultimas = await prisma.dealActividad.groupBy({
+    by: ["deal_id"],
+    where: { deal_id: { in: dealIds } },
+    _max: { created_at: true },
+  });
+  const ultimaPorDeal = new Map(ultimas.map((u) => [u.deal_id, u._max.created_at]));
+
   const stagesSerialized: StageResumen[] = stages;
 
-  const dealsSerialized: DealResumen[] = deals.map((d) => ({
-    id: d.id,
-    nombre: d.nombre,
-    valor: Number(d.valor),
-    moneda: d.moneda,
-    temperatura: d.temperatura as Temperatura,
-    probabilidad: d.probabilidad,
-    resultado: d.resultado,
-    stage_id: d.stage_id,
-    dias_en_etapa: diasEnEtapa(d.fecha_entrada_stage),
-    actividades_count: d._count.actividades,
-    proximo_seguimiento: d.actividades[0]?.fecha_tarea
-      ? d.actividades[0].fecha_tarea.toISOString()
-      : null,
-    cliente: d.cliente ? { id: d.cliente.id, nombre: d.cliente.nombre } : null,
-    vendedor: d.vendedor ? { id: d.vendedor.id, nombre: d.vendedor.nombre } : null,
-    tipo: d.tipo_cotizacion ? { id: d.tipo_cotizacion.id, nombre: d.tipo_cotizacion.nombre } : null,
-  }));
+  const dealsSerialized: DealResumen[] = deals.map((d) => {
+    const proximo = d.actividades[0]?.fecha_tarea ?? null;
+    // estadoAtencion: si hay seguimiento futuro/vencido lo usa; si no, mide inactividad
+    const atencionInput = proximo
+      ? [{ es_tarea: true, completada: false, fecha_tarea: proximo, created_at: proximo }]
+      : [
+          {
+            es_tarea: false,
+            completada: false,
+            fecha_tarea: null,
+            created_at: ultimaPorDeal.get(d.id) ?? d.created_at,
+          },
+        ];
+    const atencion = estadoAtencion(atencionInput).estado;
+
+    return {
+      id: d.id,
+      nombre: d.nombre,
+      valor: Number(d.valor),
+      moneda: d.moneda,
+      temperatura: d.temperatura as Temperatura,
+      probabilidad: d.probabilidad,
+      resultado: d.resultado,
+      stage_id: d.stage_id,
+      dias_en_etapa: diasEnEtapa(d.fecha_entrada_stage),
+      actividades_count: d._count.actividades,
+      proximo_seguimiento: proximo ? proximo.toISOString() : null,
+      atencion,
+      cliente: d.cliente ? { id: d.cliente.id, nombre: d.cliente.nombre } : null,
+      vendedor: d.vendedor ? { id: d.vendedor.id, nombre: d.vendedor.nombre } : null,
+      tipo: d.tipo_cotizacion ? { id: d.tipo_cotizacion.id, nombre: d.tipo_cotizacion.nombre } : null,
+    };
+  });
 
   return (
     <PipelineKanban
