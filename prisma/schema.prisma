@@ -342,6 +342,14 @@ enum EstadoAccion {
   @@map("estado_accion")
 }
 
+// Modo de avance de etapa al cruzar el umbral del termómetro (REQ-06)
+enum AvanceModo {
+  SUGERIR // Muestra aviso "listo para avanzar" con confirmación de 1 clic (default)
+  AUTOMATICO // Avanza solo a la siguiente etapa al cruzar el umbral
+
+  @@map("avance_modo")
+}
+
 // ============================================================
 // PIPELINE STAGE (etapa del pipeline)
 // Catálogo CONFIGURABLE (requisito explícito de Roldán). Ordenable.
@@ -356,6 +364,9 @@ model PipelineStage {
   color             String   @default("#9BA5BE") @db.VarChar(20)
   // Probabilidad de cierre base (0-100) para los deals en esta etapa
   probabilidad_base Int      @default(0)
+  // Temperatura que, al alcanzarse, dispara la sugerencia/avance a la siguiente etapa (REQ-06).
+  // null = la etapa no dispara avance por termómetro.
+  umbral_avance     TemperaturaDeal?
   activo            Boolean  @default(true)
   created_at        DateTime @default(now()) @db.Timestamptz(6)
   updated_at        DateTime @updatedAt @db.Timestamptz(6)
@@ -363,6 +374,27 @@ model PipelineStage {
   deals Deal[]
 
   @@map("pipeline_stage")
+}
+
+// ============================================================
+// CRM CONFIG (singleton)
+// Parámetros configurables del termómetro y del estado de atención (REQ-06).
+// Una sola fila (id fijo). Roldán los calibra sin tocar código.
+// ============================================================
+model CrmConfig {
+  id                      String     @id @default("crm")
+  // Días sin actividad tras los cuales el deal se enfría / requiere atención
+  umbral_inactividad_dias Int        @default(7)
+  // Modo de avance de etapa al cruzar el umbral del termómetro
+  avance_modo             AvanceModo @default(SUGERIR)
+  // Cuántos niveles sube el termómetro por cada tipo de actividad exitosa
+  // (JSON: { LLAMADA: 1, EMAIL: 1, WHATSAPP: 1, NOTA: 0 })
+  puntos_actividad        Json       @default("{\"LLAMADA\":1,\"EMAIL\":1,\"WHATSAPP\":1,\"NOTA\":0}")
+  // Cuántos niveles enfría una racha de inactividad
+  enfriamiento_nivel      Int        @default(1)
+  updated_at              DateTime   @updatedAt @db.Timestamptz(6)
+
+  @@map("crm_config")
 }
 
 // ============================================================
@@ -480,6 +512,10 @@ model DealActividad {
   // Estado de la acción (3 estados). Se mantiene en sync con completada: TERMINADO ⟺ completada=true
   estado_accion EstadoAccion @default(PENDIENTE)
   fecha_tarea  DateTime?     @db.Timestamptz(6)
+  // Destacada/bookmark: las actividades importantes se fijan arriba del listado (REQ-03)
+  destacada    Boolean       @default(false)
+  // Enlace externo (ej. propuesta en Google Drive) — alternativa a subir archivo (REQ-03)
+  enlace_url   String?       @db.VarChar(500)
   created_at   DateTime      @default(now()) @db.Timestamptz(6)
 
   @@index([deal_id])

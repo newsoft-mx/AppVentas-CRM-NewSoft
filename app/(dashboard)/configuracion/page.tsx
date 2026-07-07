@@ -38,7 +38,10 @@ export default async function ConfiguracionPage() {
       orderBy: [{ activo: "desc" }, { nombre: "asc" }],
     }),
     prisma.pipelineStage.findMany({
-      select: { id: true, nombre: true, orden: true, color: true, activo: true, probabilidad_base: true },
+      select: {
+        id: true, nombre: true, orden: true, color: true,
+        activo: true, probabilidad_base: true, umbral_avance: true,
+      },
       orderBy: [{ activo: "desc" }, { orden: "asc" }],
     }),
   ]);

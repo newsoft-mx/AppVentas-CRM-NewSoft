@@ -110,6 +110,8 @@ export interface DealActividadItem {
   es_tarea: boolean;
   completada: boolean;
   estado_accion: EstadoAccion;
+  destacada: boolean;
+  enlace_url: string | null;
   fecha_tarea: string | null;
   created_at: string;
 }
@@ -130,7 +132,7 @@ export interface DealDetalle {
   fecha_cierre_estimada: string | null;
   dias_abierto: number;
   notas: string | null;
-  stage: { id: string; nombre: string; orden: number };
+  stage: { id: string; nombre: string; orden: number; umbral_avance: Temperatura | null };
   cliente: { id: string; nombre: string } | null;
   vendedor: { id: string; nombre: string } | null;
   tipo: { id: string; nombre: string } | null;

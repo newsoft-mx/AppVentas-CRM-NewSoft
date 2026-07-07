@@ -6,13 +6,18 @@ import { useRouter } from "next/navigation";
 import {
   ArrowLeft, Phone, Mail, MessageCircle, StickyNote,
   Building2, Trophy, Cog, ChevronDown, XCircle, PauseCircle, Play, CalendarClock,
+  Star, Link2, ArrowUpCircle, ChevronRight,
 } from "lucide-react";
 import Modal from "@/components/ui/Modal";
+import Termometro from "@/components/pipeline/Termometro";
+import { cruzaUmbralAvance } from "@/lib/termometro";
+import { formatCompacto, formatFechaHora } from "@/lib/utils";
 
 const RAZONES_PERDIDA = ["Precio", "Tiempo / urgencia", "Competencia", "Sin presupuesto", "Sin respuesta", "No era el momento", "Otro"];
 import {
-  TEMPERATURA_META, ROL_CONTACTO_LABEL,
+  TEMPERATURA_META, ROL_CONTACTO_LABEL, ESTADO_ACCION_META, ESTADO_ACCION_CICLO,
   type DealDetalle, type DealActividadItem, type StageResumen, type TipoActividad,
+  type Temperatura, type EstadoAccion,
 } from "@/types/crm";
 // El panel de IA (DealAIPanel) está construido pero se libera en Fase 2.
 
@@ -22,20 +27,12 @@ interface Props {
   canWrite: boolean;
 }
 
-function fmt(n: number): string {
-  if (n >= 1_000_000) return "$" + (n / 1_000_000).toFixed(1) + "M";
-  if (n >= 1_000) return "$" + Math.round(n / 1_000) + "K";
-  return "$" + n.toLocaleString("es-MX");
-}
 function fmtFull(n: number): string {
   return "$" + n.toLocaleString("es-MX", { minimumFractionDigits: 0 });
 }
 function fmtFecha(iso: string | null): string {
   if (!iso) return "—";
   return new Date(iso + "T00:00:00").toLocaleDateString("es-MX", { day: "2-digit", month: "short" });
-}
-function fmtHora(iso: string): string {
-  return new Date(iso).toLocaleString("es-MX", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" });
 }
 
 const FILTROS_VER: { key: "TODAS" | "NOTA" | "LLAMADA" | "EMAIL" | "WHATSAPP"; label: string }[] = [
@@ -68,21 +65,75 @@ const PLACEHOLDER: Record<TipoActividad, string> = {
 
 export default function DealDetalleClient({ deal, stages, canWrite }: Props) {
   const router = useRouter();
-  const temp = TEMPERATURA_META[deal.temperatura];
+  const [temperatura, setTemperatura] = useState<Temperatura>(deal.temperatura);
+  const temp = TEMPERATURA_META[temperatura];
   const [actividades, setActividades] = useState<DealActividadItem[]>(deal.actividades);
   const [filtroVer, setFiltroVer] = useState<"TODAS" | "NOTA" | "LLAMADA" | "EMAIL" | "WHATSAPP">("TODAS");
   const [tipoNueva, setTipoNueva] = useState<TipoActividad>("NOTA");
   const [texto, setTexto] = useState("");
-  const [contactoSel, setContactoSel] = useState("");
+  // Contacto precargado por defecto: el primer contacto del deal (REQ-03)
+  const [contactoSel, setContactoSel] = useState(deal.contactos[0]?.id ?? "");
   const [fechaEvento, setFechaEvento] = useState("");
   const [exitosa, setExitosa] = useState(true);
   const [seguimiento, setSeguimiento] = useState("");
+  const [enlace, setEnlace] = useState("");
   const [guardando, setGuardando] = useState(false);
   const [procesando, setProcesando] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [modalPerdida, setModalPerdida] = useState(false);
   const [razon, setRazon] = useState("");
   const [comentarioP, setComentarioP] = useState("");
+  // Siguiente etapa (por orden) para el banner de avance
+  const siguienteStage = stages
+    .filter((s) => s.orden > deal.stage.orden)
+    .sort((a, b) => a.orden - b.orden)[0] ?? null;
+
+  // Banner de sugerencia de avance (modo SUGERIR, REQ-06): persiste mientras el
+  // termómetro cruza el umbral de la etapa y hay una etapa siguiente.
+  const [sugerirAvance, setSugerirAvance] = useState(
+    Boolean(siguienteStage) && cruzaUmbralAvance(deal.temperatura, deal.stage.umbral_avance)
+  );
+
+  async function avanzarEtapa() {
+    if (!siguienteStage) return;
+    try {
+      const res = await fetch(`/api/crm/deals/${deal.id}/stage`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ stage_id: siguienteStage.id }),
+      });
+      if (!res.ok) throw new Error();
+      setSugerirAvance(false);
+      router.refresh();
+    } catch {
+      alert("No se pudo avanzar de etapa.");
+    }
+  }
+
+  // Toggle del estado de una acción (cicla Pendiente→En proceso→Terminado)
+  async function ciclarEstado(a: DealActividadItem) {
+    const idx = ESTADO_ACCION_CICLO.indexOf(a.estado_accion);
+    const siguiente = ESTADO_ACCION_CICLO[(idx + 1) % ESTADO_ACCION_CICLO.length];
+    setActividades((cur) =>
+      cur.map((x) => (x.id === a.id ? { ...x, estado_accion: siguiente, completada: siguiente === "TERMINADO" } : x))
+    );
+    await fetch(`/api/crm/actividades/${a.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ estado_accion: siguiente }),
+    }).catch(() => {});
+  }
+
+  // Destacar/pin una actividad (REQ-03)
+  async function toggleDestacar(a: DealActividadItem) {
+    const nuevo = !a.destacada;
+    setActividades((cur) => cur.map((x) => (x.id === a.id ? { ...x, destacada: nuevo } : x)));
+    await fetch(`/api/crm/actividades/${a.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ destacada: nuevo }),
+    }).catch(() => {});
+  }
 
   async function cambiarResultado(
     resultado: "GANADO" | "PERDIDO" | "SUSPENDIDO" | "ABIERTO",
@@ -116,9 +167,10 @@ export default function DealDetalleClient({ deal, stages, canWrite }: Props) {
     }
   }
 
-  const actividadesFiltradas = actividades.filter((a) =>
-    filtroVer === "TODAS" ? true : a.tipo === filtroVer
-  );
+  const actividadesFiltradas = actividades
+    .filter((a) => (filtroVer === "TODAS" ? true : a.tipo === filtroVer))
+    // Destacadas primero (pin), el resto en su orden cronológico
+    .sort((x, y) => Number(y.destacada) - Number(x.destacada));
 
   // Próximo seguimiento pendiente (tarea agendada más cercana)
   const proximoSeguimiento =
@@ -144,16 +196,24 @@ export default function DealDetalleClient({ deal, stages, canWrite }: Props) {
           fecha_evento: fechaEvento || undefined,
           exitosa: tipoNueva === "LLAMADA" ? exitosa : undefined,
           fecha_tarea: seguimiento || undefined,
+          enlace_url: enlace.trim() || undefined,
         }),
       });
       if (!res.ok) throw new Error();
-      const nueva: DealActividadItem = await res.json();
-      setActividades((cur) => [nueva, ...cur]);
+      const data = await res.json();
+      setActividades((cur) => [data.actividad as DealActividadItem, ...cur]);
+      // Termómetro y sugerencia de avance devueltos por el servidor (REQ-06)
+      if (data.temperatura) setTemperatura(data.temperatura as Temperatura);
+      if (data.sugerir_avance) setSugerirAvance(true);
+      // En modo AUTOMÁTICO el servidor ya avanzó de etapa y registró el evento SISTEMA:
+      // refrescar para reflejar la nueva etapa y la entrada en la bitácora.
+      if (data.avanzo_etapa) router.refresh();
       setTexto("");
-      setContactoSel("");
+      setContactoSel(deal.contactos[0]?.id ?? "");
       setFechaEvento("");
       setExitosa(true);
       setSeguimiento("");
+      setEnlace("");
     } catch {
       alert("No se pudo guardar la actividad.");
     } finally {
@@ -230,7 +290,7 @@ export default function DealDetalleClient({ deal, stages, canWrite }: Props) {
               }`}
             >
               <CalendarClock size={13} />
-              {seguimientoVencido ? "Seguimiento vencido:" : "Próximo seguimiento:"} {fmtHora(proximoSeguimiento)}
+              {seguimientoVencido ? "Seguimiento vencido:" : "Próximo seguimiento:"} {formatFechaHora(proximoSeguimiento)}
             </div>
           )}
 
@@ -254,7 +314,7 @@ export default function DealDetalleClient({ deal, stages, canWrite }: Props) {
 
           {/* KPIs 2x2 */}
           <div className="mt-4 grid grid-cols-2 gap-2">
-            <KpiCard label="Monto" value={fmt(deal.valor)} accent="orange" />
+            <KpiCard label="Monto" value={formatCompacto(deal.valor)} accent="orange" />
             <KpiCard label="Cierre est." value={fmtFecha(deal.fecha_cierre_estimada)} />
             <KpiCard label="Días abierto" value={`${deal.dias_abierto} días`} />
             <KpiCard label="Probabilidad" value={deal.probabilidad != null ? `${deal.probabilidad}%` : "—"} accent="green" />
@@ -301,6 +361,25 @@ export default function DealDetalleClient({ deal, stages, canWrite }: Props) {
 
         {/* ── CENTRO: bitácora ── */}
         <section className="flex flex-col overflow-hidden bg-surface">
+          {/* Termómetro del deal (REQ-06) + sugerencia de avance de etapa */}
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-surface-border bg-white px-5 py-2.5">
+            <Termometro
+              dealId={deal.id}
+              temperatura={temperatura}
+              canWrite={canWrite}
+              onChange={setTemperatura}
+            />
+            {sugerirAvance && siguienteStage && (
+              <button
+                onClick={avanzarEtapa}
+                className="flex items-center gap-1.5 rounded-lg bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-100"
+              >
+                <ArrowUpCircle size={14} /> Listo para avanzar a {siguienteStage.nombre}
+                <ChevronRight size={13} />
+              </button>
+            )}
+          </div>
+
           {/* Compositor: arriba el TIPO de entrada → cambian los campos */}
           {canWrite && (
             <div className="border-b border-surface-border bg-white px-5 py-4">
@@ -357,6 +436,18 @@ export default function DealDetalleClient({ deal, stages, canWrite }: Props) {
                 className="w-full resize-none rounded-lg border border-surface-border bg-surface px-3.5 py-2.5 text-sm text-navy outline-none focus:border-orange focus:bg-white"
               />
 
+              {/* Enlace externo (ej. propuesta en Google Drive) — alternativa a subir archivo */}
+              <label className="mt-2 flex items-center gap-2 rounded-lg border border-surface-border bg-surface px-3 py-1.5 text-sm text-navy focus-within:border-orange">
+                <Link2 size={14} className="shrink-0 text-gray-400" />
+                <input
+                  type="url"
+                  value={enlace}
+                  onChange={(e) => setEnlace(e.target.value)}
+                  placeholder="Enlace (Google Drive, propuesta…) — opcional"
+                  className="w-full bg-transparent outline-none placeholder:text-gray-400"
+                />
+              </label>
+
               {/* Agendar próximo paso (opcional) — alimenta el inbox/IA de la Fase 2 */}
               <div className="mt-3 flex flex-wrap items-end justify-between gap-3">
                 <label className="flex flex-col gap-1 text-[11px] font-medium text-gray-500">
@@ -405,6 +496,7 @@ export default function DealDetalleClient({ deal, stages, canWrite }: Props) {
               {actividadesFiltradas.map((a) => {
                 const meta = ACT_ICON[a.tipo];
                 const Icon = meta.icon;
+                const estado = ESTADO_ACCION_META[a.estado_accion];
                 return (
                   <div key={a.id} className="flex gap-3">
                     <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full" style={{ background: meta.bg, color: meta.color }}>
@@ -415,20 +507,57 @@ export default function DealDetalleClient({ deal, stages, canWrite }: Props) {
                         <span className="font-semibold text-navy">{a.autor}</span>
                         {a.contacto_nombre && <span className="text-gray-400">· con {a.contacto_nombre}</span>}
                         {a.tipo === "LLAMADA" && a.exitosa !== null && (
-                          <span className={`rounded px-1.5 py-0.5 text-[10px] font-semibold ${a.exitosa ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700"}`}>
+                          <span className={`flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-semibold ${a.exitosa ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}>
+                            <span className="h-1.5 w-1.5 rounded-full" style={{ background: a.exitosa ? "#1D9E75" : "#F5A623" }} />
                             {a.exitosa ? "Contestó" : "No contestó"}
                           </span>
                         )}
-                        <span className="ml-auto text-[11px] text-gray-400">{fmtHora(a.fecha_evento ?? a.created_at)}</span>
+                        {canWrite && (
+                          <button
+                            onClick={() => toggleDestacar(a)}
+                            title={a.destacada ? "Quitar destacado" : "Destacar"}
+                            className="text-gray-300 hover:text-amber-500"
+                          >
+                            <Star
+                              size={13}
+                              fill={a.destacada ? "#F5A623" : "none"}
+                              color={a.destacada ? "#F5A623" : "currentColor"}
+                            />
+                          </button>
+                        )}
+                        <span className="ml-auto text-[11px] text-gray-400">{formatFechaHora(a.fecha_evento ?? a.created_at)}</span>
                       </div>
                       <div
                         className="mt-1 rounded-lg border border-surface-border bg-white px-3 py-2 text-sm leading-relaxed text-gray-700"
-                        style={{ borderLeftWidth: 3, borderLeftColor: meta.color }}
+                        style={{ borderLeftWidth: 3, borderLeftColor: a.destacada ? "#F5A623" : meta.color }}
                       >
                         {a.contenido}
+                        {a.enlace_url && /^https?:\/\//i.test(a.enlace_url) && (
+                          <a
+                            href={a.enlace_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="mt-1.5 flex w-fit items-center gap-1 text-[11px] font-semibold text-blue-600 hover:underline"
+                          >
+                            <Link2 size={12} /> Ver enlace
+                          </a>
+                        )}
                         {a.es_tarea && a.fecha_tarea && (
-                          <div className="mt-1.5 flex items-center gap-1 text-[11px] font-semibold text-blue-700">
-                            <CalendarClock size={12} /> Seguimiento agendado: {fmtHora(a.fecha_tarea)}
+                          <div className="mt-1.5 flex flex-wrap items-center gap-2 text-[11px]">
+                            <span className="flex items-center gap-1 font-semibold text-blue-700">
+                              <CalendarClock size={12} /> Seguimiento: {formatFechaHora(a.fecha_tarea)}
+                            </span>
+                            {canWrite && (
+                              <button
+                                onClick={() => ciclarEstado(a)}
+                                title="Cambiar estado"
+                                className="flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase hover:opacity-80"
+                                style={{ background: estado.dot + "22", color: estado.dot }}
+                              >
+                                <span className="h-1.5 w-1.5 rounded-full" style={{ background: estado.dot }} />
+                                {estado.label}
+                              </button>
+                            )}
                           </div>
                         )}
                       </div>
@@ -483,11 +612,26 @@ function KpiCard({ label, value, accent }: { label: string; value: string; accen
   );
 }
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+function Section({
+  title,
+  children,
+  defaultOpen = true,
+}: {
+  title: string;
+  children: React.ReactNode;
+  defaultOpen?: boolean;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
   return (
     <div className="mt-4 border-t border-surface-border pt-3">
-      <div className="mb-2.5 text-[11px] font-bold uppercase tracking-wide text-gray-400">{title}</div>
-      {children}
+      <button
+        onClick={() => setOpen((o) => !o)}
+        className="mb-2.5 flex w-full items-center justify-between text-[11px] font-bold uppercase tracking-wide text-gray-400 hover:text-navy"
+      >
+        {title}
+        <ChevronDown size={14} className={`transition-transform ${open ? "" : "-rotate-90"}`} />
+      </button>
+      {open && children}
     </div>
   );
 }

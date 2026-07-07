@@ -24,7 +24,7 @@ export default async function DealDetallePage({
   const deal = await prisma.deal.findUnique({
     where: { id },
     include: {
-      stage: { select: { id: true, nombre: true, orden: true } },
+      stage: { select: { id: true, nombre: true, orden: true, umbral_avance: true } },
       cliente: { select: { id: true, nombre: true } },
       vendedor: { select: { id: true, nombre: true } },
       tipo_cotizacion: { select: { id: true, nombre: true } },
@@ -63,6 +63,8 @@ export default async function DealDetallePage({
     setup: deal.setup != null ? Number(deal.setup) : null,
     mensualidad: deal.mensualidad != null ? Number(deal.mensualidad) : null,
     meses: deal.meses,
+    // Temperatura GUARDADA (el termómetro del detalle es editable; el override debe escribir
+    // el valor real). El enfriamiento por inactividad se muestra solo como pista en el Kanban.
     temperatura: deal.temperatura as Temperatura,
     probabilidad: deal.probabilidad,
     canal: deal.canal,
@@ -73,7 +75,12 @@ export default async function DealDetallePage({
       : null,
     dias_abierto: diasDesde(deal.created_at),
     notas: deal.notas,
-    stage: deal.stage,
+    stage: {
+      id: deal.stage.id,
+      nombre: deal.stage.nombre,
+      orden: deal.stage.orden,
+      umbral_avance: deal.stage.umbral_avance as Temperatura | null,
+    },
     cliente: deal.cliente,
     vendedor: deal.vendedor,
     tipo: deal.tipo_cotizacion
@@ -98,6 +105,8 @@ export default async function DealDetallePage({
       es_tarea: a.es_tarea,
       completada: a.completada,
       estado_accion: a.estado_accion,
+      destacada: a.destacada,
+      enlace_url: a.enlace_url,
       fecha_tarea: a.fecha_tarea ? a.fecha_tarea.toISOString() : null,
       created_at: a.created_at.toISOString(),
     })),

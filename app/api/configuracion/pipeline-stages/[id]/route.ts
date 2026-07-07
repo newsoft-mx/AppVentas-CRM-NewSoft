@@ -26,6 +26,13 @@ export async function PUT(
     if (body.probabilidad_base !== undefined && Number.isFinite(Number(body.probabilidad_base))) {
       data.probabilidad_base = Math.min(100, Math.max(0, Math.round(Number(body.probabilidad_base))));
     }
+    // Umbral de avance por termómetro (REQ-06): temperatura válida o null para desactivar
+    const TEMPS = ["MUY_FRIO", "FRIO", "TIBIO", "CALIENTE", "MUY_CALIENTE"];
+    if (body.umbral_avance !== undefined) {
+      if (body.umbral_avance === null || TEMPS.includes(body.umbral_avance)) {
+        data.umbral_avance = body.umbral_avance;
+      }
+    }
     if (typeof body.activo === "boolean") data.activo = body.activo;
 
     if (Object.keys(data).length === 0) {
@@ -35,7 +42,10 @@ export async function PUT(
     const stage = await prisma.pipelineStage.update({
       where: { id },
       data,
-      select: { id: true, nombre: true, orden: true, color: true, activo: true, probabilidad_base: true },
+      select: {
+        id: true, nombre: true, orden: true, color: true,
+        activo: true, probabilidad_base: true, umbral_avance: true,
+      },
     });
     return NextResponse.json(stage);
   } catch {
