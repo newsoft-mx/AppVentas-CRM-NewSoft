@@ -40,6 +40,8 @@ interface OrdenFormProps {
   /** Configuración default de empresa para nuevas órdenes */
   aplicarIvaDefault?: boolean;
   vigenciaDiasDefault?: number;
+  /** Precarga (hand-off desde un deal GANADO): valores iniciales solo en modo creación */
+  precarga?: { cliente_id?: string; vendedor_id?: string; descripcion?: string; valor?: number };
   onSuccess: (orden: OrdenDetalle) => void;
   onCancel?: () => void;
 }
@@ -123,6 +125,7 @@ export default function OrdenForm({
   tipos,
   condiciones,
   vendedores,
+  precarga,
   tasaIvaDefault,
   aplicarIvaDefault = true,
   vigenciaDiasDefault,
@@ -132,11 +135,11 @@ export default function OrdenForm({
   const isEditing = !!orden;
 
   // ── Estado del formulario ──
-  const [clienteId, setClienteId] = useState(orden?.cliente_id ?? "");
+  const [clienteId, setClienteId] = useState(orden?.cliente_id ?? precarga?.cliente_id ?? "");
   const [tipoId, setTipoId] = useState(orden?.tipo_cotizacion_id ?? tipos[0]?.id ?? "");
   const [condicionId, setCondicionId] = useState(orden?.condicion_pago_id ?? condiciones[0]?.id ?? "");
-  const [vendedorId, setVendedorId] = useState(orden?.vendedor_id ?? (vendedores.length === 1 ? vendedores[0].id : ""));
-  const [descripcion, setDescripcion] = useState(orden?.descripcion ?? "");
+  const [vendedorId, setVendedorId] = useState(orden?.vendedor_id ?? precarga?.vendedor_id ?? (vendedores.length === 1 ? vendedores[0].id : ""));
+  const [descripcion, setDescripcion] = useState(orden?.descripcion ?? precarga?.descripcion ?? "");
   const [estatus, setEstatus] = useState<"BORRADOR" | "COTIZADO" | "VENTA">(
     orden?.estatus ?? "BORRADOR"
   );
@@ -169,6 +172,10 @@ export default function OrdenForm({
         cantidad: String(p.cantidad),
         precio_unitario: String(p.precio_unitario),
       }));
+    }
+    // Hand-off desde un deal GANADO: primera partida con el valor estimado del deal.
+    if (precarga?.valor && precarga.valor > 0) {
+      return [{ _key: createTempKey(), descripcion: precarga.descripcion ?? "", cantidad: "1", precio_unitario: String(precarga.valor) }];
     }
     return [newPartida()];
   });

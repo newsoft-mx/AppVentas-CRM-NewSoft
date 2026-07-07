@@ -24,6 +24,7 @@ interface NuevaOrdenClientProps {
   tasaIvaDefault: number;
   aplicarIvaDefault: boolean;
   vigenciaDiasDefault: number;
+  precarga?: { cliente_id?: string; vendedor_id?: string; descripcion?: string; valor?: number };
 }
 
 export default function NuevaOrdenClient({
@@ -34,6 +35,7 @@ export default function NuevaOrdenClient({
   tasaIvaDefault,
   aplicarIvaDefault,
   vigenciaDiasDefault,
+  precarga,
 }: NuevaOrdenClientProps) {
   const router = useRouter();
 
@@ -51,6 +53,7 @@ export default function NuevaOrdenClient({
       tipos={tipos}
       condiciones={condiciones}
       vendedores={vendedores}
+      precarga={precarga}
       tasaIvaDefault={tasaIvaDefault}
       aplicarIvaDefault={aplicarIvaDefault}
       vigenciaDiasDefault={vigenciaDiasDefault}

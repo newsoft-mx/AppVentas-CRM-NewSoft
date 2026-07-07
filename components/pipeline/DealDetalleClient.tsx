@@ -98,12 +98,19 @@ export default function DealDetalleClient({ deal, stages, canWrite }: Props) {
   const [notas, setNotas] = useState(deal.notas ?? "");
   const [editandoNotas, setEditandoNotas] = useState(false);
   async function guardarNotas() {
-    setEditandoNotas(false);
-    await fetch(`/api/crm/deals/${deal.id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ notas }),
-    }).catch(() => {});
+    // No cerrar el editor hasta confirmar el guardado: si el PATCH falla, el texto
+    // solo vive en memoria y se perdería al recargar (pérdida silenciosa de datos).
+    try {
+      const res = await fetch(`/api/crm/deals/${deal.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ notas }),
+      });
+      if (!res.ok) throw new Error();
+      setEditandoNotas(false);
+    } catch {
+      alert("No se pudieron guardar los cambios. Intentá de nuevo.");
+    }
   }
 
   async function avanzarEtapa() {
@@ -126,25 +133,42 @@ export default function DealDetalleClient({ deal, stages, canWrite }: Props) {
   async function ciclarEstado(a: DealActividadItem) {
     const idx = ESTADO_ACCION_CICLO.indexOf(a.estado_accion);
     const siguiente = ESTADO_ACCION_CICLO[(idx + 1) % ESTADO_ACCION_CICLO.length];
+    const prev = a.estado_accion;
     setActividades((cur) =>
       cur.map((x) => (x.id === a.id ? { ...x, estado_accion: siguiente, completada: siguiente === "TERMINADO" } : x))
     );
-    await fetch(`/api/crm/actividades/${a.id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ estado_accion: siguiente }),
-    }).catch(() => {});
+    try {
+      const res = await fetch(`/api/crm/actividades/${a.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ estado_accion: siguiente }),
+      });
+      if (!res.ok) throw new Error();
+    } catch {
+      // Revertir el cambio optimista si el servidor no lo aceptó.
+      setActividades((cur) =>
+        cur.map((x) => (x.id === a.id ? { ...x, estado_accion: prev, completada: prev === "TERMINADO" } : x))
+      );
+      alert("No se pudo actualizar el estado.");
+    }
   }
 
   // Destacar/pin una actividad (REQ-03)
   async function toggleDestacar(a: DealActividadItem) {
     const nuevo = !a.destacada;
     setActividades((cur) => cur.map((x) => (x.id === a.id ? { ...x, destacada: nuevo } : x)));
-    await fetch(`/api/crm/actividades/${a.id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ destacada: nuevo }),
-    }).catch(() => {});
+    try {
+      const res = await fetch(`/api/crm/actividades/${a.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ destacada: nuevo }),
+      });
+      if (!res.ok) throw new Error();
+    } catch {
+      // Revertir el pin optimista si el servidor no lo aceptó.
+      setActividades((cur) => cur.map((x) => (x.id === a.id ? { ...x, destacada: !nuevo } : x)));
+      alert("No se pudo actualizar la actividad.");
+    }
   }
 
   async function cambiarResultado(

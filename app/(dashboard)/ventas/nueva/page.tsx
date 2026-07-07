@@ -9,10 +9,25 @@ import { redirect } from "next/navigation";
 export const metadata: Metadata = { title: "Nueva orden" };
 export const dynamic = "force-dynamic";
 
-export default async function NuevaOrdenPage() {
+export default async function NuevaOrdenPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   const session = await getServerSession();
   if (!canWrite(session)) redirect("/ventas");
   if (session?.rol === "VENDEDOR" && !session.vendedorId) redirect("/ventas");
+
+  // Precarga desde el hand-off de un deal GANADO (cliente/vendedor/descripción/valor por query).
+  const sp = await searchParams;
+  const asStr = (v: string | string[] | undefined) => (typeof v === "string" ? v : undefined);
+  const valorNum = Number(asStr(sp.valor));
+  const precarga = {
+    cliente_id: asStr(sp.cliente_id),
+    vendedor_id: asStr(sp.vendedor_id),
+    descripcion: asStr(sp.descripcion),
+    valor: Number.isFinite(valorNum) && valorNum > 0 ? valorNum : undefined,
+  };
 
   const [clientes, tipos, condiciones, vendedores, empresa] = await Promise.all([
     prisma.cliente.findMany({
@@ -79,6 +94,7 @@ export default async function NuevaOrdenPage() {
           tasaIvaDefault={tasaIvaDefault}
           aplicarIvaDefault={aplicarIvaDefault}
           vigenciaDiasDefault={vigenciaDiasDefault}
+          precarga={precarga}
         />
       </div>
     </div>
