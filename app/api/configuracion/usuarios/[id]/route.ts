@@ -30,22 +30,19 @@ export async function PUT(
   }
 
   try {
+    const vendedorId = parsed.data.rol === "VENDEDOR" ? parsed.data.vendedor_id ?? null : null;
     const usuario = await prisma.user.update({
       where: { id },
       data: {
         nombre: parsed.data.nombre,
         email: parsed.data.email,
         activo: parsed.data.activo,
+        rol: parsed.data.rol,
+        vendedor_id: vendedorId,
         ...(parsed.data.password && { password_hash: await bcrypt.hash(parsed.data.password, 12) }),
       },
-      select: { id: true, nombre: true, email: true, activo: true, created_at: true, updated_at: true },
+      select: { id: true, nombre: true, email: true, activo: true, rol: true, vendedor_id: true, created_at: true, updated_at: true },
     });
-
-    await prisma.$executeRawUnsafe(
-      'UPDATE "user" SET rol = $1::user_role, vendedor_id = NULL WHERE id = $2::uuid',
-      "ADMIN",
-      usuario.id
-    );
 
     return NextResponse.json(serializeUsuario(usuario));
   } catch (error) {

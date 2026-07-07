@@ -13,7 +13,7 @@ export async function GET(req: NextRequest) {
   if (!isAdmin(session)) return NextResponse.json({ error: "Sin permisos" }, { status: 403 });
 
   const usuarios = await prisma.user.findMany({
-    select: { id: true, nombre: true, email: true, activo: true, created_at: true, updated_at: true },
+    select: { id: true, nombre: true, email: true, activo: true, rol: true, vendedor_id: true, created_at: true, updated_at: true },
     orderBy: [{ activo: "desc" }, { nombre: "asc" }],
   });
 
@@ -35,21 +35,19 @@ export async function POST(req: NextRequest) {
   }
 
   try {
+    // Rol validado; vendedor_id solo si el rol es VENDEDOR (antes se forzaba ADMIN → escalada).
+    const vendedorId = parsed.data.rol === "VENDEDOR" ? parsed.data.vendedor_id ?? null : null;
     const usuario = await prisma.user.create({
       data: {
         nombre: parsed.data.nombre,
         email: parsed.data.email,
         password_hash: await bcrypt.hash(parsed.data.password, 12),
         activo: true,
+        rol: parsed.data.rol,
+        vendedor_id: vendedorId,
       },
-      select: { id: true, nombre: true, email: true, activo: true, created_at: true, updated_at: true },
+      select: { id: true, nombre: true, email: true, activo: true, rol: true, vendedor_id: true, created_at: true, updated_at: true },
     });
-
-    await prisma.$executeRawUnsafe(
-      'UPDATE "user" SET rol = $1::user_role, vendedor_id = NULL WHERE id = $2::uuid',
-      "ADMIN",
-      usuario.id
-    );
 
     return NextResponse.json(serializeUsuario(usuario), { status: 201 });
   } catch (error) {

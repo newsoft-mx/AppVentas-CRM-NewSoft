@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { prisma } from "@/lib/prisma";
-import { requireAuth } from "@/lib/session";
+import { canWrite, requireAuth } from "@/lib/session";
+import { scopeDealWhere } from "@/lib/access-control";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -18,13 +19,14 @@ export async function POST(
   const { id } = await params;
   const session = await requireAuth(req);
   if (!session) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+  if (!canWrite(session)) return NextResponse.json({ error: "Sin permisos" }, { status: 403 });
 
   if (!process.env.ANTHROPIC_API_KEY) {
     return NextResponse.json({ error: "IA no configurada (falta ANTHROPIC_API_KEY)" }, { status: 503 });
   }
 
-  const deal = await prisma.deal.findUnique({
-    where: { id },
+  const deal = await prisma.deal.findFirst({
+    where: scopeDealWhere(session, { id }),
     include: {
       cliente: { select: { nombre: true } },
       stage: { select: { nombre: true } },

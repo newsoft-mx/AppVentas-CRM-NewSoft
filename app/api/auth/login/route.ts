@@ -28,6 +28,8 @@ export async function POST(req: NextRequest) {
         email: true,
         password_hash: true,
         activo: true,
+        rol: true,
+        vendedor_id: true,
       },
     });
 
@@ -40,19 +42,18 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Credenciales incorrectas" }, { status: 401 });
     }
 
-    let roleRow: { rol: string | null; vendedor_id: string | null } | undefined;
-    try {
-      [roleRow] = await prisma.$queryRaw<Array<{ rol: string | null; vendedor_id: string | null }>>`
-        SELECT rol::text AS rol, vendedor_id::text AS vendedor_id FROM "user" WHERE id = ${user.id}::uuid
-      `;
-    } catch (roleError) {
-      logger.error("No se pudo leer rol/vendedor del usuario; se usará ADMIN por compatibilidad", "POST /api/auth/login", roleError);
+    // Fail-closed: si el rol no es reconocido, NO se emite sesión (nunca ADMIN por defecto).
+    // Se lee vía Prisma (rol es un enum del modelo), sin queries crudas con cast frágil.
+    const rol = normalizeRole(user.rol);
+    if (!rol) {
+      logger.error("Rol de usuario no resuelto; login rechazado", "POST /api/auth/login", user.rol);
+      return NextResponse.json({ error: "Error interno al iniciar sesión" }, { status: 500 });
     }
     const token = await signSession({
       userId: user.id,
       email: user.email,
-      rol: normalizeRole(roleRow?.rol),
-      vendedorId: roleRow?.vendedor_id ?? null,
+      rol,
+      vendedorId: user.vendedor_id ?? null,
     });
     const isHttps =
       req.nextUrl.protocol === "https:" ||

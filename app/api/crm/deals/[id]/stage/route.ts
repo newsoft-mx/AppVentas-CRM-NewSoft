@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { canWrite, requireAuth } from "@/lib/session";
+import { scopeDealWhere } from "@/lib/access-control";
 
 export const dynamic = "force-dynamic";
 
@@ -30,8 +31,8 @@ export async function PATCH(
 
   try {
     const [deal, nuevoStage] = await Promise.all([
-      prisma.deal.findUnique({
-        where: { id },
+      prisma.deal.findFirst({
+        where: scopeDealWhere(session, { id }),
         select: { id: true, stage_id: true, stage: { select: { nombre: true } } },
       }),
       prisma.pipelineStage.findUnique({

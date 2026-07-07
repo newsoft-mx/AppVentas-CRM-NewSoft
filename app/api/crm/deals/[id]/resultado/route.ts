@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { canWrite, requireAuth } from "@/lib/session";
+import { scopeDealWhere } from "@/lib/access-control";
 
 export const dynamic = "force-dynamic";
 
@@ -38,8 +39,8 @@ export async function POST(
   }
 
   try {
-    const deal = await prisma.deal.findUnique({
-      where: { id },
+    const deal = await prisma.deal.findFirst({
+      where: scopeDealWhere(session, { id }),
       select: { id: true, cliente_id: true, vendedor_id: true, nombre: true, valor: true },
     });
     if (!deal) return NextResponse.json({ error: "Deal no encontrado" }, { status: 404 });

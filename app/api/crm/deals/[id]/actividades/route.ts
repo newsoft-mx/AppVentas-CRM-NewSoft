@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { canWrite, requireAuth } from "@/lib/session";
+import { scopeDealWhere } from "@/lib/access-control";
 import { getCrmConfig, toParametrosTermometro } from "@/lib/crm-config";
 import {
   subirTemperatura,
@@ -65,8 +66,8 @@ export async function POST(
   const tipoActividad = tipo as (typeof TIPOS)[number];
 
   try {
-    const deal = await prisma.deal.findUnique({
-      where: { id },
+    const deal = await prisma.deal.findFirst({
+      where: scopeDealWhere(session, { id }),
       select: { id: true, temperatura: true, stage: { select: { umbral_avance: true, orden: true } } },
     });
     if (!deal) return NextResponse.json({ error: "Deal no encontrado" }, { status: 404 });

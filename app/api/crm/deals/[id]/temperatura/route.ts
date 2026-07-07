@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { canWrite, requireAuth } from "@/lib/session";
+import { scopeDealWhere } from "@/lib/access-control";
 
 export const dynamic = "force-dynamic";
 
@@ -31,7 +32,9 @@ export async function PATCH(
   }
 
   try {
-    await prisma.deal.update({ where: { id }, data: { temperatura: temperatura as Temp } });
+    // Scoping por vendedor (evita IDOR).
+    const r = await prisma.deal.updateMany({ where: scopeDealWhere(session, { id }), data: { temperatura: temperatura as Temp } });
+    if (r.count === 0) return NextResponse.json({ error: "Deal no encontrado" }, { status: 404 });
     return NextResponse.json({ ok: true, temperatura });
   } catch {
     return NextResponse.json({ error: "Error al actualizar la temperatura" }, { status: 500 });

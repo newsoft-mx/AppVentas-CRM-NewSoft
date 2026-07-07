@@ -48,7 +48,7 @@ export function serializeVendedor(v: PrismaVendedor) {
   };
 }
 
-export function serializeUsuario(u: Pick<PrismaUser, "id" | "nombre" | "email" | "activo" | "created_at" | "updated_at">) {
+export function serializeUsuario(u: Pick<PrismaUser, "id" | "nombre" | "email" | "activo" | "rol" | "vendedor_id" | "created_at" | "updated_at">) {
   return {
     ...u,
     created_at: u.created_at.toISOString(),

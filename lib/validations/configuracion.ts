@@ -113,10 +113,21 @@ export const vendedorUpdateSchema = vendedorCreateSchema.extend({
 });
 
 // ── Usuario ─────────────────────────────────────────────────
+// El rol se valida y persiste (antes se forzaba ADMIN en todas las altas → escalada).
+export const rolUsuarioSchema = z.enum([
+  "ADMIN",
+  "GERENTE_COMERCIAL",
+  "VENDEDOR",
+  "ADMINISTRATIVO",
+]);
+
 export const usuarioCreateSchema = z.object({
   nombre: z.string().trim().min(1, "Nombre requerido").max(150),
   email: z.string().trim().email("Email inválido").max(100).transform((v) => v.toLowerCase()),
   password: z.string().min(8, "La contraseña debe tener al menos 8 caracteres").max(100),
+  rol: rolUsuarioSchema,
+  // Solo aplica cuando rol === VENDEDOR (liga el usuario a su ficha de vendedor).
+  vendedor_id: z.string().uuid("Vendedor inválido").nullable().optional(),
 });
 
 export const usuarioUpdateSchema = z.object({
@@ -129,6 +140,8 @@ export const usuarioUpdateSchema = z.object({
     .transform((v) => v?.trim() || undefined)
     .refine((v) => !v || v.length >= 8, "La contraseña debe tener al menos 8 caracteres"),
   activo: z.boolean(),
+  rol: rolUsuarioSchema,
+  vendedor_id: z.string().uuid("Vendedor inválido").nullable().optional(),
 });
 
 // Tipos inferidos para usar en el frontend si se necesitan

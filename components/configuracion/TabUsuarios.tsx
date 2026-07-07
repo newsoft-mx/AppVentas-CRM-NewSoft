@@ -10,12 +10,22 @@ interface TabUsuariosProps {
   initialUsuarios: Usuario[];
 }
 
+type RolUsuario = "ADMIN" | "GERENTE_COMERCIAL" | "VENDEDOR" | "ADMINISTRATIVO";
+
+const ROLES: { value: RolUsuario; label: string }[] = [
+  { value: "ADMIN", label: "Administrador" },
+  { value: "GERENTE_COMERCIAL", label: "Gerente comercial" },
+  { value: "VENDEDOR", label: "Vendedor" },
+  { value: "ADMINISTRATIVO", label: "Administrativo (consulta)" },
+];
+
 interface FormState {
   nombre: string;
   email: string;
   password: string;
   passwordConfirm: string;
   activo: boolean;
+  rol: RolUsuario;
 }
 
 const emptyForm: FormState = {
@@ -24,6 +34,7 @@ const emptyForm: FormState = {
   password: "",
   passwordConfirm: "",
   activo: true,
+  rol: "VENDEDOR",
 };
 
 export default function TabUsuarios({ initialUsuarios }: TabUsuariosProps) {
@@ -52,6 +63,7 @@ export default function TabUsuarios({ initialUsuarios }: TabUsuariosProps) {
       password: "",
       passwordConfirm: "",
       activo: usuario.activo,
+      rol: usuario.rol,
     });
     setFormError("");
     setIsModalOpen(true);
@@ -72,6 +84,7 @@ export default function TabUsuarios({ initialUsuarios }: TabUsuariosProps) {
         body: JSON.stringify({
           nombre: body.nombre.trim(),
           email: body.email.trim(),
+          rol: body.rol,
           ...(body.password.trim() && { password: body.password.trim() }),
           ...(target && { activo: body.activo }),
         }),
@@ -132,6 +145,7 @@ export default function TabUsuarios({ initialUsuarios }: TabUsuariosProps) {
           password: "",
           passwordConfirm: "",
           activo: !usuario.activo,
+          rol: usuario.rol,
         },
         usuario
       );
@@ -153,7 +167,7 @@ export default function TabUsuarios({ initialUsuarios }: TabUsuariosProps) {
 
       <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-sm text-gray-500">
-          Administra usuarios del sistema. Todos se crean con acceso completo.
+          Administra usuarios del sistema y su rol de acceso.
         </p>
         <button type="button" onClick={openCreate} className="btn-primary w-full justify-center sm:w-auto">
           <Plus size={16} />
@@ -254,6 +268,19 @@ export default function TabUsuarios({ initialUsuarios }: TabUsuariosProps) {
             <div>
               <label className="label">Email *</label>
               <input type="email" className="input" value={form.email} onChange={(e) => setForm((p) => ({ ...p, email: e.target.value }))} />
+            </div>
+            <div>
+              <label className="label">Rol *</label>
+              <select className="input" value={form.rol} onChange={(e) => setForm((p) => ({ ...p, rol: e.target.value as RolUsuario }))}>
+                {ROLES.map((r) => (
+                  <option key={r.value} value={r.value}>{r.label}</option>
+                ))}
+              </select>
+              {form.rol === "VENDEDOR" && (
+                <p className="mt-1 text-xs text-gray-400">
+                  Un usuario VENDEDOR solo verá sus propios deals/órdenes. La vinculación a su ficha de vendedor se asigna aparte.
+                </p>
+              )}
             </div>
             <div>
               <label className="label">

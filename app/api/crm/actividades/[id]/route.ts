@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { canWrite, requireAuth } from "@/lib/session";
+import { scopeDealWhere } from "@/lib/access-control";
 
 export const dynamic = "force-dynamic";
 
@@ -87,6 +88,11 @@ export async function PATCH(
   }
 
   try {
+    // Scoping por vendedor (evita IDOR): la actividad debe pertenecer a un deal accesible.
+    const act = await prisma.dealActividad.findUnique({ where: { id }, select: { deal_id: true } });
+    if (!act) return NextResponse.json({ error: "Actividad no encontrada" }, { status: 404 });
+    const deal = await prisma.deal.findFirst({ where: scopeDealWhere(session, { id: act.deal_id }), select: { id: true } });
+    if (!deal) return NextResponse.json({ error: "Actividad no encontrada" }, { status: 404 });
     await prisma.dealActividad.update({ where: { id }, data });
     return NextResponse.json({ ok: true });
   } catch {
