@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getServerSession } from "@/lib/server-session";
 import { canWrite } from "@/lib/session";
+import { scopeDealWhere } from "@/lib/access-control";
 import DealDetalleClient from "@/components/pipeline/DealDetalleClient";
 import type { Metadata } from "next";
 import type { DealDetalle, StageResumen, Temperatura } from "@/types/crm";
@@ -21,8 +22,9 @@ export default async function DealDetallePage({
   const { id } = await params;
   const session = await getServerSession();
 
-  const deal = await prisma.deal.findUnique({
-    where: { id },
+  // Scoping por vendedor: un VENDEDOR no puede abrir por URL el deal de otro.
+  const deal = await prisma.deal.findFirst({
+    where: scopeDealWhere(session, { id }),
     include: {
       stage: { select: { id: true, nombre: true, orden: true, umbral_avance: true } },
       cliente: { select: { id: true, nombre: true, estatus: true } },

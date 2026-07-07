@@ -1,7 +1,7 @@
 export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { Prisma } from "@prisma/client";
+import { scopeClienteWhere } from "@/lib/access-control";
 import { clienteUpdateSchema } from "@/lib/validations/clientes";
 import { canManageClients, requireAuth } from "@/lib/session";
 import { netAmount, netAmountMxn } from "@/lib/net-amounts";
@@ -14,26 +14,10 @@ export async function GET(
   const { id } = await params;
   const session = await requireAuth(req);
   if (!session) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
-  // Un VENDEDOR sin ficha no tiene clientes propios.
-  if (session.rol === "VENDEDOR" && !session.vendedorId) {
-    return NextResponse.json({ error: "Cliente no encontrado" }, { status: 404 });
-  }
-
   // Scoping: el VENDEDOR solo accede a SUS clientes (con órdenes/deals suyos).
-  const where: Prisma.ClienteWhereInput =
-    session.rol === "VENDEDOR"
-      ? {
-          id,
-          OR: [
-            { ordenes: { some: { vendedor_id: session.vendedorId! } } },
-            { deals: { some: { vendedor_id: session.vendedorId! } } },
-          ],
-        }
-      : { id };
-
   try {
     const cliente = await prisma.cliente.findFirst({
-      where,
+      where: scopeClienteWhere(session, { id }),
       include: {
         condicion_pago: {
           select: { id: true, nombre: true, dias_credito: true },

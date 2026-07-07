@@ -51,3 +51,21 @@ export function scopeDealWhere(session: SessionPayload | null, where: WhereInput
   }
   return where;
 }
+
+// Scope de clientes "por vendedor en sesión": el VENDEDOR solo ve clientes con
+// órdenes o deals suyos; ADMIN/GERENTE/ADMINISTRATIVO ven todos.
+export function scopeClienteWhere(session: SessionPayload | null, where: WhereInput = {}): WhereInput {
+  if (!session) return { id: "__no-session__" };
+  if (session.rol === "VENDEDOR") {
+    const propios: WhereInput = session.vendedorId
+      ? {
+          OR: [
+            { ordenes: { some: { vendedor_id: session.vendedorId } } },
+            { deals: { some: { vendedor_id: session.vendedorId } } },
+          ],
+        }
+      : { id: { in: [] } };
+    return andWhere(where, propios);
+  }
+  return where;
+}

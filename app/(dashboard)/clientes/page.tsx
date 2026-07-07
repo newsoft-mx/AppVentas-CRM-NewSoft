@@ -4,6 +4,7 @@ import { netAmount, netAmountMxn } from "@/lib/net-amounts";
 import type { Metadata } from "next";
 import { getServerSession } from "@/lib/server-session";
 import { canManageClients } from "@/lib/session";
+import { scopeClienteWhere } from "@/lib/access-control";
 
 export const metadata: Metadata = { title: "Clientes" };
 export const dynamic = "force-dynamic";
@@ -13,7 +14,8 @@ export default async function ClientesPage() {
   // Fetch en paralelo: clientes con stats + condiciones activas para el formulario
   const [clientes, condiciones] = await Promise.all([
     prisma.cliente.findMany({
-      where: { activo: true },
+      // Scoping por vendedor: el VENDEDOR solo ve SUS clientes (mismo criterio que la API).
+      where: scopeClienteWhere(session, { activo: true }),
       include: {
         condicion_pago: {
           select: { id: true, nombre: true, dias_credito: true },

@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
 import { clienteCreateSchema } from "@/lib/validations/clientes";
 import { canManageClients, requireAuth } from "@/lib/session";
+import { scopeClienteWhere } from "@/lib/access-control";
 import { netAmount, netAmountMxn } from "@/lib/net-amounts";
 
 // ── Helper: agrega stats de órdenes por cliente ──────────────
@@ -38,19 +39,9 @@ export async function GET(req: NextRequest) {
     if (estatusParam && ESTATUS.includes(estatusParam)) {
       where.estatus = estatusParam as "PROSPECTO" | "ACTIVO" | "INACTIVO";
     }
-    // Scoping por vendedor: el VENDEDOR solo ve SUS clientes (con órdenes o deals
-    // asignados a él). ADMIN/GERENTE/ADMINISTRATIVO ven todos.
-    if (session.rol === "VENDEDOR") {
-      where.OR = session.vendedorId
-        ? [
-            { ordenes: { some: { vendedor_id: session.vendedorId } } },
-            { deals: { some: { vendedor_id: session.vendedorId } } },
-          ]
-        : [{ id: { in: [] } }];
-    }
-
     const clientes = await prisma.cliente.findMany({
-      where,
+      // Scoping por vendedor (mismo criterio en la página de clientes).
+      where: scopeClienteWhere(session, where),
       include: {
         condicion_pago: {
           select: { id: true, nombre: true, dias_credito: true },
