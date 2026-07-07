@@ -1,17 +1,10 @@
 "use client";
 
 import type { VentasTipoItem } from "@/types/reportes";
+import { formatMXNEntero as formatMXN } from "@/lib/utils";
 
 interface Props {
   data: VentasTipoItem[];
-}
-
-function formatMXN(value: number) {
-  return new Intl.NumberFormat("es-MX", {
-    style: "currency",
-    currency: "MXN",
-    maximumFractionDigits: 0,
-  }).format(value);
 }
 
 export default function TarjetasVentasPorTipo({ data }: Props) {

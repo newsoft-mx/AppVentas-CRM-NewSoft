@@ -21,18 +21,11 @@ import type {
   ReporteStats,
 } from "@/types/reportes";
 import { appendArrayParams } from "@/lib/filter-utils";
+import { formatMXNEntero as formatMXN } from "@/lib/utils";
 
 interface Props {
   initialData: ReportesInitialData;
   initialFiltros: FiltroReportes;
-}
-
-function formatMXN(v: number) {
-  return new Intl.NumberFormat("es-MX", {
-    style: "currency",
-    currency: "MXN",
-    maximumFractionDigits: 0,
-  }).format(v);
 }
 
 function buildQS(f: FiltroReportes) {

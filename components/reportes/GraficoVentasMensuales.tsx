@@ -11,6 +11,7 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import type { MesVenta } from "@/types/reportes";
+import { formatMXNEntero } from "@/lib/utils";
 
 interface Props {
   data: MesVenta[];
@@ -34,7 +35,7 @@ function CustomTooltip({ active, payload, label }: any) {
         <p key={i} style={{ color: entry.color }}>
           {entry.name}:{" "}
           <span className="font-medium">
-            {new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN", maximumFractionDigits: 0 }).format(entry.value)}
+            {formatMXNEntero(entry.value)}
           </span>
         </p>
       ))}

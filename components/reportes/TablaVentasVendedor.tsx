@@ -2,17 +2,10 @@
 
 import { UserRound } from "lucide-react";
 import type { VentasVendedorItem } from "@/types/reportes";
+import { formatMXNEntero as formatMXN } from "@/lib/utils";
 
 interface Props {
   data: VentasVendedorItem[];
-}
-
-function formatMXN(v: number) {
-  return new Intl.NumberFormat("es-MX", {
-    style: "currency",
-    currency: "MXN",
-    maximumFractionDigits: 0,
-  }).format(v);
 }
 
 export default function TablaVentasVendedor({ data }: Props) {
