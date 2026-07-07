@@ -681,7 +681,79 @@ async function main() {
     )
   );
 
-  console.log(`   ✓ ${deals.length} deals demo, ${tareasDef.length} tareas`);
+  // 6.6 Historial de etapas de los deals abiertos (alimenta el embudo de conversión)
+  const dealIds = dealsDef.map((d) => d.id);
+  await prisma.dealStageEvent.deleteMany({ where: { deal_id: { in: dealIds } } });
+  const eventosAbiertos = dealsDef.flatMap((d) =>
+    Array.from({ length: d.stage }, (_, i) => {
+      const s = i + 1; // 1..stage actual
+      return {
+        deal_id: d.id,
+        from_stage_id: s === 1 ? null : stages[s - 2].id,
+        to_stage_id: stages[s - 1].id,
+        at: hace(d.dias + (d.stage - s) * 4), // más viejo cuanto más atrás la etapa
+      };
+    })
+  );
+  await prisma.dealStageEvent.createMany({ data: eventosAbiertos });
+
+  // 6.7 Deals cerrados (ganados/perdidos) → Resultados + Anatomía.
+  // Los GANADOS llevan más interacciones y más días que los PERDIDOS (anatomía del cierre).
+  const cerradosDef = [
+    { id: "60000000-0000-0000-0000-000000000011", nombre: "CRM Retail Norte", cliente: "30000000-0000-0000-0000-000000000001", vend: 0, res: "GANADO", razon: null as string | null, cerro: 9, abierto: 26, acts: { LLAMADA: 3, EMAIL: 2, WHATSAPP: 2, NOTA: 2 } },
+    { id: "60000000-0000-0000-0000-000000000012", nombre: "Portal Autogestión", cliente: "30000000-0000-0000-0000-000000000002", vend: 1, res: "GANADO", razon: null as string | null, cerro: 12, abierto: 28, acts: { LLAMADA: 4, EMAIL: 3, WHATSAPP: 1, NOTA: 2 } },
+    { id: "60000000-0000-0000-0000-000000000013", nombre: "Automatización RRHH", cliente: "30000000-0000-0000-0000-000000000003", vend: 0, res: "PERDIDO", razon: "Precio fuera de presupuesto", cerro: 7, abierto: 16, acts: { LLAMADA: 1, EMAIL: 1, NOTA: 1 } },
+    { id: "60000000-0000-0000-0000-000000000014", nombre: "Dashboard BI Ventas", cliente: "30000000-0000-0000-0000-000000000001", vend: 1, res: "PERDIDO", razon: "Eligieron a un competidor", cerro: 14, abierto: 20, acts: { LLAMADA: 1, NOTA: 1 } },
+    { id: "60000000-0000-0000-0000-000000000015", nombre: "Migración e-commerce", cliente: "30000000-0000-0000-0000-000000000002", vend: 0, res: "PERDIDO", razon: "Precio fuera de presupuesto", cerro: 19, abierto: 22, acts: { LLAMADA: 1, EMAIL: 1 } },
+  ];
+  const cerradosIds = cerradosDef.map((d) => d.id);
+  await prisma.dealActividad.deleteMany({ where: { deal_id: { in: cerradosIds } } });
+  await prisma.dealStageEvent.deleteMany({ where: { deal_id: { in: cerradosIds } } });
+  for (const d of cerradosDef) {
+    await prisma.deal.upsert({
+      where: { id: d.id },
+      update: { resultado: d.res as never, fecha_cierre_real: hace(d.cerro), razon_perdida: d.razon, created_at: hace(d.abierto) },
+      create: {
+        id: d.id,
+        nombre: d.nombre,
+        cliente_id: d.cliente,
+        vendedor_id: vendedores[d.vend].id,
+        stage_id: stages[5].id,
+        tipo_cotizacion_id: "10000000-0000-0000-0000-000000000001",
+        temperatura: "CALIENTE" as never,
+        probabilidad: d.res === "GANADO" ? 100 : 0,
+        moneda: "MXN",
+        valor: 300000,
+        fecha_entrada_stage: hace(d.cerro),
+        created_at: hace(d.abierto),
+        resultado: d.res as never,
+        fecha_cierre_real: hace(d.cerro),
+        razon_perdida: d.razon,
+      },
+    });
+    // Progresión completa de etapas (entrada → ... → cierre)
+    const paso = Math.max(1, Math.floor((d.abierto - d.cerro) / 6));
+    await prisma.dealStageEvent.createMany({
+      data: Array.from({ length: 6 }, (_, i) => ({
+        deal_id: d.id,
+        from_stage_id: i === 0 ? null : stages[i - 1].id,
+        to_stage_id: stages[i].id,
+        at: hace(d.abierto - i * paso),
+      })),
+    });
+    // Bitácora (según acts): los ganados con más toques
+    const acts = Object.entries(d.acts).flatMap(([tipo, n]) =>
+      Array.from({ length: n as number }, () => ({
+        deal_id: d.id,
+        tipo: tipo as never,
+        autor: "Equipo comercial",
+        contenido: `${tipo} de seguimiento — ${d.nombre}`,
+      }))
+    );
+    await prisma.dealActividad.createMany({ data: acts });
+  }
+
+  console.log(`   ✓ ${deals.length + cerradosDef.length} deals demo (${cerradosDef.length} cerrados), ${tareasDef.length} tareas, historial de etapas`);
   } // fin demo CRM (deals/bitácora/tareas)
 
   console.log("✅ Seed completado exitosamente!\n");
