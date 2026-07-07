@@ -28,7 +28,7 @@ export async function POST(req: NextRequest) {
   }
 
   const nombre = typeof body.nombre === "string" ? body.nombre.trim() : "";
-  const cliente_id = typeof body.cliente_id === "string" ? body.cliente_id : "";
+  let cliente_id = typeof body.cliente_id === "string" ? body.cliente_id : "";
   const stage_id = typeof body.stage_id === "string" ? body.stage_id : "";
   const temperatura = TEMPERATURAS.includes(body.temperatura as string)
     ? (body.temperatura as Temperatura)
@@ -39,13 +39,53 @@ export async function POST(req: NextRequest) {
   const c = (body.contacto ?? {}) as Record<string, unknown>;
   const contactoNombre = typeof c.nombre === "string" ? c.nombre.trim() : "";
   const contactoRol = ROLES.includes(c.rol as string) ? (c.rol as string) : "OTRO";
+  const contactoEmail = typeof c.email === "string" && c.email.trim() ? c.email.trim() : null;
+  const contactoTel = typeof c.telefono === "string" && c.telefono.trim() ? c.telefono.trim() : null;
+
+  // Alta rápida de prospecto: si no hay cliente_id, se crea un Cliente con estatus=PROSPECTO
+  // a partir de los datos mínimos (empresa + contacto). Los datos fiscales se piden al convertir.
+  const cn = (body.cliente_nuevo ?? null) as Record<string, unknown> | null;
+  const prospectoNombre = cn && typeof cn.nombre === "string" ? cn.nombre.trim() : "";
 
   if (!nombre) return NextResponse.json({ error: "El nombre es obligatorio", campo: "nombre" }, { status: 422 });
-  if (!cliente_id) return NextResponse.json({ error: "El cliente es obligatorio", campo: "cliente_id" }, { status: 422 });
+  if (nombre.length > 200 || prospectoNombre.length > 200 || contactoNombre.length > 150) {
+    return NextResponse.json({ error: "Texto demasiado largo", campo: "nombre" }, { status: 422 });
+  }
+  if (!cliente_id && !prospectoNombre) {
+    return NextResponse.json(
+      { error: "Indica un cliente existente o un prospecto nuevo", campo: "cliente_id" },
+      { status: 422 }
+    );
+  }
   if (!stage_id) return NextResponse.json({ error: "La etapa es obligatoria", campo: "stage_id" }, { status: 422 });
   if (!contactoNombre) return NextResponse.json({ error: "El nombre del contacto es obligatorio", campo: "contacto.nombre" }, { status: 422 });
 
   try {
+    // Crear el prospecto si corresponde (datos mínimos; condición = primera activa)
+    if (!cliente_id && prospectoNombre) {
+      const cond = await prisma.condicionComercial.findFirst({
+        where: { activo: true },
+        orderBy: { dias_credito: "asc" },
+        select: { id: true },
+      });
+      if (!cond) {
+        return NextResponse.json({ error: "No hay condiciones de pago configuradas" }, { status: 422 });
+      }
+      const prospecto = await prisma.cliente.create({
+        data: {
+          nombre: prospectoNombre,
+          contacto: contactoNombre,
+          ciudad: "",
+          email: contactoEmail,
+          telefono: contactoTel,
+          condicion_pago_id: cond.id,
+          estatus: "PROSPECTO",
+        },
+        select: { id: true },
+      });
+      cliente_id = prospecto.id;
+    }
+
     // Validar FKs (cliente activo, stage activo)
     const [cliente, stage] = await Promise.all([
       prisma.cliente.findFirst({ where: { id: cliente_id, activo: true }, select: { id: true } }),

@@ -30,8 +30,16 @@ export async function GET(req: NextRequest) {
   if (!session) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
 
   try {
+    // Filtro opcional por estatus (PROSPECTO / ACTIVO / INACTIVO)
+    const estatusParam = req.nextUrl.searchParams.get("estatus");
+    const ESTATUS = ["PROSPECTO", "ACTIVO", "INACTIVO"];
+    const where: { activo: boolean; estatus?: "PROSPECTO" | "ACTIVO" | "INACTIVO" } = { activo: true };
+    if (estatusParam && ESTATUS.includes(estatusParam)) {
+      where.estatus = estatusParam as "PROSPECTO" | "ACTIVO" | "INACTIVO";
+    }
+
     const clientes = await prisma.cliente.findMany({
-      where: { activo: true },
+      where,
       include: {
         condicion_pago: {
           select: { id: true, nombre: true, dias_credito: true },

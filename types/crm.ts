@@ -133,7 +133,7 @@ export interface DealDetalle {
   dias_abierto: number;
   notas: string | null;
   stage: { id: string; nombre: string; orden: number; umbral_avance: Temperatura | null };
-  cliente: { id: string; nombre: string } | null;
+  cliente: { id: string; nombre: string; estatus: string } | null;
   vendedor: { id: string; nombre: string } | null;
   tipo: { id: string; nombre: string } | null;
   contactos: DealContactoItem[];

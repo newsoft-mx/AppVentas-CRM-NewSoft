@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Modal from "@/components/ui/Modal";
+import SearchableSelect from "@/components/ui/SearchableSelect";
 import { TEMPERATURA_META, ROL_CONTACTO_LABEL, type DealResumen, type StageResumen, type Temperatura, type RolContacto } from "@/types/crm";
 
 interface Props {
@@ -16,9 +17,12 @@ interface Props {
 const TEMPS: Temperatura[] = ["MUY_FRIO", "FRIO", "TIBIO", "CALIENTE", "MUY_CALIENTE"];
 
 export default function NuevoDealModal({ stages, vendedores, clientes, tipos, onClose, onCreated }: Props) {
+  // Modo de cliente: existente o nuevo prospecto (REQ-02)
+  const [modoCliente, setModoCliente] = useState<"existente" | "prospecto">("existente");
   const [form, setForm] = useState({
     nombre: "",
     cliente_id: "",
+    prospecto_nombre: "",
     vendedor_id: "",
     stage_id: stages[0]?.id ?? "",
     tipo_cotizacion_id: "",
@@ -41,8 +45,9 @@ export default function NuevoDealModal({ stages, vendedores, clientes, tipos, on
   const set = (k: keyof typeof form, v: string) => setForm((f) => ({ ...f, [k]: v }));
 
   async function guardar() {
-    if (!form.nombre.trim() || !form.cliente_id || !form.stage_id) {
-      setError("Nombre, cliente y etapa son obligatorios.");
+    const clienteOk = modoCliente === "existente" ? form.cliente_id : form.prospecto_nombre.trim();
+    if (!form.nombre.trim() || !clienteOk || !form.stage_id) {
+      setError("Nombre del proyecto, cliente/prospecto y etapa son obligatorios.");
       return;
     }
     if (!form.contacto_nombre.trim()) {
@@ -52,20 +57,29 @@ export default function NuevoDealModal({ stages, vendedores, clientes, tipos, on
     setGuardando(true);
     setError(null);
     try {
-      const { contacto_nombre, contacto_rol, contacto_email, contacto_telefono, contacto_whatsapp, ...deal } = form;
+      const {
+        contacto_nombre, contacto_rol, contacto_email, contacto_telefono, contacto_whatsapp,
+        prospecto_nombre, cliente_id, ...rest
+      } = form;
+      const payload: Record<string, unknown> = {
+        ...rest,
+        contacto: {
+          nombre: contacto_nombre,
+          rol: contacto_rol,
+          email: contacto_email,
+          telefono: contacto_telefono,
+          whatsapp: contacto_whatsapp,
+        },
+      };
+      if (modoCliente === "existente") {
+        payload.cliente_id = cliente_id;
+      } else {
+        payload.cliente_nuevo = { nombre: prospecto_nombre.trim() };
+      }
       const res = await fetch("/api/crm/deals", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...deal,
-          contacto: {
-            nombre: contacto_nombre,
-            rol: contacto_rol,
-            email: contacto_email,
-            telefono: contacto_telefono,
-            whatsapp: contacto_whatsapp,
-          },
-        }),
+        body: JSON.stringify(payload),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error ?? "Error");
@@ -82,28 +96,54 @@ export default function NuevoDealModal({ stages, vendedores, clientes, tipos, on
         <Campo label="Nombre del proyecto *" full>
           <input className={inputCls} value={form.nombre} onChange={(e) => set("nombre", e.target.value)} placeholder="Ej. Portal de Proveedores" />
         </Campo>
-        <Campo label="Cliente *">
-          <select className={inputCls} value={form.cliente_id} onChange={(e) => set("cliente_id", e.target.value)}>
-            <option value="">Selecciona…</option>
-            {clientes.map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}
-          </select>
-        </Campo>
+
+        {/* Cliente: existente o nuevo prospecto */}
+        <div className="sm:col-span-2">
+          <div className="mb-1.5 flex items-center gap-2">
+            <label className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">Cliente *</label>
+            <div className="flex overflow-hidden rounded-md border border-surface-border text-[11px] font-semibold">
+              <button type="button" onClick={() => setModoCliente("existente")} className={`px-2.5 py-1 ${modoCliente === "existente" ? "bg-navy text-white" : "text-gray-500"}`}>Existente</button>
+              <button type="button" onClick={() => setModoCliente("prospecto")} className={`px-2.5 py-1 ${modoCliente === "prospecto" ? "bg-orange text-white" : "text-gray-500"}`}>Nuevo prospecto</button>
+            </div>
+          </div>
+          {modoCliente === "existente" ? (
+            <SearchableSelect
+              options={clientes.map((c) => ({ id: c.id, label: c.nombre }))}
+              value={form.cliente_id}
+              onChange={(v) => set("cliente_id", v)}
+              placeholder="Selecciona un cliente…"
+              searchPlaceholder="Buscar cliente…"
+            />
+          ) : (
+            <input className={inputCls} value={form.prospecto_nombre} onChange={(e) => set("prospecto_nombre", e.target.value)} placeholder="Empresa / nombre del prospecto" />
+          )}
+        </div>
+
         <Campo label="Vendedor (dueño)">
-          <select className={inputCls} value={form.vendedor_id} onChange={(e) => set("vendedor_id", e.target.value)}>
-            <option value="">Sin asignar</option>
-            {vendedores.map((v) => <option key={v.id} value={v.id}>{v.nombre}</option>)}
-          </select>
+          <SearchableSelect
+            options={vendedores.map((v) => ({ id: v.id, label: v.nombre }))}
+            value={form.vendedor_id}
+            onChange={(v) => set("vendedor_id", v)}
+            placeholder="Sin asignar"
+            searchPlaceholder="Buscar vendedor…"
+          />
         </Campo>
         <Campo label="Etapa *">
-          <select className={inputCls} value={form.stage_id} onChange={(e) => set("stage_id", e.target.value)}>
-            {stages.map((s) => <option key={s.id} value={s.id}>{s.nombre}</option>)}
-          </select>
+          <SearchableSelect
+            options={stages.map((s) => ({ id: s.id, label: s.nombre }))}
+            value={form.stage_id}
+            onChange={(v) => set("stage_id", v)}
+            placeholder="Selecciona etapa…"
+          />
         </Campo>
-        <Campo label="Tipo / línea de producto">
-          <select className={inputCls} value={form.tipo_cotizacion_id} onChange={(e) => set("tipo_cotizacion_id", e.target.value)}>
-            <option value="">—</option>
-            {tipos.map((t) => <option key={t.id} value={t.id}>{t.nombre}</option>)}
-          </select>
+        <Campo label="Línea de producto">
+          <SearchableSelect
+            options={tipos.map((t) => ({ id: t.id, label: t.nombre }))}
+            value={form.tipo_cotizacion_id}
+            onChange={(v) => set("tipo_cotizacion_id", v)}
+            placeholder="— Selecciona línea —"
+            searchPlaceholder="Buscar línea…"
+          />
         </Campo>
         <Campo label="Temperatura">
           <select className={inputCls} value={form.temperatura} onChange={(e) => set("temperatura", e.target.value as Temperatura)}>

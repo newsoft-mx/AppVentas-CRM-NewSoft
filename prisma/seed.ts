@@ -17,7 +17,11 @@ import bcrypt from "bcryptjs";
 const prisma = new PrismaClient();
 
 async function main() {
-  console.log("🌱 Iniciando seed de Newsoft Sales...\n");
+  // Datos demo (clientes/órdenes/deals/bitácora de ejemplo) SOLO con --demo.
+  // Sin la bandera, el seed crea únicamente la CONFIG (empresa, catálogos, etapas, usuarios):
+  // seguro para setup de producción / staging. Demo para local: `npm run db:seed:demo`.
+  const SEED_DEMO = process.argv.includes("--demo");
+  console.log(`🌱 Iniciando seed de Newsoft Sales${SEED_DEMO ? " (con datos demo)" : " (solo config)"}...\n`);
 
   // ──────────────────────────────────────────
   // 0. USUARIOS
@@ -234,8 +238,9 @@ async function main() {
   console.log();
 
   // ──────────────────────────────────────────
-  // 4. CLIENTES DEMO
+  // 4. CLIENTES DEMO  (solo con --demo)
   // ──────────────────────────────────────────
+  if (SEED_DEMO) {
   console.log("👥 Creando clientes demo...");
 
   const clientes = await Promise.all([
@@ -292,6 +297,24 @@ async function main() {
   ]);
 
   clientes.forEach((c) => console.log(`   ✓ ${c.nombre} (${c.rfc})`));
+
+  // Prospecto demo (REQ-02): alta rápida desde el pipeline, sin datos fiscales aún
+  await prisma.cliente.upsert({
+    where: { id: "30000000-0000-0000-0000-000000000009" },
+    update: {},
+    create: {
+      id: "30000000-0000-0000-0000-000000000009",
+      nombre: "Innovatec Soluciones (prospecto)",
+      contacto: "Laura Méndez",
+      ciudad: "",
+      email: "laura@innovatec.mx",
+      telefono: "+52 55 4444 3333",
+      condicion_pago_id: "20000000-0000-0000-0000-000000000001",
+      estatus: "PROSPECTO",
+      activo: true,
+    },
+  });
+  console.log("   ✓ Innovatec Soluciones (PROSPECTO)");
   console.log();
 
   // ──────────────────────────────────────────
@@ -507,11 +530,12 @@ async function main() {
     where: { id: "00000000-0000-0000-0000-000000000001" },
     data: { siguiente_folio: 5 },
   });
+  } // fin demo clientes/órdenes
 
   // ──────────────────────────────────────────
   // 6. MÓDULO PIPELINE CRM
   // ──────────────────────────────────────────
-  console.log("\n🧭 Sembrando módulo Pipeline CRM...");
+  console.log("\n🧭 Sembrando módulo Pipeline CRM (config: vendedores + etapas)...");
 
   // 6.1 Vendedores (dueños de los deals)
   const vendedores = await Promise.all([
@@ -557,6 +581,8 @@ async function main() {
     data: { activo: false },
   });
 
+  // 6.3+ Deals / contactos / bitácora / tareas DEMO (solo con --demo)
+  if (SEED_DEMO) {
   // Helper: fecha hace N días (para "días en etapa")
   const hace = (dias: number) => new Date(Date.now() - dias * 86400000);
 
@@ -655,17 +681,17 @@ async function main() {
     )
   );
 
-  console.log(`   ✓ ${vendedores.length} vendedores, ${stages.length} stages, ${deals.length} deals demo, ${tareasDef.length} tareas`);
+  console.log(`   ✓ ${deals.length} deals demo, ${tareasDef.length} tareas`);
+  } // fin demo CRM (deals/bitácora/tareas)
 
   console.log("✅ Seed completado exitosamente!\n");
-  console.log("📊 Resumen:");
+  console.log("📊 Resumen (config):");
   console.log(`   - 2 usuarios (roldan@newsoft.mx, elva@newsoft.mx)`);
   console.log(`   - 1 empresa configurada`);
   console.log(`   - ${tipos.length} tipos de cotización`);
   console.log(`   - ${condiciones.length} condiciones comerciales`);
-  console.log(`   - ${clientes.length} clientes demo`);
-  console.log(`   - 4 órdenes de venta demo (2 VENTA, 1 COTIZADO, 1 BORRADOR)`);
-  console.log(`   - Siguiente folio: NS00005`);
+  console.log(`   - ${vendedores.length} vendedores, ${stages.length} etapas de pipeline`);
+  console.log(SEED_DEMO ? "   + datos DEMO (clientes, órdenes, deals, bitácora)" : "   (sin datos demo — usa --demo para sembrarlos)");
 }
 
 main()

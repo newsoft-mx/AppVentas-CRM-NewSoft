@@ -31,11 +31,19 @@ export interface ClienteConStats {
   condicion_pago_id: string;
   condicion_pago: CondicionResumen;
   notas: string | null;
+  estatus: EstatusCliente;
   activo: boolean;
   created_at: string;
   updated_at: string;
   stats: ClienteStats;
 }
+
+export type EstatusCliente = "PROSPECTO" | "ACTIVO" | "INACTIVO";
+export const ESTATUS_CLIENTE_META: Record<EstatusCliente, { label: string; chip: string }> = {
+  PROSPECTO: { label: "Prospecto", chip: "bg-amber-50 text-amber-700" },
+  ACTIVO: { label: "Cliente", chip: "bg-emerald-50 text-emerald-700" },
+  INACTIVO: { label: "Inactivo", chip: "bg-gray-100 text-gray-500" },
+};
 
 /** Payload para crear o actualizar un cliente */
 export interface ClienteInput {

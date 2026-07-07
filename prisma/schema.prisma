@@ -141,6 +141,8 @@ model Cliente {
   condicion_pago_id String             @db.Uuid
   condicion_pago    CondicionComercial @relation(fields: [condicion_pago_id], references: [id])
   notas             String?            @db.Text
+  // Estatus comercial: Prospecto (alta rápida desde el pipeline) → Cliente activo (REQ-02)
+  estatus           EstatusCliente     @default(ACTIVO)
   // Soft delete
   activo            Boolean            @default(true)
   created_at        DateTime           @default(now()) @db.Timestamptz(6)
@@ -164,6 +166,16 @@ enum EstatusOrden {
   VENTA // Ganado/cerrado como venta
 
   @@map("estatus_orden")
+}
+
+// Estatus comercial del cliente (REQ-02): un prospecto se crea al vuelo desde el
+// pipeline con datos mínimos; al ganar se "convierte" a cliente activo con datos fiscales.
+enum EstatusCliente {
+  PROSPECTO
+  ACTIVO
+  INACTIVO
+
+  @@map("estatus_cliente")
 }
 
 // Moneda de la orden

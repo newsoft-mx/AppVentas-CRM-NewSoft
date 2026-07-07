@@ -21,10 +21,11 @@ interface Props {
   clientes: { id: string; nombre: string }[];
   tipos: { id: string; nombre: string }[];
   canWrite: boolean;
+  altas: { hoy: number; semana: number; mes: number };
 }
 
 
-export default function PipelineKanban({ stages, deals, vendedores, clientes, tipos, canWrite }: Props) {
+export default function PipelineKanban({ stages, deals, vendedores, clientes, tipos, canWrite, altas }: Props) {
   const router = useRouter();
   const [items, setItems] = useState<DealResumen[]>(deals);
   const [vendedorFiltro, setVendedorFiltro] = useState<string>("todos");
@@ -182,6 +183,11 @@ export default function PipelineKanban({ stages, deals, vendedores, clientes, ti
         <Kpi label="Deals activos" value={String(activos.length)} />
         <Kpi label={<span className="inline-flex items-center gap-1"><Flame size={11} className="text-orange" /> Calientes</span>} value={String(calientes)} />
         <Kpi label="Promedio deal" value={formatCompacto(promedio)} />
+        <div className="h-9 w-px bg-borde" />
+        {/* Altas por período (REQ-04) */}
+        <Kpi label="Nuevos hoy" value={String(altas.hoy)} />
+        <Kpi label="Esta semana" value={String(altas.semana)} />
+        <Kpi label="Este mes" value={String(altas.mes)} />
         <div className="ml-auto flex items-center gap-2">
           <ArrowDownUp size={14} className="text-gray-400" />
           <select

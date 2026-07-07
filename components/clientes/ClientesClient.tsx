@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useMemo, useRef } from "react";
 import { Plus, Users, Search, AlertTriangle, Download, Upload } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Modal from "@/components/ui/Modal";
 import Toast, { ToastData } from "@/components/ui/Toast";
 import ClienteCard from "./ClienteCard";
@@ -27,9 +27,15 @@ export default function ClientesClient({
   canWrite = true,
 }: ClientesClientProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [clientes, setClientes] = useState<ClienteConStats[]>(initialClientes);
   const [search, setSearch] = useState("");
+  // Filtro inicial respetando el deep-link ?estatus= (ej. "Convertir a Cliente" desde un deal)
+  const estatusParam = searchParams.get("estatus");
+  const [estatusFiltro, setEstatusFiltro] = useState<"todos" | "PROSPECTO" | "ACTIVO">(
+    estatusParam === "PROSPECTO" || estatusParam === "ACTIVO" ? estatusParam : "todos"
+  );
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingCliente, setEditingCliente] = useState<ClienteConStats | null>(null);
   const [confirmDesactivar, setConfirmDesactivar] = useState<ClienteConStats | null>(null);
@@ -73,18 +79,25 @@ export default function ClientesClient({
     }
   };
 
-  // ── Filtrado por búsqueda ────────────────────────────────────
+  // Filtrado por búsqueda + estatus
   const clientesFiltrados = useMemo(() => {
-    if (!search.trim()) return clientes;
     const q = search.toLowerCase().trim();
-    return clientes.filter(
-      (c) =>
+    return clientes.filter((c) => {
+      if (estatusFiltro !== "todos" && c.estatus !== estatusFiltro) return false;
+      if (!q) return true;
+      return (
         c.nombre.toLowerCase().includes(q) ||
         (c.rfc?.toLowerCase().includes(q) ?? false) ||
         c.contacto.toLowerCase().includes(q) ||
         c.ciudad.toLowerCase().includes(q)
-    );
-  }, [clientes, search]);
+      );
+    });
+  }, [clientes, search, estatusFiltro]);
+
+  const cuentaProspectos = useMemo(
+    () => clientes.filter((c) => c.estatus === "PROSPECTO").length,
+    [clientes]
+  );
 
   // ── Abrir modal de creación ──────────────────────────────────
   const handleOpenCreate = () => {
@@ -198,9 +211,9 @@ export default function ClientesClient({
         )}
       </div>
 
-      {/* ── Barra de búsqueda ── */}
-      <div className="mb-6 max-w-sm sm:max-w-md">
-        <div className="relative">
+      {/* ── Barra de búsqueda + filtro de estatus ── */}
+      <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center">
+        <div className="relative max-w-sm flex-1 sm:max-w-md">
           <Search
             size={16}
             className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
@@ -212,12 +225,20 @@ export default function ClientesClient({
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
-        {search && (
-          <p className="mt-1 text-xs text-gray-400">
-            {clientesFiltrados.length} resultado
-            {clientesFiltrados.length !== 1 && "s"}
-          </p>
-        )}
+        <div className="flex gap-1.5">
+          {(["todos", "ACTIVO", "PROSPECTO"] as const).map((k) => (
+            <button
+              key={k}
+              onClick={() => setEstatusFiltro(k)}
+              className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors ${
+                estatusFiltro === k ? "border-navy bg-navy text-white" : "border-surface-border text-gray-500 hover:bg-surface"
+              }`}
+            >
+              {k === "todos" ? "Todos" : k === "ACTIVO" ? "Clientes" : "Prospectos"}
+              {k === "PROSPECTO" && cuentaProspectos > 0 && ` (${cuentaProspectos})`}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* ── Grid de cards ── */}
@@ -240,18 +261,30 @@ export default function ClientesClient({
         </div>
       )}
 
-      {/* ── Modal: crear / editar cliente ── */}
+      {/* ── Modal: crear / editar / convertir cliente ── */}
       {isModalOpen && (
         <Modal
-          title={editingCliente ? "Editar cliente" : "Nuevo cliente"}
+          title={
+            editingCliente?.estatus === "PROSPECTO"
+              ? "Convertir a Cliente"
+              : editingCliente
+              ? "Editar cliente"
+              : "Nuevo cliente"
+          }
           onClose={handleCloseModal}
           size="lg"
         >
+          {editingCliente?.estatus === "PROSPECTO" && (
+            <p className="mb-3 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-700">
+              Completa los datos fiscales faltantes. Al guardar, el prospecto pasa a Cliente activo.
+            </p>
+          )}
           <ClienteForm
             cliente={editingCliente ?? undefined}
             condiciones={condiciones}
             onSuccess={handleFormSuccess}
             onCancel={handleCloseModal}
+            convertir={editingCliente?.estatus === "PROSPECTO"}
           />
         </Modal>
       )}
