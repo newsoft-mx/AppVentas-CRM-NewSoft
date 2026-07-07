@@ -23,6 +23,7 @@
     "@eslint/eslintrc": "^3.3.5",
     "@prisma/client": "^5.14.0",
     "@react-pdf/renderer": "^3.4.4",
+    "@sparticuz/chromium": "^149.0.0",
     "bcryptjs": "^3.0.3",
     "decimal.js": "^10.4.3",
     "jose": "^4.15.9",

@@ -43,7 +43,7 @@ export async function POST(req: NextRequest) {
     let roleRow: { rol: string | null; vendedor_id: string | null } | undefined;
     try {
       [roleRow] = await prisma.$queryRaw<Array<{ rol: string | null; vendedor_id: string | null }>>`
-        SELECT rol::text AS rol, vendedor_id::text AS vendedor_id FROM "user" WHERE id = ${user.id}
+        SELECT rol::text AS rol, vendedor_id::text AS vendedor_id FROM "user" WHERE id = ${user.id}::uuid
       `;
     } catch (roleError) {
       logger.error("No se pudo leer rol/vendedor del usuario; se usará ADMIN por compatibilidad", "POST /api/auth/login", roleError);
