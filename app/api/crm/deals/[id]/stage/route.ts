@@ -67,6 +67,10 @@ export async function PATCH(
           contenido: `Movió el deal de "${deal.stage?.nombre ?? "—"}" a "${nuevoStage.nombre}".`,
         },
       }),
+      // Historial de etapa (alimenta el embudo de conversión y tiempos por etapa)
+      prisma.dealStageEvent.create({
+        data: { deal_id: id, from_stage_id: deal.stage_id, to_stage_id: nuevoStage.id },
+      }),
     ]);
 
     return NextResponse.json({ ok: true });

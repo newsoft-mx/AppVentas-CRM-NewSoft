@@ -127,6 +127,10 @@ export async function POST(req: NextRequest) {
             whatsapp: typeof c.whatsapp === "string" && c.whatsapp.trim() ? c.whatsapp.trim() : null,
           }],
         },
+        // Evento de alta: entrada a la primera etapa (from_stage null) — inicia el embudo
+        stage_events: {
+          create: [{ to_stage_id: stage_id }],
+        },
       },
       include: {
         cliente: { select: { id: true, nombre: true } },
