@@ -81,7 +81,7 @@ export default function Sidebar({ role }: { role: UserRole }) {
   };
 
   return (
-    <aside className={`sticky top-0 z-40 flex shrink-0 flex-col bg-navy text-white md:min-h-screen ${colapsado ? "md:w-16" : "md:w-[var(--sidebar-width)]"}`}>
+    <aside className={`sticky top-0 z-40 flex shrink-0 flex-col bg-navy text-white md:h-screen ${colapsado ? "md:w-16" : "md:w-[var(--sidebar-width)]"}`}>
       {/* Logo */}
       <div className="flex items-center justify-between gap-3 border-b border-navy-800 px-3 py-3 md:block md:px-5 md:py-5">
         {!colapsado && (
@@ -124,7 +124,7 @@ export default function Sidebar({ role }: { role: UserRole }) {
       </div>
 
       {/* Navegación */}
-      <nav className="flex gap-2 overflow-x-auto px-3 py-2 md:flex-1 md:flex-col md:space-y-1 md:overflow-visible md:py-4">
+      <nav className="flex gap-2 overflow-x-auto px-3 py-2 md:flex-1 md:flex-col md:space-y-1 md:overflow-y-auto md:py-4">
         {items.map((item) => {
           const active = isActive(item.href);
           const Icon = item.icon;
