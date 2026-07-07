@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import Toast, { ToastData } from "@/components/ui/Toast";
 import {
   Phone, Mail, MessageCircle, StickyNote, ListChecks, CalendarClock, ChevronRight,
 } from "lucide-react";
@@ -54,6 +55,7 @@ export default function AccionesInbox({
   const [tipoFiltro, setTipoFiltro] = useState<"todos" | TipoActividad>("todos");
   const [estadoFiltro, setEstadoFiltro] = useState<"todos" | EstadoAccion>("todos");
   const [reprogramando, setReprogramando] = useState<string | null>(null);
+  const [toast, setToast] = useState<ToastData | null>(null);
   // "Ahora" debe avanzar: si el inbox queda abierto (o cruza medianoche), el
   // agrupamiento Vencidas/Hoy/Semana se recalcula en vez de quedar congelado al montar.
   const [ahora, setAhora] = useState(() => new Date());
@@ -97,7 +99,7 @@ export default function AccionesInbox({
       if (!res.ok) throw new Error();
     } catch {
       setItems(prev);
-      alert("No se pudo actualizar el estado.");
+      setToast({ type: "error", message: "No se pudo actualizar el estado." });
     }
   }
 
@@ -116,7 +118,7 @@ export default function AccionesInbox({
       if (!res.ok) throw new Error();
     } catch {
       setItems(prev);
-      alert("No se pudo reprogramar.");
+      setToast({ type: "error", message: "No se pudo reprogramar." });
     }
   }
 
@@ -135,6 +137,7 @@ export default function AccionesInbox({
 
   return (
     <div className="flex h-full flex-col">
+      {toast && <Toast {...toast} onClose={() => setToast(null)} />}
       <header className="flex flex-wrap items-center justify-between gap-3 border-b border-surface-border bg-white px-6 py-4">
         <div>
           <h1 className="text-xl font-bold tracking-tight text-navy">Próximas Acciones</h1>

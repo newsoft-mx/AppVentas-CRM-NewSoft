@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Thermometer } from "lucide-react";
 import { TEMPERATURA_META, type Temperatura } from "@/types/crm";
+import Toast, { ToastData } from "@/components/ui/Toast";
 
 const ESCALA: Temperatura[] = ["MUY_FRIO", "FRIO", "TIBIO", "CALIENTE", "MUY_CALIENTE"];
 
@@ -20,6 +21,7 @@ export default function Termometro({
 }) {
   const [valor, setValor] = useState<Temperatura>(temperatura);
   const [guardando, setGuardando] = useState(false);
+  const [toast, setToast] = useState<ToastData | null>(null);
   // Re-sincronizar si el padre actualiza la temperatura (ej. tras registrar actividad exitosa)
   useEffect(() => setValor(temperatura), [temperatura]);
   const meta = TEMPERATURA_META[valor];
@@ -41,14 +43,16 @@ export default function Termometro({
     } catch {
       setValor(prev);
       onChange?.(prev);
-      alert("No se pudo ajustar la temperatura.");
+      setToast({ type: "error", message: "No se pudo ajustar la temperatura." });
     } finally {
       setGuardando(false);
     }
   }
 
   return (
-    <div className="flex items-center gap-3">
+    <>
+      {toast && <Toast {...toast} onClose={() => setToast(null)} />}
+      <div className="flex items-center gap-3">
       <Thermometer size={16} style={{ color: meta.color }} />
       <div className="flex items-center gap-1">
         {ESCALA.map((t, i) => {
@@ -69,6 +73,7 @@ export default function Termometro({
       <span className="text-xs font-semibold" style={{ color: meta.color }}>
         {meta.label}
       </span>
-    </div>
+      </div>
+    </>
   );
 }

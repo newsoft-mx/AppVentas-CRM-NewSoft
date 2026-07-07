@@ -9,6 +9,7 @@ import {
   Star, Link2, ArrowUpCircle, ChevronRight, UserPlus, Pencil,
 } from "lucide-react";
 import Modal from "@/components/ui/Modal";
+import Toast, { ToastData } from "@/components/ui/Toast";
 import Termometro from "@/components/pipeline/Termometro";
 import { cruzaUmbralAvance } from "@/lib/termometro";
 import { formatCompacto, formatFechaHora } from "@/lib/utils";
@@ -97,6 +98,7 @@ export default function DealDetalleClient({ deal, stages, canWrite }: Props) {
   // Resumen / descripción del proyecto (REQ-05.3) — editable inline
   const [notas, setNotas] = useState(deal.notas ?? "");
   const [editandoNotas, setEditandoNotas] = useState(false);
+  const [toast, setToast] = useState<ToastData | null>(null);
   async function guardarNotas() {
     // No cerrar el editor hasta confirmar el guardado: si el PATCH falla, el texto
     // solo vive en memoria y se perdería al recargar (pérdida silenciosa de datos).
@@ -109,7 +111,7 @@ export default function DealDetalleClient({ deal, stages, canWrite }: Props) {
       if (!res.ok) throw new Error();
       setEditandoNotas(false);
     } catch {
-      alert("No se pudieron guardar los cambios. Intentá de nuevo.");
+      setToast({ type: "error", message: "No se pudieron guardar los cambios. Intentá de nuevo." });
     }
   }
 
@@ -125,7 +127,7 @@ export default function DealDetalleClient({ deal, stages, canWrite }: Props) {
       setSugerirAvance(false);
       router.refresh();
     } catch {
-      alert("No se pudo avanzar de etapa.");
+      setToast({ type: "error", message: "No se pudo avanzar de etapa." });
     }
   }
 
@@ -149,7 +151,7 @@ export default function DealDetalleClient({ deal, stages, canWrite }: Props) {
       setActividades((cur) =>
         cur.map((x) => (x.id === a.id ? { ...x, estado_accion: prev, completada: prev === "TERMINADO" } : x))
       );
-      alert("No se pudo actualizar el estado.");
+      setToast({ type: "error", message: "No se pudo actualizar el estado." });
     }
   }
 
@@ -167,7 +169,7 @@ export default function DealDetalleClient({ deal, stages, canWrite }: Props) {
     } catch {
       // Revertir el pin optimista si el servidor no lo aceptó.
       setActividades((cur) => cur.map((x) => (x.id === a.id ? { ...x, destacada: !nuevo } : x)));
-      alert("No se pudo actualizar la actividad.");
+      setToast({ type: "error", message: "No se pudo actualizar la actividad." });
     }
   }
 
@@ -198,7 +200,7 @@ export default function DealDetalleClient({ deal, stages, canWrite }: Props) {
         router.push("/pipeline");
       }
     } catch (e) {
-      alert(e instanceof Error ? e.message : "No se pudo cambiar el estado.");
+      setToast({ type: "error", message: e instanceof Error ? e.message : "No se pudo cambiar el estado." });
       setProcesando(false);
     }
   }
@@ -251,7 +253,7 @@ export default function DealDetalleClient({ deal, stages, canWrite }: Props) {
       setSeguimiento("");
       setEnlace("");
     } catch {
-      alert("No se pudo guardar la actividad.");
+      setToast({ type: "error", message: "No se pudo guardar la actividad." });
     } finally {
       setGuardando(false);
     }
@@ -259,6 +261,7 @@ export default function DealDetalleClient({ deal, stages, canWrite }: Props) {
 
   return (
     <div className="flex h-full flex-col">
+      {toast && <Toast {...toast} onClose={() => setToast(null)} />}
       {/* Topbar */}
       <header className="flex items-center justify-between gap-3 border-b border-surface-border bg-white px-6 py-3">
         <nav className="flex items-center gap-2 text-sm text-gray-400">
