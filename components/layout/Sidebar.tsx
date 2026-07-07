@@ -18,36 +18,31 @@ import {
 } from "lucide-react";
 import type { UserRole } from "@/lib/session";
 
-const navItems = [
+// Navegación por módulos temáticos; los reportes viven anidados en su módulo.
+const navGroups: {
+  title: string | null;
+  items: { href: string; label: string; icon: typeof ShoppingCart; adminOnly?: boolean }[];
+}[] = [
   {
-    href: "/ventas",
-    label: "Ventas",
-    icon: ShoppingCart,
+    title: "Ventas",
+    items: [
+      { href: "/ventas", label: "Órdenes", icon: ShoppingCart },
+      { href: "/reportes", label: "Reportes", icon: BarChart3 },
+    ],
   },
   {
-    href: "/clientes",
-    label: "Clientes",
-    icon: Users,
+    title: "Pipeline CRM",
+    items: [
+      { href: "/pipeline", label: "Tablero", icon: Workflow },
+      { href: "/acciones", label: "Próximas Acciones", icon: CalendarClock },
+    ],
   },
   {
-    href: "/reportes",
-    label: "Reportes",
-    icon: BarChart3,
-  },
-  {
-    href: "/pipeline",
-    label: "Pipeline CRM",
-    icon: Workflow,
-  },
-  {
-    href: "/acciones",
-    label: "Próximas Acciones",
-    icon: CalendarClock,
-  },
-  {
-    href: "/configuracion",
-    label: "Configuración",
-    icon: Settings,
+    title: null,
+    items: [
+      { href: "/clientes", label: "Clientes", icon: Users },
+      { href: "/configuracion", label: "Configuración", icon: Settings, adminOnly: true },
+    ],
   },
 ];
 
@@ -66,7 +61,10 @@ export default function Sidebar({ role }: { role: UserRole }) {
       return next;
     });
   };
-  const items = role === "ADMIN" ? navItems : navItems.filter((item) => item.href !== "/configuracion");
+  // Filtra items por rol (Configuración solo ADMIN) y descarta grupos vacíos.
+  const grupos = navGroups
+    .map((g) => ({ ...g, items: g.items.filter((it) => !it.adminOnly || role === "ADMIN") }))
+    .filter((g) => g.items.length > 0);
   const roleLabel: Record<UserRole, string> = {
     ADMIN: "Administrador",
     GERENTE_COMERCIAL: "Gerente comercial",
@@ -125,40 +123,50 @@ export default function Sidebar({ role }: { role: UserRole }) {
         </button>
       </div>
 
-      {/* Navegación */}
-      <nav className="flex gap-2 overflow-x-auto px-3 py-2 md:flex-1 md:flex-col md:space-y-1 md:overflow-y-auto md:py-4">
-        {items.map((item) => {
-          const active = isActive(item.href);
-          const Icon = item.icon;
-
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={`
-                flex shrink-0 items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium md:gap-3
-                transition-colors duration-150 group
-                ${
-                  active
-                    ? "bg-orange text-white"
-                    : "text-navy-200 hover:bg-navy-700 hover:text-white"
-                }
-              `}
+      {/* Navegación por módulos (desktop: secciones con encabezado; mobile: fila plana) */}
+      <nav className="flex gap-2 overflow-x-auto px-3 py-2 md:flex-1 md:flex-col md:gap-1 md:overflow-y-auto md:py-4">
+        {grupos.flatMap((group, gi) => [
+          // Encabezado del módulo (solo desktop expandido); grupo sin título → divisor
+          group.title ? (
+            <p
+              key={`t-${gi}`}
+              className={`hidden shrink-0 px-3 pb-1 pt-3 text-[10px] font-semibold uppercase tracking-wider text-navy-400 md:block ${
+                colapsado ? "md:hidden" : ""
+              }`}
             >
-              <Icon size={18} className="shrink-0" />
-              <span
-                className={`overflow-hidden whitespace-nowrap transition-all duration-200 ease-in-out md:flex-1 ${
-                  colapsado ? "md:w-0 md:flex-none md:opacity-0" : "md:opacity-100"
-                }`}
+              {group.title}
+            </p>
+          ) : gi > 0 ? (
+            <div key={`d-${gi}`} className="hidden border-t border-navy-800 md:my-2 md:block" />
+          ) : null,
+          ...group.items.map((item) => {
+            const active = isActive(item.href);
+            const Icon = item.icon;
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={`
+                  flex shrink-0 items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium md:gap-3
+                  transition-colors duration-150 group
+                  ${active ? "bg-orange text-white" : "text-navy-200 hover:bg-navy-700 hover:text-white"}
+                `}
               >
-                {item.label}
-              </span>
-              {active && !colapsado && (
-                <ChevronRight size={14} className="hidden shrink-0 opacity-70 md:block" />
-              )}
-            </Link>
-          );
-        })}
+                <Icon size={18} className="shrink-0" />
+                <span
+                  className={`overflow-hidden whitespace-nowrap transition-all duration-200 ease-in-out md:flex-1 ${
+                    colapsado ? "md:w-0 md:flex-none md:opacity-0" : "md:opacity-100"
+                  }`}
+                >
+                  {item.label}
+                </span>
+                {active && !colapsado && (
+                  <ChevronRight size={14} className="hidden shrink-0 opacity-70 md:block" />
+                )}
+              </Link>
+            );
+          }),
+        ])}
       </nav>
 
       {/* Footer del sidebar — colapsar + sesión */}
