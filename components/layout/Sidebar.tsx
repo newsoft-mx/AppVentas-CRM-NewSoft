@@ -11,11 +11,10 @@ import {
   Users,
   Settings,
   ChevronRight,
+  ChevronsLeft,
   LogOut,
   Workflow,
   CalendarClock,
-  PanelLeftClose,
-  PanelLeftOpen,
 } from "lucide-react";
 import type { UserRole } from "@/lib/session";
 
@@ -81,7 +80,7 @@ export default function Sidebar({ role }: { role: UserRole }) {
   };
 
   return (
-    <aside className={`sticky top-0 z-40 flex shrink-0 flex-col bg-navy text-white md:h-screen ${colapsado ? "md:w-16" : "md:w-[var(--sidebar-width)]"}`}>
+    <aside className={`sticky top-0 z-40 flex shrink-0 flex-col bg-navy text-white transition-[width] duration-300 ease-in-out md:h-screen ${colapsado ? "md:w-16" : "md:w-[var(--sidebar-width)]"}`}>
       {/* Logo */}
       <div className="flex items-center justify-between gap-3 border-b border-navy-800 px-3 py-3 md:block md:px-5 md:py-5">
         {!colapsado && (
@@ -105,10 +104,14 @@ export default function Sidebar({ role }: { role: UserRole }) {
         {/* Toggle colapsar (desktop) */}
         <button
           onClick={toggleColapsado}
-          title={colapsado ? "Expandir" : "Colapsar"}
-          className="hidden rounded-lg p-2 text-navy-200 hover:bg-navy-700 hover:text-white md:mt-2 md:flex"
+          title={colapsado ? "Expandir menú" : "Colapsar menú"}
+          aria-label={colapsado ? "Expandir menú" : "Colapsar menú"}
+          className="hidden rounded-lg p-2 text-navy-200 transition-colors hover:bg-navy-700 hover:text-white md:mt-2 md:flex"
         >
-          {colapsado ? <PanelLeftOpen size={18} /> : <PanelLeftClose size={18} />}
+          <ChevronsLeft
+            size={18}
+            className={`transition-transform duration-300 ease-in-out ${colapsado ? "rotate-180" : ""}`}
+          />
         </button>
         <button
           onClick={() =>
@@ -144,7 +147,13 @@ export default function Sidebar({ role }: { role: UserRole }) {
               `}
             >
               <Icon size={18} className="shrink-0" />
-              <span className={`whitespace-nowrap md:flex-1 ${colapsado ? "md:hidden" : ""}`}>{item.label}</span>
+              <span
+                className={`overflow-hidden whitespace-nowrap transition-all duration-200 ease-in-out md:flex-1 ${
+                  colapsado ? "md:w-0 md:flex-none md:opacity-0" : "md:opacity-100"
+                }`}
+              >
+                {item.label}
+              </span>
               {active && !colapsado && (
                 <ChevronRight size={14} className="hidden shrink-0 opacity-70 md:block" />
               )}
