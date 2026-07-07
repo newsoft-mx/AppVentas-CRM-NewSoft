@@ -5,7 +5,7 @@ import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import type { OrdenDetalle } from "@/types/ordenes";
 import { getServerSession } from "@/lib/server-session";
-import { canAccessOrden, canMutateOrden } from "@/lib/access-control";
+import { canAccessOrden, canMutateOrden, scopeClienteWhere } from "@/lib/access-control";
 
 export const dynamic = "force-dynamic";
 
@@ -42,7 +42,9 @@ export default async function OrdenDetallePage({
       },
     }),
     prisma.cliente.findMany({
-      where: { activo: true },
+      // Picker scopeado: el VENDEDOR solo ordena para sus clientes. El cliente de la
+      // orden en edición siempre queda en scope (tiene esta orden, que es suya).
+      where: scopeClienteWhere(session, { activo: true }),
       select: { id: true, nombre: true, rfc: true, condicion_pago_id: true },
       orderBy: { nombre: "asc" },
     }),
