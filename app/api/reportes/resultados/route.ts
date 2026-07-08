@@ -3,6 +3,7 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/session";
 import { rangoFechas, filtroRango, dealWhereReporte } from "@/lib/reportes-funnel";
+import { logger } from "@/lib/logger";
 
 export const dynamic = "force-dynamic";
 
@@ -45,7 +46,8 @@ export async function GET(req: NextRequest) {
       tasa_ganados: total > 0 ? Math.round((ganados / total) * 100) : 0,
       por_razon,
     });
-  } catch {
+  } catch (error) {
+    logger.error("Error al calcular resultados", "GET /api/reportes/resultados", error);
     return NextResponse.json({ error: "Error al calcular resultados" }, { status: 500 });
   }
 }

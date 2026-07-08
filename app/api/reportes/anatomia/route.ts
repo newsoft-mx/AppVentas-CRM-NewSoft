@@ -3,6 +3,7 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/session";
 import { rangoFechas, filtroRango, dealWhereReporte } from "@/lib/reportes-funnel";
+import { logger } from "@/lib/logger";
 
 export const dynamic = "force-dynamic";
 
@@ -65,7 +66,8 @@ export async function GET(req: NextRequest) {
       ganados: resumen(deals.filter((d) => d.resultado === "GANADO")),
       perdidos: resumen(deals.filter((d) => d.resultado === "PERDIDO")),
     });
-  } catch {
+  } catch (error) {
+    logger.error("Error al calcular la anatomía", "GET /api/reportes/anatomia", error);
     return NextResponse.json({ error: "Error al calcular la anatomía" }, { status: 500 });
   }
 }
