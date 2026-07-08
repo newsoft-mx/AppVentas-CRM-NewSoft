@@ -79,6 +79,10 @@ export default function DealDetalleClient({ deal, stages, canWrite }: Props) {
   const [seguimiento, setSeguimiento] = useState("");
   const [enlace, setEnlace] = useState("");
   const [guardando, setGuardando] = useState(false);
+  // Compositor compacto por defecto: enlace + agendar se revelan al enfocar o
+  // tener contenido (progressive disclosure — evita saturar la vista con opcionales).
+  const [composerFocus, setComposerFocus] = useState(false);
+  const composerAbierto = composerFocus || Boolean(texto.trim() || enlace.trim() || seguimiento);
   const [procesando, setProcesando] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [modalPerdida, setModalPerdida] = useState(false);
@@ -460,7 +464,13 @@ export default function DealDetalleClient({ deal, stages, canWrite }: Props) {
 
           {/* Compositor: arriba el TIPO de entrada → cambian los campos */}
           {canWrite && (
-            <div className="border-b border-surface-border bg-white px-5 py-4">
+            <div
+              className="border-b border-surface-border bg-white px-5 py-4"
+              onFocus={() => setComposerFocus(true)}
+              onBlur={(e) => {
+                if (!e.currentTarget.contains(e.relatedTarget as Node)) setComposerFocus(false);
+              }}
+            >
               <div className="mb-3 flex flex-wrap items-center gap-2">
                 {TIPO_PILLS.map(({ tipo, label, icon: Icon }) => (
                   <button
@@ -514,29 +524,36 @@ export default function DealDetalleClient({ deal, stages, canWrite }: Props) {
                 className="w-full resize-none rounded-lg border border-surface-border bg-surface px-3.5 py-2.5 text-sm text-navy outline-none focus:border-orange focus:bg-white"
               />
 
-              {/* Enlace externo (ej. propuesta en Google Drive) — alternativa a subir archivo */}
-              <label className="mt-2 flex items-center gap-2 rounded-lg border border-surface-border bg-surface px-3 py-1.5 text-sm text-navy focus-within:border-orange">
-                <Link2 size={14} className="shrink-0 text-gray-400" />
-                <input
-                  type="url"
-                  value={enlace}
-                  onChange={(e) => setEnlace(e.target.value)}
-                  placeholder="Enlace (Google Drive, propuesta…) — opcional"
-                  className="w-full bg-transparent outline-none placeholder:text-gray-400"
-                />
-              </label>
+              {/* Opcionales (enlace + agendar): se revelan al componer para no saturar la vista */}
+              {composerAbierto && (
+                <div className="mt-2 space-y-2">
+                  {/* Enlace externo (ej. propuesta en Google Drive) — alternativa a subir archivo */}
+                  <label className="flex items-center gap-2 rounded-lg border border-surface-border bg-surface px-3 py-1.5 text-sm text-navy focus-within:border-orange">
+                    <Link2 size={14} className="shrink-0 text-gray-400" />
+                    <input
+                      type="url"
+                      value={enlace}
+                      onChange={(e) => setEnlace(e.target.value)}
+                      placeholder="Enlace (Google Drive, propuesta…) — opcional"
+                      className="w-full bg-transparent outline-none placeholder:text-gray-400"
+                    />
+                  </label>
 
-              {/* Agendar próximo paso (opcional) — alimenta el inbox/IA de la Fase 2 */}
-              <div className="mt-3 flex flex-wrap items-end justify-between gap-3">
-                <label className="flex flex-col gap-1 text-[11px] font-medium text-gray-500">
-                  <span className="flex items-center gap-1"><CalendarClock size={12} /> Agendar seguimiento (opcional)</span>
-                  <input
-                    type="datetime-local"
-                    value={seguimiento}
-                    onChange={(e) => setSeguimiento(e.target.value)}
-                    className="rounded-lg border border-surface-border bg-white px-3 py-2 text-sm text-navy outline-none focus:border-orange"
-                  />
-                </label>
+                  {/* Agendar próximo paso (opcional) — alimenta el inbox de Próximas Acciones */}
+                  <label className="flex flex-col gap-1 text-[11px] font-medium text-gray-500">
+                    <span className="flex items-center gap-1"><CalendarClock size={12} /> Agendar seguimiento (opcional)</span>
+                    <input
+                      type="datetime-local"
+                      value={seguimiento}
+                      onChange={(e) => setSeguimiento(e.target.value)}
+                      className="w-fit rounded-lg border border-surface-border bg-white px-3 py-2 text-sm text-navy outline-none focus:border-orange"
+                    />
+                  </label>
+                </div>
+              )}
+
+              {/* CTA — siempre visible */}
+              <div className="mt-3 flex justify-end">
                 <button
                   onClick={guardarActividad}
                   disabled={!texto.trim() || guardando}
