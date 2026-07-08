@@ -2,20 +2,13 @@
 
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
 import type { VentasTipoItem } from "@/types/reportes";
+import { formatMXNEntero as fullMXN } from "@/lib/utils";
 
 interface Props {
   data: VentasTipoItem[];
 }
 
 const COLORS = ["#E8751A", "#1B2A4A", "#22C55E", "#3B82F6", "#F59E0B", "#64748B", "#A855F7", "#14B8A6"];
-
-function fullMXN(value: number) {
-  return new Intl.NumberFormat("es-MX", {
-    style: "currency",
-    currency: "MXN",
-    maximumFractionDigits: 0,
-  }).format(value);
-}
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function CustomTooltip({ active, payload }: any) {

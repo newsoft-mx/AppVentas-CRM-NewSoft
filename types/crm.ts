@@ -21,7 +21,7 @@ export interface DealResumen {
   moneda: string;
   temperatura: Temperatura;
   probabilidad: number | null;
-  resultado: string;
+  resultado: DealResultado;
   stage_id: string;
   /** Días que lleva el deal en su etapa actual */
   dias_en_etapa: number;
@@ -76,6 +76,8 @@ export const TEMPERATURA_RANK: Record<Temperatura, number> = {
 export type TipoActividad = "NOTA" | "LLAMADA" | "EMAIL" | "WHATSAPP" | "SISTEMA";
 export type RolContacto = "DECISOR" | "INFLUENCIADOR" | "USUARIO" | "OTRO";
 export type EstadoAccion = "PENDIENTE" | "EN_PROCESO" | "TERMINADO";
+export type DealResultado = "ABIERTO" | "GANADO" | "PERDIDO" | "SUSPENDIDO";
+export type EstatusCliente = "PROSPECTO" | "ACTIVO" | "INACTIVO";
 
 // Metadata del estado de la acción (toggle de color liviano, REQ-01)
 export const ESTADO_ACCION_META: Record<
@@ -128,12 +130,12 @@ export interface DealDetalle {
   probabilidad: number | null;
   canal: string | null;
   origen: string | null;
-  resultado: string;
+  resultado: DealResultado;
   fecha_cierre_estimada: string | null;
   dias_abierto: number;
   notas: string | null;
   stage: { id: string; nombre: string; orden: number; umbral_avance: Temperatura | null };
-  cliente: { id: string; nombre: string; estatus: string } | null;
+  cliente: { id: string; nombre: string; estatus: EstatusCliente } | null;
   vendedor: { id: string; nombre: string } | null;
   tipo: { id: string; nombre: string } | null;
   contactos: DealContactoItem[];

@@ -46,6 +46,15 @@ export function formatMoneda(
   return moneda === "MXN" ? formatMXN(amount) : formatUSD(amount);
 }
 
+// Moneda MXN sin decimales (usado en reportes): 12500 → "$12,500"
+export function formatMXNEntero(n: number): string {
+  return new Intl.NumberFormat("es-MX", {
+    style: "currency",
+    currency: "MXN",
+    maximumFractionDigits: 0,
+  }).format(n);
+}
+
 // Monto compacto para tarjetas/listas del CRM: $1.2M / $950K / $500
 export function formatCompacto(n: number): string {
   if (n >= 1_000_000) return "$" + (n / 1_000_000).toFixed(1) + "M";
