@@ -1,4 +1,4 @@
-import { scopeDealWhere } from "@/lib/access-control";
+import { scopeDealWhere, scopeClienteWhere } from "@/lib/access-control";
 import type { SessionPayload } from "@/lib/session";
 
 const vendedor: SessionPayload = { userId: "u1", email: "v@x.com", rol: "VENDEDOR", vendedorId: "vend-1" };
@@ -26,5 +26,36 @@ describe("scopeDealWhere (guard anti-IDOR)", () => {
 
   it("sin sesión bloquea todo", () => {
     expect(scopeDealWhere(null, { id: "d1" })).toEqual({ id: "__no-session__" });
+  });
+});
+
+describe("scopeClienteWhere (VENDEDOR ve solo sus clientes)", () => {
+  it("VENDEDOR: clientes con órdenes o deals suyos", () => {
+    expect(scopeClienteWhere(vendedor, { activo: true })).toEqual({
+      AND: [
+        { activo: true },
+        {
+          OR: [
+            { ordenes: { some: { vendedor_id: "vend-1" } } },
+            { deals: { some: { vendedor_id: "vend-1" } } },
+          ],
+        },
+      ],
+    });
+  });
+
+  it("ADMIN/GERENTE ven todos (sin restricción)", () => {
+    expect(scopeClienteWhere(admin, { activo: true })).toEqual({ activo: true });
+    expect(scopeClienteWhere(gerente, { activo: true })).toEqual({ activo: true });
+  });
+
+  it("VENDEDOR sin ficha no matchea ningún cliente", () => {
+    expect(scopeClienteWhere(vendedorSinFicha, { activo: true })).toEqual({
+      AND: [{ activo: true }, { id: { in: [] } }],
+    });
+  });
+
+  it("sin sesión bloquea todo", () => {
+    expect(scopeClienteWhere(null)).toEqual({ id: "__no-session__" });
   });
 });
