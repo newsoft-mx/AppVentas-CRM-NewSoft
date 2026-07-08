@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/session";
-import { normalizarPeriodo, desdePeriodo, dealWhereReporte } from "@/lib/reportes-funnel";
+import { rangoFechas, filtroRango, dealWhereReporte } from "@/lib/reportes-funnel";
 
 export const dynamic = "force-dynamic";
 
@@ -45,11 +45,9 @@ export async function GET(req: NextRequest) {
   if (!session) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
 
   const sp = req.nextUrl.searchParams;
-  const periodo = normalizarPeriodo(sp.get("periodo"));
-  const desde = desdePeriodo(periodo, new Date());
   const where = dealWhereReporte(session, sp.get("vendedor"), {
     resultado: { in: ["GANADO", "PERDIDO"] },
-    fecha_cierre_real: { gte: desde },
+    fecha_cierre_real: filtroRango(rangoFechas(sp, new Date())),
   });
 
   try {
@@ -64,7 +62,6 @@ export async function GET(req: NextRequest) {
     });
 
     return NextResponse.json({
-      periodo,
       ganados: resumen(deals.filter((d) => d.resultado === "GANADO")),
       perdidos: resumen(deals.filter((d) => d.resultado === "PERDIDO")),
     });
