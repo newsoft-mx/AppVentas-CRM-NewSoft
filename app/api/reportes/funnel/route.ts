@@ -3,6 +3,7 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/session";
 import { rangoFechas, filtroRango, dealWhereReporte } from "@/lib/reportes-funnel";
+import { logger } from "@/lib/logger";
 
 export const dynamic = "force-dynamic";
 
@@ -76,7 +77,8 @@ export async function GET(req: NextRequest) {
       perdidos,
       tasa_cierre: total > 0 ? Math.round((ganados / total) * 100) : 0,
     });
-  } catch {
+  } catch (error) {
+    logger.error("Error al calcular el embudo", "GET /api/reportes/funnel", error);
     return NextResponse.json({ error: "Error al calcular el embudo" }, { status: 500 });
   }
 }
