@@ -68,7 +68,7 @@ export async function POST(
   try {
     const deal = await prisma.deal.findFirst({
       where: scopeDealWhere(session, { id }),
-      select: { id: true, temperatura: true, stage: { select: { umbral_avance: true, orden: true } } },
+      select: { id: true, stage_id: true, temperatura: true, stage: { select: { umbral_avance: true, orden: true } } },
     });
     if (!deal) return NextResponse.json({ error: "Deal no encontrado" }, { status: 404 });
 
@@ -138,6 +138,10 @@ export async function POST(
                 autor: "Sistema",
                 contenido: `Avance automático a "${siguiente.nombre}" (termómetro en ${temperaturaActual}).`,
               },
+            });
+            // Historial de etapa (embudo de conversión)
+            await prisma.dealStageEvent.create({
+              data: { deal_id: id, from_stage_id: deal.stage_id, to_stage_id: siguiente.id },
             });
             avanzoEtapa = true;
           }

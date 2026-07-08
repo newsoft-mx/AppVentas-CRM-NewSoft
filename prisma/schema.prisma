@@ -466,10 +466,11 @@ model Deal {
   updated_at DateTime @updatedAt @db.Timestamptz(6)
 
   // Relaciones CRM
-  contactos   DealContacto[]
-  actividades DealActividad[]
-  adjuntos    DealAdjunto[]
-  analisis    DealAnalisisIA[]
+  contactos    DealContacto[]
+  actividades  DealActividad[]
+  adjuntos     DealAdjunto[]
+  analisis     DealAnalisisIA[]
+  stage_events DealStageEvent[]
 
   @@index([stage_id])
   @@index([vendedor_id])
@@ -533,6 +534,24 @@ model DealActividad {
   @@index([deal_id])
   @@index([contacto_id])
   @@map("deal_actividad")
+}
+
+// ============================================================
+// DEAL STAGE EVENT (historial de transiciones de etapa)
+// Registra cada cambio de stage → permite el embudo de conversión
+// (tasas etapa→etapa) y tiempos por etapa. from_stage_id = null en el alta.
+// ============================================================
+model DealStageEvent {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  deal_id       String   @db.Uuid
+  deal          Deal     @relation(fields: [deal_id], references: [id], onDelete: Cascade)
+  from_stage_id String?  @db.Uuid // null = alta del deal (entrada a la primera etapa)
+  to_stage_id   String   @db.Uuid
+  at            DateTime @default(now()) @db.Timestamptz(6)
+
+  @@index([deal_id])
+  @@index([to_stage_id])
+  @@map("deal_stage_event")
 }
 
 // ============================================================
