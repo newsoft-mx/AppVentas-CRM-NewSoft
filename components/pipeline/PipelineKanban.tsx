@@ -13,6 +13,7 @@ import {
 } from "@/types/crm";
 import NuevoDealModal from "@/components/pipeline/NuevoDealModal";
 import { formatCompacto, formatFechaHora } from "@/lib/utils";
+import Toast, { ToastData } from "@/components/ui/Toast";
 
 interface Props {
   stages: StageResumen[];
@@ -34,6 +35,7 @@ export default function PipelineKanban({ stages, deals, vendedores, clientes, ti
   const [orden, setOrden] = useState<"none" | "valor" | "temperatura" | "probabilidad" | "actividad" | "seguimiento">("none");
   const [dragId, setDragId] = useState<string | null>(null);
   const [overStage, setOverStage] = useState<string | null>(null);
+  const [toast, setToast] = useState<ToastData | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
 
   const filtered = useMemo(
@@ -99,12 +101,13 @@ export default function PipelineKanban({ stages, deals, vendedores, clientes, ti
       if (!res.ok) throw new Error("fallo");
     } catch {
       setItems(prev); // revertir
-      alert("No se pudo mover el deal. Intenta de nuevo.");
+      setToast({ type: "error", message: "No se pudo mover el deal. Intenta de nuevo." });
     }
   }
 
   return (
     <div className="flex h-full flex-col">
+      {toast && <Toast {...toast} onClose={() => setToast(null)} />}
       {/* Topbar */}
       <header className="flex flex-wrap items-center justify-between gap-3 border-b border-surface-border bg-white px-6 py-4">
         <div>
