@@ -4,6 +4,7 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { getServerSession } from "@/lib/server-session";
 import { canWrite } from "@/lib/session";
+import { scopeClienteWhere } from "@/lib/access-control";
 import { redirect } from "next/navigation";
 
 export const metadata: Metadata = { title: "Nueva orden" };
@@ -31,7 +32,8 @@ export default async function NuevaOrdenPage({
 
   const [clientes, tipos, condiciones, vendedores, empresa] = await Promise.all([
     prisma.cliente.findMany({
-      where: { activo: true },
+      // Picker scopeado: el VENDEDOR solo crea órdenes para sus clientes.
+      where: scopeClienteWhere(session, { activo: true }),
       select: { id: true, nombre: true, rfc: true, condicion_pago_id: true },
       orderBy: { nombre: "asc" },
     }),
