@@ -23,12 +23,14 @@ despliegue actual.
 
 ## Archivos de referencia (entrega/operación)
 
-- `FLUJO_DESPLIEGUE.md`: explica el flujo completo de despliegue.
-- `OPERACION_SERVIDOR.md`: comandos útiles para SSH, Docker, logs y validación.
-- `INVENTARIO_SERVICIOS.md`: servicios/cuentas involucrados.
-- `MIGRACION_VERCEL_SUPABASE.md`: plan de migración a Vercel + Supabase.
-- `checklists/ARCHIVOS_SENSIBLES.md`: lista de archivos que NO deben ir por Slack/correo.
-- `checklists/VALIDACION_PRE_DEPLOY.md`: checklist antes de ejecutar despliegue.
+Toda la documentación de operación vive en [`docs/operaciones/`](docs/operaciones/README.md):
+
+- `docs/operaciones/FLUJO_DESPLIEGUE.md`: explica el flujo completo de despliegue.
+- `docs/operaciones/OPERACION_SERVIDOR.md`: comandos útiles para SSH, Docker, logs y validación.
+- `docs/operaciones/INVENTARIO_SERVICIOS.md`: servicios/cuentas involucrados.
+- `docs/operaciones/MIGRACION_VERCEL_SUPABASE.md`: plan de migración a Vercel + Supabase (incluye troubleshooting del 500 por migraciones no aplicadas).
+- `docs/operaciones/checklists/ARCHIVOS_SENSIBLES.md`: lista de archivos que NO deben ir por Slack/correo.
+- `docs/operaciones/checklists/VALIDACION_PRE_DEPLOY.md`: checklist antes de ejecutar despliegue.
 - `terraform_lightsail_sin_secretos/`: copia de Terraform sin estado, variables sensibles, planes ni builds.
 - `sensibles_no_incluir/`: carpeta placeholder para recordar que los sensibles se comparten aparte por canal seguro.
 

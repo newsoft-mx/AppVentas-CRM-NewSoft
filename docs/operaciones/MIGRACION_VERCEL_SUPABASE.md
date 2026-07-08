@@ -43,7 +43,7 @@ npm install
 npx prisma migrate deploy
 ```
 
-Esto aplica, en orden, todas las migraciones que ya existen en `prisma/migrations/` (la más reciente es `20260527101000_map_legacy_roles`). Al terminar, Supabase tendrá el esquema completo pero vacío.
+Esto aplica, en orden, **todas** las migraciones que existen en `prisma/migrations/` (incluidas las del módulo CRM y la Fase 2 del pipeline). Al terminar, Supabase tendrá el esquema completo pero vacío. Para ver qué migraciones están aplicadas contra una base ya configurada, usá `npx prisma migrate status`.
 
 Verifica con:
 
@@ -108,6 +108,30 @@ Sobre el deployment de preview/producción en Vercel:
 1. Si tienes dominio, apúntalo a Vercel (Project → Settings → Domains) en vez de a la IP de Lightsail.
 2. Deja el contenedor de Lightsail apagado pero no lo borres de inmediato — sirve como respaldo por unos días si algo no cuadra en Supabase/Vercel.
 3. Una vez confirmado que todo corre bien en Vercel por unos días, puedes desmontar la infraestructura de Lightsail/Terraform (`infra/lightsail`) y dar de baja esa base de datos.
+
+## Troubleshooting
+
+### Una pantalla tira 500 (ej: "Próximas Acciones" o el tablero de embudo) pero otras funcionan
+
+**Síntoma:** el login y las pantallas "viejas" (ventas, clientes, reportes de ventas) cargan bien, pero las del CRM/Fase 2 que usan columnas nuevas — **Próximas Acciones** (`/acciones`) o el **tablero de Embudo** (`/pipeline/reportes`) — devuelven `500 Internal Server Error` (en el server component render).
+
+**Causa:** la base de datos que la app lee en runtime **no tiene aplicadas las migraciones de la Fase 2** (le falta, por ejemplo, la columna `estado_accion` o la tabla `DealStageEvent`). El código es correcto; es la base la que está desactualizada.
+
+**Cómo confirmarlo:** con las URLs de la base de producción en un `.env`, correr:
+
+```bash
+npx prisma migrate status
+```
+
+Si lista migraciones de Fase 2 como *not applied*, es esto.
+
+**Causas frecuentes y arreglo:**
+
+1. **`POSTGRES_PRISMA_URL` y `POSTGRES_URL_NON_POOLING` apuntan a bases distintas.** El `build` corre `prisma migrate deploy` contra `POSTGRES_URL_NON_POOLING`, pero el runtime lee `POSTGRES_PRISMA_URL`. Si son bases diferentes, las migraciones se aplican a una y la app lee la otra. **Ambas deben apuntar a la MISMA base de Supabase** (una pooled 6543, la otra directa 5432, pero de la misma base).
+2. **El deploy no está corriendo `prisma migrate deploy`.** Verificar que el "Build Command" en Vercel no esté sobrescrito y use el del `package.json` (`prisma generate && prisma migrate deploy && next build --webpack`).
+3. **Variables scopeadas solo a un entorno.** Si las env vars están solo en Production, los deploys de Preview (ramas/PRs) fallan; eso es esperable. Producción (rama `main`) sí las toma.
+
+Tras alinear las variables, un **redeploy** aplica las migraciones y las pantallas levantan.
 
 ## Notas sueltas
 
