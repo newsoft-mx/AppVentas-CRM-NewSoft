@@ -45,6 +45,10 @@ const TIPOS: { key: string; label: string }[] = [
   { key: "NOTA", label: "Nota" },
 ];
 
+// Color de la tasa de conversión: verde ok, ámbar atención, rojo fuga.
+const convColor = (pct: number) =>
+  pct >= 80 ? "text-emerald-600" : pct >= 50 ? "text-amber-600" : "text-red-500";
+
 export default function FunnelReportes({
   puedeElegir,
   vendedores,
@@ -128,6 +132,33 @@ export default function FunnelReportes({
         <p className="py-12 text-center text-sm text-gray-400">Cargando reportes…</p>
       ) : (
         <>
+          {/* Resumen ejecutivo */}
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <div className="rounded-xl border border-surface-border bg-white p-4 shadow-sm">
+              <p className="text-2xl font-bold text-navy">{funnel?.total ?? 0}</p>
+              <p className="text-xs text-gray-500">Deals en el periodo</p>
+            </div>
+            <div className="rounded-xl border border-surface-border bg-white p-4 shadow-sm">
+              <p className="text-2xl font-bold text-orange">{funnel?.tasa_cierre ?? 0}%</p>
+              <p className="text-xs text-gray-500">Tasa de cierre</p>
+            </div>
+            <div className="rounded-xl border border-surface-border bg-white p-4 shadow-sm">
+              <p className="text-2xl font-bold">
+                <span className="text-emerald-600">{resultados?.ganados ?? 0}</span>
+                <span className="text-gray-300"> / </span>
+                <span className="text-red-500">{resultados?.perdidos ?? 0}</span>
+              </p>
+              <p className="text-xs text-gray-500">Ganados / Perdidos</p>
+            </div>
+            <div className="rounded-xl border border-surface-border bg-white p-4 shadow-sm">
+              <p className="text-2xl font-bold text-navy">
+                {anatomia?.ganados.avg_dias ?? 0}
+                <span className="text-sm font-normal text-gray-400"> días</span>
+              </p>
+              <p className="text-xs text-gray-500">Promedio al ganar</p>
+            </div>
+          </div>
+
           {/* ── Bloque 1: Embudo de conversión ── */}
           <section className="rounded-xl border border-surface-border bg-white p-5 shadow-sm">
             <div className="mb-4 flex items-center gap-2">
@@ -141,22 +172,33 @@ export default function FunnelReportes({
               <p className="py-6 text-center text-sm text-gray-400">Sin deals en el periodo.</p>
             ) : (
               <div className="space-y-2">
-                {funnel.etapas.map((e, i) => (
-                  <div key={e.stage_id} className="flex items-center gap-3">
-                    <span className="w-32 shrink-0 truncate text-xs font-medium text-gray-600">{e.nombre}</span>
-                    <div className="relative h-7 flex-1 overflow-hidden rounded-md bg-gray-100">
-                      <div
-                        className="flex h-full items-center rounded-md bg-navy px-2 text-xs font-semibold text-white transition-all"
-                        style={{ width: `${funnel.total > 0 ? Math.max(6, (e.count / funnel.total) * 100) : 0}%` }}
-                      >
-                        {e.count}
+                {funnel.etapas.map((e, i) => {
+                  const prev = i === 0 ? funnel.total : funnel.etapas[i - 1].count;
+                  const drop = prev - e.count;
+                  return (
+                    <div key={e.stage_id} className="flex items-center gap-3">
+                      <span className="w-32 shrink-0 truncate text-xs font-medium text-gray-600">{e.nombre}</span>
+                      <div className="relative h-7 flex-1 overflow-hidden rounded-md bg-gray-100">
+                        <div
+                          className="flex h-full items-center rounded-md bg-navy px-2 text-xs font-semibold text-white transition-all"
+                          style={{ width: `${funnel.total > 0 ? Math.max(6, (e.count / funnel.total) * 100) : 0}%` }}
+                        >
+                          {e.count}
+                        </div>
                       </div>
+                      <span className="flex w-24 shrink-0 items-center justify-end gap-1.5 text-xs">
+                        {i === 0 ? (
+                          <span className="text-gray-300">—</span>
+                        ) : (
+                          <>
+                            <span className={`font-semibold ${convColor(e.conversion)}`}>{e.conversion}%</span>
+                            {drop > 0 && <span className="text-[10px] text-gray-400">−{drop}</span>}
+                          </>
+                        )}
+                      </span>
                     </div>
-                    <span className="w-16 shrink-0 text-right text-xs text-gray-400">
-                      {i === 0 ? "—" : `${e.conversion}%`}
-                    </span>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </section>
@@ -209,30 +251,38 @@ export default function FunnelReportes({
             {!anatomia || (anatomia.ganados.count === 0 && anatomia.perdidos.count === 0) ? (
               <p className="py-6 text-center text-sm text-gray-400">Sin deals cerrados en el periodo.</p>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-surface-border text-xs uppercase tracking-wide text-gray-400">
-                      <th className="py-2 text-left font-semibold">Métrica (promedio/deal)</th>
-                      <th className="py-2 text-right font-semibold text-emerald-600">Ganados ({anatomia.ganados.count})</th>
-                      <th className="py-2 text-right font-semibold text-red-500">Perdidos ({anatomia.perdidos.count})</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-surface-border">
-                    {TIPOS.map((t) => (
-                      <tr key={t.key}>
-                        <td className="py-2 text-gray-600">{t.label}</td>
-                        <td className="py-2 text-right font-medium text-navy">{anatomia.ganados.por_tipo[t.key] ?? 0}</td>
-                        <td className="py-2 text-right font-medium text-navy">{anatomia.perdidos.por_tipo[t.key] ?? 0}</td>
-                      </tr>
-                    ))}
-                    <tr className="bg-gray-50">
-                      <td className="py-2 font-semibold text-gray-700">Días al cierre</td>
-                      <td className="py-2 text-right font-semibold text-navy">{anatomia.ganados.avg_dias}</td>
-                      <td className="py-2 text-right font-semibold text-navy">{anatomia.perdidos.avg_dias}</td>
-                    </tr>
-                  </tbody>
-                </table>
+              <div className="space-y-2">
+                <div className="grid grid-cols-[7rem_1fr_1fr] gap-3 text-[10px] font-semibold uppercase tracking-wide text-gray-400 sm:grid-cols-[9rem_1fr_1fr]">
+                  <span>Promedio / deal</span>
+                  <span className="text-emerald-600">Ganados ({anatomia.ganados.count})</span>
+                  <span className="text-red-500">Perdidos ({anatomia.perdidos.count})</span>
+                </div>
+                {[
+                  ...TIPOS.map((t) => ({
+                    label: t.label,
+                    g: anatomia.ganados.por_tipo[t.key] ?? 0,
+                    p: anatomia.perdidos.por_tipo[t.key] ?? 0,
+                  })),
+                  { label: "Días al cierre", g: anatomia.ganados.avg_dias, p: anatomia.perdidos.avg_dias },
+                ].map((row) => {
+                  const max = Math.max(row.g, row.p, 1);
+                  return (
+                    <div
+                      key={row.label}
+                      className="grid grid-cols-[7rem_1fr_1fr] items-center gap-3 text-xs sm:grid-cols-[9rem_1fr_1fr]"
+                    >
+                      <span className="text-gray-600">{row.label}</span>
+                      <div className="flex items-center gap-2">
+                        <div className="h-3.5 rounded bg-emerald-400" style={{ width: `${(row.g / max) * 100}%` }} />
+                        <span className="font-medium text-navy">{row.g}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="h-3.5 rounded bg-red-300" style={{ width: `${(row.p / max) * 100}%` }} />
+                        <span className="font-medium text-navy">{row.p}</span>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             )}
           </section>
