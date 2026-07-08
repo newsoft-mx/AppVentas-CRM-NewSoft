@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { getServerSession } from "@/lib/server-session";
 import { canWrite } from "@/lib/session";
+import { scopeDealWhere } from "@/lib/access-control";
 import { estadoAtencion } from "@/lib/atencion";
 import { getCrmConfig, toParametrosTermometro } from "@/lib/crm-config";
 import { temperaturaEfectiva } from "@/lib/termometro";
@@ -20,7 +21,7 @@ function diasEnEtapa(desde: Date): number {
 export default async function PipelinePage() {
   const session = await getServerSession();
 
-  // Visibilidad abierta: todos los vendedores ven todos los deals (decisión de negocio).
+  // Scoping por vendedor: el VENDEDOR solo ve SUS deals; ADMIN/GERENTE ven todos.
   const [stages, deals, vendedores, clientes, tipos] = await Promise.all([
     prisma.pipelineStage.findMany({
       where: { activo: true },
@@ -28,7 +29,7 @@ export default async function PipelinePage() {
       select: { id: true, nombre: true, orden: true, color: true },
     }),
     prisma.deal.findMany({
-      where: { resultado: { in: ["ABIERTO", "SUSPENDIDO"] } },
+      where: scopeDealWhere(session, { resultado: { in: ["ABIERTO", "SUSPENDIDO"] } }),
       include: {
         cliente: { select: { id: true, nombre: true } },
         vendedor: { select: { id: true, nombre: true } },
@@ -78,9 +79,9 @@ export default async function PipelinePage() {
       _max: { created_at: true },
     }),
     getCrmConfig(),
-    prisma.deal.count({ where: { created_at: { gte: inicioDia } } }),
-    prisma.deal.count({ where: { created_at: { gte: inicioSemana } } }),
-    prisma.deal.count({ where: { created_at: { gte: inicioMes } } }),
+    prisma.deal.count({ where: scopeDealWhere(session, { created_at: { gte: inicioDia } }) }),
+    prisma.deal.count({ where: scopeDealWhere(session, { created_at: { gte: inicioSemana } }) }),
+    prisma.deal.count({ where: scopeDealWhere(session, { created_at: { gte: inicioMes } }) }),
   ]);
   const ultimaPorDeal = new Map(ultimas.map((u) => [u.deal_id, u._max.created_at]));
   const params = toParametrosTermometro(config);
