@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { TrendingUp, Trophy, XCircle, Activity } from "lucide-react";
+import { ArrowUp, ArrowDown } from "lucide-react";
 
 interface Vendedor {
   id: string;
@@ -30,16 +30,20 @@ interface AnatData {
   ganados: AnatItem;
   perdidos: AnatItem;
 }
+interface Datos {
+  funnel: FunnelData;
+  resultados: ResultadosData;
+  anatomia: AnatData;
+}
 
 const PERIODOS: { value: string; label: string }[] = [
   { value: "hoy", label: "Hoy" },
-  { value: "semana", label: "Última semana" },
-  { value: "mes", label: "Último mes" },
-  { value: "semestre", label: "Último semestre" },
+  { value: "semana", label: "Semana" },
+  { value: "mes", label: "Mes" },
+  { value: "semestre", label: "Semestre" },
   { value: "custom", label: "Personalizado…" },
 ];
 
-// LLAMADA se presenta como "Reunión/Llamada" (decisión de negocio).
 const TIPOS: { key: string; label: string }[] = [
   { key: "LLAMADA", label: "Reunión/Llamada" },
   { key: "EMAIL", label: "Email" },
@@ -47,9 +51,100 @@ const TIPOS: { key: string; label: string }[] = [
   { key: "NOTA", label: "Nota" },
 ];
 
-// Color de la tasa de conversión: verde ok, ámbar atención, rojo fuga.
-const convColor = (pct: number) =>
-  pct >= 80 ? "text-emerald-600" : pct >= 50 ? "text-amber-600" : "text-red-500";
+const iso = (d: Date) => d.toISOString().slice(0, 10);
+const DIA = 86_400_000;
+const menosDias = (d: Date, n: number) => new Date(d.getTime() - n * DIA);
+const menosMeses = (d: Date, m: number) => {
+  const x = new Date(d);
+  x.setMonth(x.getMonth() - m);
+  return x;
+};
+
+// Rango actual + rango anterior equivalente (para anclar cada KPI con su delta).
+function rangos(preset: string, desde: string, hasta: string) {
+  const hoy = new Date();
+  if (preset === "custom") {
+    if (!desde) return null;
+    const d0 = new Date(`${desde}T00:00:00`);
+    const d1 = hasta ? new Date(`${hasta}T00:00:00`) : hoy;
+    const len = Math.max(1, Math.round((d1.getTime() - d0.getTime()) / DIA) + 1);
+    return {
+      actual: { desde, hasta: hasta || iso(hoy) },
+      anterior: { desde: iso(menosDias(d0, len)), hasta: iso(menosDias(d0, 1)) },
+    };
+  }
+  if (preset === "hoy") {
+    return {
+      actual: { desde: iso(hoy), hasta: iso(hoy) },
+      anterior: { desde: iso(menosDias(hoy, 1)), hasta: iso(menosDias(hoy, 1)) },
+    };
+  }
+  if (preset === "semana") {
+    return {
+      actual: { desde: iso(menosDias(hoy, 7)), hasta: iso(hoy) },
+      anterior: { desde: iso(menosDias(hoy, 14)), hasta: iso(menosDias(hoy, 7)) },
+    };
+  }
+  if (preset === "semestre") {
+    return {
+      actual: { desde: iso(menosMeses(hoy, 6)), hasta: iso(hoy) },
+      anterior: { desde: iso(menosMeses(hoy, 12)), hasta: iso(menosMeses(hoy, 6)) },
+    };
+  }
+  return {
+    actual: { desde: iso(menosMeses(hoy, 1)), hasta: iso(hoy) },
+    anterior: { desde: iso(menosMeses(hoy, 2)), hasta: iso(menosMeses(hoy, 1)) },
+  };
+}
+
+async function traer(rango: { desde: string; hasta: string }, vendedor: string): Promise<Datos> {
+  const qs = new URLSearchParams(rango);
+  if (vendedor) qs.set("vendedor", vendedor);
+  const [funnel, resultados, anatomia] = await Promise.all([
+    fetch(`/api/reportes/funnel?${qs}`).then((r) => (r.ok ? r.json() : Promise.reject())),
+    fetch(`/api/reportes/resultados?${qs}`).then((r) => (r.ok ? r.json() : Promise.reject())),
+    fetch(`/api/reportes/anatomia?${qs}`).then((r) => (r.ok ? r.json() : Promise.reject())),
+  ]);
+  return { funnel, resultados, anatomia };
+}
+
+// ── Scorecard: número grande + ancla (delta vs período anterior) ──
+function Scorecard({
+  label,
+  value,
+  suffix,
+  delta,
+  mejorSiSube = true,
+}: {
+  label: string;
+  value: string | number;
+  suffix?: string;
+  delta: number | null; // puntos/porcentaje vs período anterior
+  mejorSiSube?: boolean;
+}) {
+  const bueno = delta !== null && (mejorSiSube ? delta > 0 : delta < 0);
+  const malo = delta !== null && (mejorSiSube ? delta < 0 : delta > 0);
+  const color = bueno ? "text-emerald-600" : malo ? "text-red-600" : "text-gray-400";
+  const Icono = delta !== null && delta >= 0 ? ArrowUp : ArrowDown;
+  return (
+    <div className="rounded-xl border border-surface-border bg-white p-4">
+      <p className="text-xs text-gray-500">{label}</p>
+      <p className="mt-1 text-3xl font-bold tracking-tight text-navy">
+        {value}
+        {suffix && <span className="text-lg font-semibold text-gray-400">{suffix}</span>}
+      </p>
+      {delta !== null && delta !== 0 ? (
+        <p className={`mt-1 flex items-center gap-0.5 text-xs font-medium ${color}`}>
+          <Icono size={12} />
+          {Math.abs(delta)}
+          {suffix === "%" ? " pts" : "%"} vs período anterior
+        </p>
+      ) : (
+        <p className="mt-1 text-xs text-gray-400">sin cambio vs anterior</p>
+      )}
+    </div>
+  );
+}
 
 export default function FunnelReportes({
   puedeElegir,
@@ -58,40 +153,26 @@ export default function FunnelReportes({
   puedeElegir: boolean;
   vendedores: Vendedor[];
 }) {
-  const [preset, setPreset] = useState("mes"); // hoy | semana | mes | semestre | custom
+  const [preset, setPreset] = useState("mes");
   const [desde, setDesde] = useState("");
   const [hasta, setHasta] = useState("");
-  const [vendedor, setVendedor] = useState(""); // "" = todo el equipo (agregado)
-  const [funnel, setFunnel] = useState<FunnelData | null>(null);
-  const [resultados, setResultados] = useState<ResultadosData | null>(null);
-  const [anatomia, setAnatomia] = useState<AnatData | null>(null);
+  const [vendedor, setVendedor] = useState("");
+  const [act, setAct] = useState<Datos | null>(null);
+  const [prev, setPrev] = useState<Datos | null>(null);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState("");
+  const [actualizado, setActualizado] = useState("");
 
   const cargar = useCallback(async () => {
+    const r = rangos(preset, desde, hasta);
+    if (!r) return; // custom sin fecha "desde" aún
     setCargando(true);
     setError("");
-    const qs = new URLSearchParams();
-    if (preset === "custom") {
-      if (desde) qs.set("desde", desde);
-      if (hasta) qs.set("hasta", hasta);
-    } else if (preset === "hoy") {
-      const hoy = new Date().toISOString().slice(0, 10);
-      qs.set("desde", hoy);
-      qs.set("hasta", hoy);
-    } else {
-      qs.set("periodo", preset);
-    }
-    if (vendedor) qs.set("vendedor", vendedor);
     try {
-      const [f, r, a] = await Promise.all([
-        fetch(`/api/reportes/funnel?${qs}`).then((res) => (res.ok ? res.json() : Promise.reject())),
-        fetch(`/api/reportes/resultados?${qs}`).then((res) => (res.ok ? res.json() : Promise.reject())),
-        fetch(`/api/reportes/anatomia?${qs}`).then((res) => (res.ok ? res.json() : Promise.reject())),
-      ]);
-      setFunnel(f);
-      setResultados(r);
-      setAnatomia(a);
+      const [a, p] = await Promise.all([traer(r.actual, vendedor), traer(r.anterior, vendedor)]);
+      setAct(a);
+      setPrev(p);
+      setActualizado(new Date().toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit" }));
     } catch {
       setError("No se pudieron cargar los reportes. Intentá de nuevo.");
     } finally {
@@ -103,225 +184,188 @@ export default function FunnelReportes({
     cargar();
   }, [cargar]);
 
-  const maxRazon = resultados?.por_razon[0]?.count ?? 1;
+  // Delta en puntos (para %) o en % (para conteos), según la métrica.
+  const deltaPct = (a: number, b: number) => (b === 0 ? (a > 0 ? 100 : 0) : Math.round(((a - b) / b) * 100));
+  const deltaPts = (a: number, b: number) => Math.round(a - b);
+
+  const f = act?.funnel;
+  const rz = act?.resultados;
+  const an = act?.anatomia;
+  const razonMax = rz?.por_razon[0]?.count ?? 1;
 
   return (
     <div className="space-y-6">
-      {/* Encabezado + filtros */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-navy">Reportes de Funnel</h1>
-          <p className="text-sm text-gray-500">Conversión, resultados y anatomía del pipeline</p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <select
-            value={preset}
-            onChange={(e) => setPreset(e.target.value)}
-            className="rounded-lg border border-surface-border bg-white px-3 py-2 text-sm text-navy outline-none focus:border-orange"
-          >
-            {PERIODOS.map((p) => (
-              <option key={p.value} value={p.value}>{p.label}</option>
-            ))}
-          </select>
-          {preset === "custom" && (
-            <div className="flex items-center gap-1.5">
-              <input
-                type="date"
-                value={desde}
-                max={hasta || undefined}
-                onChange={(e) => setDesde(e.target.value)}
-                className="rounded-lg border border-surface-border bg-white px-2 py-2 text-sm text-navy outline-none focus:border-orange"
-              />
-              <span className="text-xs text-gray-400">a</span>
-              <input
-                type="date"
-                value={hasta}
-                min={desde || undefined}
-                onChange={(e) => setHasta(e.target.value)}
-                className="rounded-lg border border-surface-border bg-white px-2 py-2 text-sm text-navy outline-none focus:border-orange"
-              />
-            </div>
-          )}
-          {puedeElegir && (
+      {/* Barra de filtros — SIEMPRE visible (sticky) */}
+      <div className="sticky top-0 z-10 -mx-4 border-b border-surface-border bg-surface/95 px-4 py-3 backdrop-blur sm:-mx-6 sm:px-6">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h1 className="text-lg font-bold text-navy">Reportes de Funnel</h1>
+            <p className="text-xs text-gray-400">
+              {actualizado ? `Actualizado ${actualizado}` : "Conversión, resultados y anatomía"}
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            {puedeElegir && (
+              <select
+                value={vendedor}
+                onChange={(e) => setVendedor(e.target.value)}
+                className="rounded-lg border border-surface-border bg-white px-3 py-1.5 text-sm text-navy outline-none focus:border-orange"
+              >
+                <option value="">Todo el equipo</option>
+                {vendedores.map((v) => (
+                  <option key={v.id} value={v.id}>{v.nombre}</option>
+                ))}
+              </select>
+            )}
             <select
-              value={vendedor}
-              onChange={(e) => setVendedor(e.target.value)}
-              className="rounded-lg border border-surface-border bg-white px-3 py-2 text-sm text-navy outline-none focus:border-orange"
+              value={preset}
+              onChange={(e) => setPreset(e.target.value)}
+              className="rounded-lg border border-surface-border bg-white px-3 py-1.5 text-sm text-navy outline-none focus:border-orange"
             >
-              <option value="">Todo el equipo</option>
-              {vendedores.map((v) => (
-                <option key={v.id} value={v.id}>{v.nombre}</option>
+              {PERIODOS.map((p) => (
+                <option key={p.value} value={p.value}>{p.label}</option>
               ))}
             </select>
-          )}
+            {preset === "custom" && (
+              <div className="flex items-center gap-1.5">
+                <input type="date" value={desde} max={hasta || undefined} onChange={(e) => setDesde(e.target.value)} className="rounded-lg border border-surface-border bg-white px-2 py-1.5 text-sm text-navy outline-none focus:border-orange" />
+                <span className="text-xs text-gray-400">a</span>
+                <input type="date" value={hasta} min={desde || undefined} onChange={(e) => setHasta(e.target.value)} className="rounded-lg border border-surface-border bg-white px-2 py-1.5 text-sm text-navy outline-none focus:border-orange" />
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
-      {error && (
-        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>
-      )}
+      {error && <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
 
-      {cargando ? (
-        <p className="py-12 text-center text-sm text-gray-400">Cargando reportes…</p>
+      {cargando || !f || !rz || !an ? (
+        <p className="py-16 text-center text-sm text-gray-400">Cargando reportes…</p>
       ) : (
         <>
-          {/* Resumen ejecutivo */}
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <div className="rounded-xl border border-surface-border bg-white p-4 shadow-sm">
-              <p className="text-2xl font-bold text-navy">{funnel?.total ?? 0}</p>
-              <p className="text-xs text-gray-500">Deals en el periodo</p>
-            </div>
-            <div className="rounded-xl border border-surface-border bg-white p-4 shadow-sm">
-              <p className="text-2xl font-bold text-orange">{funnel?.tasa_cierre ?? 0}%</p>
-              <p className="text-xs text-gray-500">Tasa de cierre</p>
-            </div>
-            <div className="rounded-xl border border-surface-border bg-white p-4 shadow-sm">
-              <p className="text-2xl font-bold">
-                <span className="text-emerald-600">{resultados?.ganados ?? 0}</span>
-                <span className="text-gray-300"> / </span>
-                <span className="text-red-500">{resultados?.perdidos ?? 0}</span>
-              </p>
-              <p className="text-xs text-gray-500">Ganados / Perdidos</p>
-            </div>
-            <div className="rounded-xl border border-surface-border bg-white p-4 shadow-sm">
-              <p className="text-2xl font-bold text-navy">
-                {anatomia?.ganados.avg_dias ?? 0}
-                <span className="text-sm font-normal text-gray-400"> días</span>
-              </p>
-              <p className="text-xs text-gray-500">Promedio al ganar</p>
+          {/* NIVEL 1 — ¿cómo venimos? (KPIs con ancla) */}
+          <div>
+            <p className="mb-2 text-xs font-medium uppercase tracking-wider text-gray-400">¿Cómo venimos?</p>
+            <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+              <Scorecard label="Tasa de cierre" value={f.tasa_cierre} suffix="%" delta={prev ? deltaPts(f.tasa_cierre, prev.funnel.tasa_cierre) : null} />
+              <Scorecard label="Ganados" value={rz.ganados} delta={prev ? deltaPct(rz.ganados, prev.resultados.ganados) : null} />
+              <Scorecard label="Perdidos" value={rz.perdidos} delta={prev ? deltaPct(rz.perdidos, prev.resultados.perdidos) : null} mejorSiSube={false} />
+              <Scorecard label="Días al ganar" value={an.ganados.avg_dias} delta={prev ? deltaPct(an.ganados.avg_dias, prev.anatomia.ganados.avg_dias) : null} mejorSiSube={false} />
             </div>
           </div>
 
-          {/* Fila: embudo (dónde están / dónde se fugan) + resultados (outcome), juntos */}
-          <div className="grid gap-6 lg:grid-cols-5">
-          {/* ── Bloque 1: Embudo de conversión ── */}
-          <section className="rounded-xl border border-surface-border bg-white p-5 shadow-sm lg:col-span-3">
-            <div className="mb-4 flex items-center gap-2">
-              <TrendingUp size={18} className="text-orange" />
-              <h2 className="text-sm font-bold uppercase tracking-wide text-navy">Embudo de conversión</h2>
-              <span className="ml-auto text-xs text-gray-400">
-                {funnel?.total ?? 0} deals · tasa de cierre {funnel?.tasa_cierre ?? 0}%
-              </span>
+          {/* NIVEL 2 — ¿hacia dónde vamos? / ¿qué lo explica? (embudo + razones) */}
+          <div>
+            <p className="mb-2 text-xs font-medium uppercase tracking-wider text-gray-400">¿Dónde se convierte y dónde se fuga?</p>
+            <div className="grid gap-6 lg:grid-cols-5">
+              {/* Embudo */}
+              <section className="rounded-xl border border-surface-border bg-white p-5 lg:col-span-3">
+                <div className="mb-3 flex items-baseline justify-between">
+                  <h2 className="text-sm font-semibold text-navy">Embudo de conversión</h2>
+                  <span className="text-xs text-gray-400">{f.total} deals</span>
+                </div>
+                {f.total === 0 ? (
+                  <p className="py-6 text-center text-sm text-gray-400">Sin deals en el periodo.</p>
+                ) : (
+                  <div className="space-y-1.5">
+                    {f.etapas.map((e, i) => {
+                      const prevCount = i === 0 ? f.total : f.etapas[i - 1].count;
+                      const drop = prevCount - e.count;
+                      const w = f.total > 0 ? Math.max(4, (e.count / f.total) * 100) : 0;
+                      return (
+                        <div key={e.stage_id} className="flex items-center gap-3">
+                          <span className="w-28 shrink-0 truncate text-xs text-gray-500">{e.nombre}</span>
+                          <div className="h-6 flex-1 rounded bg-gray-100">
+                            <div className="flex h-full items-center rounded bg-navy px-2 text-xs font-semibold text-white" style={{ width: `${w}%` }}>
+                              {e.count}
+                            </div>
+                          </div>
+                          <span className="w-16 shrink-0 text-right text-xs tabular-nums">
+                            {i === 0 ? (
+                              <span className="text-gray-300">base</span>
+                            ) : (
+                              <span className={drop > 0 ? "text-gray-500" : "text-gray-400"}>
+                                {e.conversion}%
+                              </span>
+                            )}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </section>
+
+              {/* Razones de pérdida — dónde está la fuga */}
+              <section className="rounded-xl border border-surface-border bg-white p-5 lg:col-span-2">
+                <div className="mb-3 flex items-baseline justify-between">
+                  <h2 className="text-sm font-semibold text-navy">Por qué se pierden</h2>
+                  <span className="text-xs text-gray-400">{rz.perdidos} perdidos</span>
+                </div>
+                {rz.por_razon.length === 0 ? (
+                  <p className="py-6 text-center text-sm text-gray-400">Sin pérdidas en el periodo.</p>
+                ) : (
+                  <div className="space-y-2">
+                    {rz.por_razon.map((r) => (
+                      <div key={r.razon} className="flex items-center gap-2">
+                        <span className="w-32 shrink-0 truncate text-xs text-gray-600" title={r.razon}>{r.razon}</span>
+                        <div className="h-4 flex-1 rounded bg-gray-100">
+                          <div className="h-full rounded bg-red-400" style={{ width: `${(r.count / razonMax) * 100}%` }} />
+                        </div>
+                        <span className="w-6 shrink-0 text-right text-xs font-medium text-gray-600 tabular-nums">{r.count}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </section>
             </div>
-            {!funnel || funnel.total === 0 ? (
-              <p className="py-6 text-center text-sm text-gray-400">Sin deals en el periodo.</p>
-            ) : (
-              <div className="space-y-2">
-                {funnel.etapas.map((e, i) => {
-                  const prev = i === 0 ? funnel.total : funnel.etapas[i - 1].count;
-                  const drop = prev - e.count;
-                  return (
-                    <div key={e.stage_id} className="flex items-center gap-3">
-                      <span className="w-32 shrink-0 truncate text-xs font-medium text-gray-600">{e.nombre}</span>
-                      <div className="relative h-7 flex-1 overflow-hidden rounded-md bg-gray-100">
-                        <div
-                          className="flex h-full items-center rounded-md bg-navy px-2 text-xs font-semibold text-white transition-all"
-                          style={{ width: `${funnel.total > 0 ? Math.max(6, (e.count / funnel.total) * 100) : 0}%` }}
-                        >
-                          {e.count}
+          </div>
+
+          {/* NIVEL 3 — ¿qué hicimos distinto? (anatomía: diverging ganado vs perdido) */}
+          <div>
+            <p className="mb-2 text-xs font-medium uppercase tracking-wider text-gray-400">¿Qué llevó ganar vs perder?</p>
+            <section className="rounded-xl border border-surface-border bg-white p-5">
+              <div className="mb-4 grid grid-cols-[8rem_1fr] items-center gap-3 text-[11px] font-semibold uppercase tracking-wide">
+                <span className="text-gray-400">Promedio / deal</span>
+                <div className="flex justify-between">
+                  <span className="text-emerald-600">← Ganados ({an.ganados.count})</span>
+                  <span className="text-red-500">Perdidos ({an.perdidos.count}) →</span>
+                </div>
+              </div>
+              {an.ganados.count === 0 && an.perdidos.count === 0 ? (
+                <p className="py-6 text-center text-sm text-gray-400">Sin deals cerrados en el periodo.</p>
+              ) : (
+                <div className="space-y-2.5">
+                  {[
+                    ...TIPOS.map((t) => ({ label: t.label, g: an.ganados.por_tipo[t.key] ?? 0, p: an.perdidos.por_tipo[t.key] ?? 0 })),
+                    { label: "Días al cierre", g: an.ganados.avg_dias, p: an.perdidos.avg_dias },
+                  ].map((row) => {
+                    const max = Math.max(row.g, row.p, 1);
+                    return (
+                      <div key={row.label} className="grid grid-cols-[8rem_1fr] items-center gap-3">
+                        <span className="text-xs text-gray-600">{row.label}</span>
+                        {/* barra divergente: ganados a la izquierda, perdidos a la derecha, divisor al centro */}
+                        <div className="flex items-center">
+                          <div className="flex flex-1 items-center justify-end gap-1.5">
+                            <span className="text-xs font-medium tabular-nums text-gray-700">{row.g}</span>
+                            <div className="h-3.5 rounded-l bg-emerald-500" style={{ width: `${(row.g / max) * 100}%` }} />
+                          </div>
+                          <div className="h-6 w-px shrink-0 bg-gray-300" />
+                          <div className="flex flex-1 items-center gap-1.5">
+                            <div className="h-3.5 rounded-r bg-red-400" style={{ width: `${(row.p / max) * 100}%` }} />
+                            <span className="text-xs font-medium tabular-nums text-gray-700">{row.p}</span>
+                          </div>
                         </div>
                       </div>
-                      <span className="flex w-24 shrink-0 items-center justify-end gap-1.5 text-xs">
-                        {i === 0 ? (
-                          <span className="text-gray-300">—</span>
-                        ) : (
-                          <>
-                            <span className={`font-semibold ${convColor(e.conversion)}`}>{e.conversion}%</span>
-                            {drop > 0 && <span className="text-[10px] text-gray-400">−{drop}</span>}
-                          </>
-                        )}
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </section>
-
-          {/* ── Bloque 2: Resultados (ganados vs perdidos) ── */}
-          <section className="rounded-xl border border-surface-border bg-white p-5 shadow-sm lg:col-span-2">
-            <div className="mb-4 flex items-center gap-2">
-              <Trophy size={18} className="text-orange" />
-              <h2 className="text-sm font-bold uppercase tracking-wide text-navy">Resultados</h2>
-            </div>
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-              <div className="rounded-lg bg-emerald-50 p-4 text-center">
-                <p className="text-2xl font-bold text-emerald-700">{resultados?.ganados ?? 0}</p>
-                <p className="text-xs font-medium text-emerald-600">Ganados</p>
-              </div>
-              <div className="rounded-lg bg-red-50 p-4 text-center">
-                <p className="text-2xl font-bold text-red-700">{resultados?.perdidos ?? 0}</p>
-                <p className="text-xs font-medium text-red-600">Perdidos</p>
-              </div>
-              <div className="rounded-lg bg-gray-50 p-4 text-center">
-                <p className="text-2xl font-bold text-navy">{resultados?.tasa_ganados ?? 0}%</p>
-                <p className="text-xs font-medium text-gray-500">Tasa de ganados</p>
-              </div>
-            </div>
-            {resultados && resultados.por_razon.length > 0 && (
-              <div className="mt-4">
-                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">Razones de pérdida</p>
-                <div className="space-y-1.5">
-                  {resultados.por_razon.map((r) => (
-                    <div key={r.razon} className="flex items-center gap-2">
-                      <span className="w-40 shrink-0 truncate text-xs text-gray-600">{r.razon}</span>
-                      <div className="h-4 flex-1 overflow-hidden rounded bg-gray-100">
-                        <div className="h-full rounded bg-red-400" style={{ width: `${(r.count / maxRazon) * 100}%` }} />
-                      </div>
-                      <span className="w-8 shrink-0 text-right text-xs font-medium text-gray-500">{r.count}</span>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
-              </div>
-            )}
-          </section>
+              )}
+              <p className="mt-4 border-t border-surface-border pt-3 text-xs text-gray-400">
+                Más toques y más días en los ganados = el patrón que conviene repetir.
+              </p>
+            </section>
           </div>
-
-          {/* ── Bloque 3: Anatomía de conversión (ganado vs perdido) ── */}
-          <section className="rounded-xl border border-surface-border bg-white p-5 shadow-sm">
-            <div className="mb-1 flex items-center gap-2">
-              <Activity size={18} className="text-orange" />
-              <h2 className="text-sm font-bold uppercase tracking-wide text-navy">Anatomía de conversión</h2>
-            </div>
-            <p className="mb-4 text-xs text-gray-400">Promedio por deal — qué llevó ganar vs perder</p>
-            {!anatomia || (anatomia.ganados.count === 0 && anatomia.perdidos.count === 0) ? (
-              <p className="py-6 text-center text-sm text-gray-400">Sin deals cerrados en el periodo.</p>
-            ) : (
-              <div className="space-y-2">
-                <div className="grid grid-cols-[7rem_1fr_1fr] gap-3 text-[10px] font-semibold uppercase tracking-wide text-gray-400 sm:grid-cols-[9rem_1fr_1fr]">
-                  <span>Promedio / deal</span>
-                  <span className="text-emerald-600">Ganados ({anatomia.ganados.count})</span>
-                  <span className="text-red-500">Perdidos ({anatomia.perdidos.count})</span>
-                </div>
-                {[
-                  ...TIPOS.map((t) => ({
-                    label: t.label,
-                    g: anatomia.ganados.por_tipo[t.key] ?? 0,
-                    p: anatomia.perdidos.por_tipo[t.key] ?? 0,
-                  })),
-                  { label: "Días al cierre", g: anatomia.ganados.avg_dias, p: anatomia.perdidos.avg_dias },
-                ].map((row) => {
-                  const max = Math.max(row.g, row.p, 1);
-                  return (
-                    <div
-                      key={row.label}
-                      className="grid grid-cols-[7rem_1fr_1fr] items-center gap-3 text-xs sm:grid-cols-[9rem_1fr_1fr]"
-                    >
-                      <span className="text-gray-600">{row.label}</span>
-                      <div className="flex items-center gap-2">
-                        <div className="h-3.5 rounded bg-emerald-400" style={{ width: `${(row.g / max) * 100}%` }} />
-                        <span className="font-medium text-navy">{row.g}</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <div className="h-3.5 rounded bg-red-300" style={{ width: `${(row.p / max) * 100}%` }} />
-                        <span className="font-medium text-navy">{row.p}</span>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </section>
         </>
       )}
     </div>
