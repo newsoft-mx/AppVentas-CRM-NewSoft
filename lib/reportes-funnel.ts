@@ -27,6 +27,29 @@ export function puedeElegirVendedor(session: SessionPayload | null): boolean {
   return session?.rol === "ADMIN" || session?.rol === "GERENTE_COMERCIAL";
 }
 
+// Rango de fechas del reporte: rango personalizado (desde/hasta, formato YYYY-MM-DD)
+// tiene prioridad; si no, cae al preset de periodo. hasta = null → abierto hasta ahora.
+export function rangoFechas(
+  sp: URLSearchParams,
+  ahora: Date
+): { desde: Date; hasta: Date | null } {
+  const desdeStr = sp.get("desde");
+  if (desdeStr) {
+    const desde = new Date(`${desdeStr}T00:00:00`);
+    if (!Number.isNaN(desde.getTime())) {
+      const hastaStr = sp.get("hasta");
+      const hasta = hastaStr ? new Date(`${hastaStr}T23:59:59`) : null;
+      return { desde, hasta: hasta && !Number.isNaN(hasta.getTime()) ? hasta : null };
+    }
+  }
+  return { desde: desdePeriodo(normalizarPeriodo(sp.get("periodo")), ahora), hasta: null };
+}
+
+// Filtro Prisma de rango sobre un campo de fecha.
+export function filtroRango(r: { desde: Date; hasta: Date | null }) {
+  return r.hasta ? { gte: r.desde, lte: r.hasta } : { gte: r.desde };
+}
+
 type WhereInput = Record<string, unknown>;
 
 // where de deals para reportes: scope por rol + filtro opcional de vendedor.

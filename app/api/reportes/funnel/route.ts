@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/session";
-import { normalizarPeriodo, desdePeriodo, dealWhereReporte } from "@/lib/reportes-funnel";
+import { rangoFechas, filtroRango, dealWhereReporte } from "@/lib/reportes-funnel";
 
 export const dynamic = "force-dynamic";
 
@@ -14,9 +14,9 @@ export async function GET(req: NextRequest) {
   if (!session) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
 
   const sp = req.nextUrl.searchParams;
-  const periodo = normalizarPeriodo(sp.get("periodo"));
-  const desde = desdePeriodo(periodo, new Date());
-  const where = dealWhereReporte(session, sp.get("vendedor"), { created_at: { gte: desde } });
+  const where = dealWhereReporte(session, sp.get("vendedor"), {
+    created_at: filtroRango(rangoFechas(sp, new Date())),
+  });
 
   try {
     const [stages, deals] = await Promise.all([
@@ -70,7 +70,6 @@ export async function GET(req: NextRequest) {
     });
 
     return NextResponse.json({
-      periodo,
       total,
       etapas,
       ganados,
