@@ -8,7 +8,7 @@ export const metadata: Metadata = {
   },
   description: "Sistema interno de gestión de ventas — NewSoft",
   icons: {
-    icon: "/newsoft-favicon.png",
+    icon: "/newsoft-favicon.jpg",
   },
 };
 
