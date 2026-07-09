@@ -228,15 +228,21 @@ export default function FunnelReportes({
                 ))}
               </select>
             )}
-            <select
-              value={preset}
-              onChange={(e) => setPreset(e.target.value)}
-              className="rounded-lg border border-surface-border bg-white px-3 py-1.5 text-sm text-navy outline-none focus:border-orange"
-            >
+            {/* Cada rango como botón visible (sin desplegar), incluido Personalizado */}
+            <div className="flex flex-wrap items-center gap-0.5 rounded-lg bg-gray-100 p-0.5">
               {PERIODOS.map((p) => (
-                <option key={p.value} value={p.value}>{p.label}</option>
+                <button
+                  key={p.value}
+                  type="button"
+                  onClick={() => setPreset(p.value)}
+                  className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
+                    preset === p.value ? "bg-white text-navy shadow-sm" : "text-gray-500 hover:text-navy"
+                  }`}
+                >
+                  {p.label}
+                </button>
               ))}
-            </select>
+            </div>
             {preset === "custom" && (
               <div className="flex items-center gap-1.5">
                 <input type="date" value={desde} max={hasta || undefined} onChange={(e) => setDesde(e.target.value)} className="rounded-lg border border-surface-border bg-white px-2 py-1.5 text-sm text-navy outline-none focus:border-orange" />
