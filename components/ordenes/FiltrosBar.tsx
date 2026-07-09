@@ -13,6 +13,7 @@ interface FiltrosBarProps {
 }
 
 const CURRENT_YEAR = new Date().getFullYear();
+const CURRENT_MONTH = new Date().getMonth() + 1;
 const YEARS = Array.from({ length: 6 }, (_, i) => ({ id: String(CURRENT_YEAR - i), label: String(CURRENT_YEAR - i) }));
 const TRIMESTRES = [
   { id: "1", label: "Q1 (Ene-Mar)" },
@@ -59,8 +60,26 @@ export default function FiltrosBar({ filtros, clientes, tipos, vendedores, onCha
       vendedor_id: [],
     });
 
+  // Presets rápidos (SOL-09): activo cuando el filtro coincide exactamente.
+  const esAnioActual =
+    filtros.ano.length === 1 && filtros.ano[0] === CURRENT_YEAR && filtros.q.length === 0 && filtros.mes.length === 0;
+  const esMesActual =
+    filtros.ano.length === 1 && filtros.ano[0] === CURRENT_YEAR && filtros.mes.length === 1 && filtros.mes[0] === CURRENT_MONTH;
+  const chipCls = (activo: boolean) =>
+    `rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${activo ? "bg-white text-navy shadow-sm" : "text-gray-500 hover:text-navy"}`;
+
   return (
     <div className="flex flex-wrap items-center gap-2">
+      {/* Presets rápidos: un clic para ver el año o el mes actual completo (SOL-09) */}
+      <div className="flex items-center gap-0.5 rounded-lg bg-gray-100 p-0.5">
+        <button type="button" onClick={() => onChange({ ...filtros, ano: [CURRENT_YEAR], q: [], mes: [] })} className={chipCls(esAnioActual)}>
+          Este año
+        </button>
+        <button type="button" onClick={() => onChange({ ...filtros, ano: [CURRENT_YEAR], mes: [CURRENT_MONTH], q: [] })} className={chipCls(esMesActual)}>
+          Este mes
+        </button>
+      </div>
+
       <MultiSelect
         className="w-full sm:w-36"
         options={YEARS}
