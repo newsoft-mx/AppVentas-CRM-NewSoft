@@ -129,3 +129,11 @@ export function selectedMonths(filtros: Pick<FiltroOrdenes | FiltroReportes, "q"
   }
   return Array.from({ length: 12 }, (_, index) => index + 1);
 }
+
+// Fecha-hora actual en formato de <input type="datetime-local"> (YYYY-MM-DDTHH:mm),
+// en hora local. Para precargar inputs de fecha/hora con "ahora" (SOL-03).
+export function ahoraLocal(): string {
+  const d = new Date();
+  const local = new Date(d.getTime() - d.getTimezoneOffset() * 60000);
+  return local.toISOString().slice(0, 16);
+}

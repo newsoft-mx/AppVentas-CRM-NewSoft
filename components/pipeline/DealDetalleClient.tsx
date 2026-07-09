@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -13,6 +13,7 @@ import Toast, { ToastData } from "@/components/ui/Toast";
 import Termometro from "@/components/pipeline/Termometro";
 import { cruzaUmbralAvance } from "@/lib/termometro";
 import { formatCompacto, formatFechaHora } from "@/lib/utils";
+import { ahoraLocal } from "@/lib/filter-utils";
 
 const RAZONES_PERDIDA = ["Precio", "Tiempo / urgencia", "Competencia", "Sin presupuesto", "Sin respuesta", "No era el momento", "Otro"];
 import {
@@ -75,6 +76,9 @@ export default function DealDetalleClient({ deal, stages, canWrite }: Props) {
   // Contacto precargado por defecto: el primer contacto del deal (REQ-03)
   const [contactoSel, setContactoSel] = useState(deal.contactos[0]?.id ?? "");
   const [fechaEvento, setFechaEvento] = useState("");
+  // Precargar "Cuándo ocurrió" con ahora (editable). En useEffect para evitar
+  // mismatch de hidratación (new Date() difiere entre server y cliente). (SOL-03)
+  useEffect(() => setFechaEvento(ahoraLocal()), []);
   const [exitosa, setExitosa] = useState(true);
   const [seguimiento, setSeguimiento] = useState("");
   const [enlace, setEnlace] = useState("");
@@ -252,7 +256,7 @@ export default function DealDetalleClient({ deal, stages, canWrite }: Props) {
       if (data.avanzo_etapa) router.refresh();
       setTexto("");
       setContactoSel(deal.contactos[0]?.id ?? "");
-      setFechaEvento("");
+      setFechaEvento(ahoraLocal());
       setExitosa(true);
       setSeguimiento("");
       setEnlace("");
