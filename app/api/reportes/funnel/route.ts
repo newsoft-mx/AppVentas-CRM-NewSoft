@@ -24,7 +24,7 @@ export async function GET(req: NextRequest) {
       prisma.pipelineStage.findMany({
         where: { activo: true },
         orderBy: { orden: "asc" },
-        select: { id: true, nombre: true, orden: true },
+        select: { id: true, nombre: true, orden: true, color: true },
       }),
       prisma.deal.findMany({
         where: where as Prisma.DealWhereInput,
@@ -64,6 +64,7 @@ export async function GET(req: NextRequest) {
         stage_id: s.id,
         nombre: s.nombre,
         orden: s.orden,
+        color: s.color,
         count,
         // % que pasó desde la etapa anterior (desde el total en la primera)
         conversion: prev > 0 ? Math.round((count / prev) * 100) : 0,

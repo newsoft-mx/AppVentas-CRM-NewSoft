@@ -9,7 +9,7 @@ interface Vendedor {
 }
 interface FunnelData {
   total: number;
-  etapas: { stage_id: string; nombre: string; count: number; conversion: number }[];
+  etapas: { stage_id: string; nombre: string; count: number; conversion: number; color: string }[];
   ganados: number;
   perdidos: number;
   tasa_cierre: number;
@@ -276,7 +276,7 @@ export default function FunnelReportes({
                         <div key={e.stage_id} className="flex items-center gap-3">
                           <span className="w-28 shrink-0 truncate text-xs text-gray-500">{e.nombre}</span>
                           <div className="h-6 flex-1 rounded bg-gray-100">
-                            <div className="flex h-full items-center rounded bg-navy px-2 text-xs font-semibold text-white" style={{ width: `${w}%` }}>
+                            <div className="flex h-full items-center rounded px-2 text-xs font-semibold text-white" style={{ width: `${w}%`, backgroundColor: e.color }}>
                               {e.count}
                             </div>
                           </div>
