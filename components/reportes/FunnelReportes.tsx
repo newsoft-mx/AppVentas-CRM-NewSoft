@@ -41,6 +41,7 @@ const PERIODOS: { value: string; label: string }[] = [
   { value: "semana", label: "Semana" },
   { value: "mes", label: "Mes" },
   { value: "semestre", label: "Semestre" },
+  { value: "año", label: "Año" },
   { value: "custom", label: "Personalizado…" },
 ];
 
@@ -89,6 +90,16 @@ function rangos(preset: string, desde: string, hasta: string) {
     return {
       actual: { desde: iso(menosMeses(hoy, 6)), hasta: iso(hoy) },
       anterior: { desde: iso(menosMeses(hoy, 12)), hasta: iso(menosMeses(hoy, 6)) },
+    };
+  }
+  if (preset === "año") {
+    // Año calendario actual (1-ene → hoy); anterior = mismo tramo del año pasado.
+    const inicio = new Date(hoy.getFullYear(), 0, 1);
+    const inicioPrev = new Date(hoy.getFullYear() - 1, 0, 1);
+    const hoyPrev = new Date(hoy.getFullYear() - 1, hoy.getMonth(), hoy.getDate());
+    return {
+      actual: { desde: iso(inicio), hasta: iso(hoy) },
+      anterior: { desde: iso(inicioPrev), hasta: iso(hoyPrev) },
     };
   }
   return {
