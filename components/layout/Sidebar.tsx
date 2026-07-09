@@ -92,8 +92,8 @@ export default function Sidebar({ role }: { role: UserRole }) {
           <Image
             src="/newsoft-logo.png"
             alt="NewSoft"
-            width={150}
-            height={33}
+            width={876}
+            height={191}
             className="h-6 w-auto md:h-7"
             unoptimized
             priority
@@ -106,8 +106,8 @@ export default function Sidebar({ role }: { role: UserRole }) {
               <Image
                 src="/newsoft-favicon.png"
                 alt="NewSoft"
-                width={28}
-                height={28}
+                width={512}
+                height={512}
                 className="h-7 w-7"
                 unoptimized
                 priority
