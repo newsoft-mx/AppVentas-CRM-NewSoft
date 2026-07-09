@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Filter, Building2, Clock, LayoutGrid, List, ArrowDownUp, PauseCircle, Flame, CalendarClock } from "lucide-react";
+import { Plus, Filter, Building2, Clock, LayoutGrid, List, ArrowDownUp, PauseCircle, Flame, CalendarClock, XCircle } from "lucide-react";
 import {
   TEMPERATURA_META,
   TEMPERATURAS_CALIENTES,
@@ -15,9 +15,21 @@ import NuevoDealModal from "@/components/pipeline/NuevoDealModal";
 import { formatCompacto, formatFechaHora } from "@/lib/utils";
 import Toast, { ToastData } from "@/components/ui/Toast";
 
+interface PerdidoItem {
+  id: string;
+  nombre: string;
+  valor: number;
+  moneda: string;
+  razon_perdida: string | null;
+  fecha_cierre_real: string | null;
+  cliente: string | null;
+  vendedor: string | null;
+}
+
 interface Props {
   stages: StageResumen[];
   deals: DealResumen[];
+  perdidos?: PerdidoItem[];
   vendedores: { id: string; nombre: string }[];
   clientes: { id: string; nombre: string }[];
   tipos: { id: string; nombre: string }[];
@@ -26,11 +38,12 @@ interface Props {
 }
 
 
-export default function PipelineKanban({ stages, deals, vendedores, clientes, tipos, canWrite, altas }: Props) {
+export default function PipelineKanban({ stages, deals, perdidos = [], vendedores, clientes, tipos, canWrite, altas }: Props) {
   const router = useRouter();
   const [items, setItems] = useState<DealResumen[]>(deals);
   const [vendedorFiltro, setVendedorFiltro] = useState<string>("todos");
   const [tipoFiltro, setTipoFiltro] = useState<string>("todos");
+  const [verPerdidos, setVerPerdidos] = useState(false);
   const [vista, setVista] = useState<"tablero" | "lista">("tablero");
   const [orden, setOrden] = useState<"none" | "valor" | "temperatura" | "probabilidad" | "actividad" | "seguimiento">("none");
   const [dragId, setDragId] = useState<string | null>(null);
@@ -192,6 +205,13 @@ export default function PipelineKanban({ stages, deals, vendedores, clientes, ti
         <Kpi label="Esta semana" value={String(altas.semana)} />
         <Kpi label="Este mes" value={String(altas.mes)} />
         <div className="ml-auto flex items-center gap-2">
+          {/* Ver perdidos (SOL-06) — análisis de pérdida junto al pipeline */}
+          <button
+            onClick={() => setVerPerdidos((v) => !v)}
+            className={`flex items-center gap-1 rounded-lg border px-2.5 py-1.5 text-xs font-semibold transition-colors ${verPerdidos ? "border-red-300 bg-red-50 text-red-700" : "border-surface-border text-gray-500 hover:bg-surface"}`}
+          >
+            <XCircle size={13} /> Perdidos ({perdidos.length})
+          </button>
           <ArrowDownUp size={14} className="text-gray-400" />
           <select
             value={orden}
@@ -210,7 +230,7 @@ export default function PipelineKanban({ stages, deals, vendedores, clientes, ti
       </div>
 
       {/* Tablero Kanban */}
-      {vista === "tablero" && (
+      {!verPerdidos && vista === "tablero" && (
       <div className="flex-1 overflow-x-auto bg-surface px-6 py-5">
         <div className="flex min-w-max items-start gap-3.5">
           {stages.map((stage) => {
@@ -306,7 +326,7 @@ export default function PipelineKanban({ stages, deals, vendedores, clientes, ti
       )}
 
       {/* Vista lista */}
-      {vista === "lista" && (
+      {!verPerdidos && vista === "lista" && (
         <div className="flex-1 overflow-auto bg-surface px-6 py-5">
           <div className="overflow-hidden rounded-xl border border-surface-border bg-white">
             <table className="w-full text-sm">
@@ -359,6 +379,59 @@ export default function PipelineKanban({ stages, deals, vendedores, clientes, ti
               )}
             </table>
           </div>
+        </div>
+      )}
+
+      {/* Análisis de perdidos (SOL-06) — resumen por motivo + tabla a la ficha */}
+      {verPerdidos && (
+        <div className="flex-1 overflow-auto bg-surface px-6 py-5">
+          {perdidos.length === 0 ? (
+            <div className="rounded-xl border border-surface-border bg-white p-12 text-center text-gray-400">
+              Sin deals perdidos registrados.
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div className="flex flex-wrap gap-2">
+                {Object.entries(
+                  perdidos.reduce((acc, p) => {
+                    const k = p.razon_perdida ?? "Sin motivo";
+                    acc[k] = (acc[k] ?? 0) + 1;
+                    return acc;
+                  }, {} as Record<string, number>)
+                )
+                  .sort((a, b) => b[1] - a[1])
+                  .map(([razon, n]) => (
+                    <span key={razon} className="inline-flex items-center gap-1.5 rounded-full border border-red-200 bg-red-50 px-2.5 py-1 text-xs font-medium text-red-700">
+                      {razon} <span className="rounded-full bg-red-100 px-1.5">{n}</span>
+                    </span>
+                  ))}
+              </div>
+              <div className="overflow-hidden rounded-xl border border-surface-border bg-white">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-surface-border text-left text-xs uppercase tracking-wide text-gray-400">
+                      <th className="px-4 py-3 font-medium">Deal</th>
+                      <th className="px-4 py-3 font-medium">Cliente</th>
+                      <th className="px-4 py-3 font-medium">Motivo</th>
+                      <th className="px-4 py-3 text-right font-medium">Valor</th>
+                      <th className="px-4 py-3 font-medium">Cierre</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-surface-border">
+                    {perdidos.map((p) => (
+                      <tr key={p.id} onClick={() => router.push(`/pipeline/${p.id}`)} className="cursor-pointer transition-colors hover:bg-gray-50">
+                        <td className="px-4 py-3 font-medium text-navy">{p.nombre}</td>
+                        <td className="px-4 py-3 text-gray-600">{p.cliente ?? "—"}</td>
+                        <td className="px-4 py-3"><span className="rounded-full bg-red-50 px-2 py-0.5 text-xs font-medium text-red-700">{p.razon_perdida ?? "Sin motivo"}</span></td>
+                        <td className="px-4 py-3 text-right tabular-nums text-gray-700">{formatCompacto(p.valor)} {p.moneda}</td>
+                        <td className="px-4 py-3 text-xs text-gray-500">{p.fecha_cierre_real ? formatFechaHora(p.fecha_cierre_real) : "—"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
