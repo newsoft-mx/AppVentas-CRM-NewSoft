@@ -113,6 +113,7 @@ export interface DealActividadItem {
   completada: boolean;
   estado_accion: EstadoAccion;
   destacada: boolean;
+  editada: boolean;
   enlace_url: string | null;
   fecha_tarea: string | null;
   created_at: string;

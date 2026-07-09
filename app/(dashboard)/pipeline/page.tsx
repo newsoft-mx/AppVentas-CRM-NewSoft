@@ -37,7 +37,7 @@ export default async function PipelinePage() {
         _count: { select: { actividades: true } },
         // Próximo seguimiento pendiente (tarea agendada más cercana)
         actividades: {
-          where: { es_tarea: true, completada: false, fecha_tarea: { not: null } },
+          where: { es_tarea: true, completada: false, fecha_tarea: { not: null }, eliminada: false },
           orderBy: { fecha_tarea: "asc" },
           take: 1,
           select: { fecha_tarea: true },
@@ -75,7 +75,7 @@ export default async function PipelinePage() {
   const [ultimas, config, nuevosHoy, nuevosSemana, nuevosMes] = await Promise.all([
     prisma.dealActividad.groupBy({
       by: ["deal_id"],
-      where: { deal_id: { in: dealIds } },
+      where: { deal_id: { in: dealIds }, eliminada: false },
       _max: { created_at: true },
     }),
     getCrmConfig(),
