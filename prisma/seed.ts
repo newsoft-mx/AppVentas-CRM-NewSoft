@@ -237,6 +237,33 @@ async function main() {
   condiciones.forEach((c) => console.log(`   ✓ ${c.nombre}`));
   console.log();
 
+  // 3.6 CATÁLOGOS DEL MODELO DE ACTIVIDAD (SOL-04) — config production-safe
+  if ((await prisma.tipoAccion.count()) === 0) {
+    await prisma.tipoAccion.createMany({
+      data: [
+        { nombre: "Llamada", color: "#1D9E75", agendable: true, con_resultado: true, orden: 0 },
+        { nombre: "Reunión", color: "#2A5298", agendable: true, con_resultado: true, orden: 1 },
+        { nombre: "Email", color: "#3B82F6", agendable: true, con_resultado: true, orden: 2 },
+        { nombre: "WhatsApp", color: "#22C55E", agendable: true, con_resultado: true, orden: 3 },
+        { nombre: "Pendiente", color: "#F5A623", agendable: true, con_resultado: false, orden: 4 },
+        { nombre: "Nota", color: "#6B7A99", agendable: false, con_resultado: false, orden: 5 },
+      ],
+    });
+  }
+  if ((await prisma.resultadoAccion.count()) === 0) {
+    await prisma.resultadoAccion.createMany({
+      data: [
+        { nombre: "Se concretó / avanzó", efecto: "POSITIVO", sugiere_reagendar: false, orden: 0 },
+        { nombre: "Contestó, sin avance", efecto: "NEUTRO", sugiere_reagendar: false, orden: 1 },
+        { nombre: "No contestó", efecto: "NEUTRO", sugiere_reagendar: true, orden: 2 },
+        { nombre: "Reagendó", efecto: "NEUTRO", sugiere_reagendar: true, orden: 3 },
+        { nombre: "No le interesó / canceló", efecto: "NEGATIVO", sugiere_reagendar: false, orden: 4 },
+      ],
+    });
+  }
+  console.log("   ✓ catálogos de actividad (tipos + resultados)");
+  console.log();
+
   // ──────────────────────────────────────────
   // 4. CLIENTES DEMO  (solo con --demo)
   // ──────────────────────────────────────────

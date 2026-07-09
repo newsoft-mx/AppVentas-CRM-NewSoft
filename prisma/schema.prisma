@@ -72,6 +72,8 @@ model TipoCotizacion {
   nombre         String   @db.VarChar(100)
   descripcion    String?  @db.VarChar(300)
   texto_contrato String?  @db.Text
+  // Color editable del catálogo — usado por las gráficas de reportes (SOL-07)
+  color          String   @default("#6B7A99") @db.VarChar(20)
   activo         Boolean  @default(true)
   created_at     DateTime @default(now()) @db.Timestamptz(6)
 
@@ -362,6 +364,60 @@ enum AvanceModo {
   @@map("avance_modo")
 }
 
+// Efecto de un resultado de acción sobre el termómetro (SOL-04). Enum, no peso
+// numérico (el peso fino queda para Fase 2).
+enum EfectoTermometro {
+  POSITIVO
+  NEUTRO
+  NEGATIVO
+
+  @@map("efecto_termometro")
+}
+
+// Estado de planeación de una acción agendable (SOL-04): Planeada (futura, no
+// cuenta) → Realizada (con resultado, ya cuenta). "Vencida" es derivado.
+enum EstadoPlaneacion {
+  PLANEADA
+  REALIZADA
+
+  @@map("estado_planeacion")
+}
+
+// Catálogo table-driven de TIPOS DE ACCIÓN (SOL-04). Reemplaza al enum fijo
+// como fuente de verdad de la naturaleza de una entrada de bitácora.
+model TipoAccion {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  nombre        String   @db.VarChar(100)
+  orden         Int      @default(0)
+  color         String   @default("#6B7A99") @db.VarChar(20) // editable (SOL-07)
+  // ¿Agendable? → admite fecha futura y ciclo Planeada→Realizada
+  agendable     Boolean  @default(true)
+  // ¿Con resultado? → produce desenlace que mueve termómetro/probabilidad
+  con_resultado Boolean  @default(true)
+  activo        Boolean  @default(true)
+  created_at    DateTime @default(now()) @db.Timestamptz(6)
+
+  actividades DealActividad[]
+
+  @@map("tipo_accion")
+}
+
+// Catálogo table-driven de RESULTADOS de una acción (SOL-04). Cada resultado
+// define su efecto en el termómetro y si sugiere reagendar.
+model ResultadoAccion {
+  id                String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  nombre            String           @db.VarChar(100)
+  orden             Int              @default(0)
+  efecto            EfectoTermometro @default(NEUTRO)
+  sugiere_reagendar Boolean          @default(false)
+  activo            Boolean          @default(true)
+  created_at        DateTime         @default(now()) @db.Timestamptz(6)
+
+  actividades DealActividad[]
+
+  @@map("resultado_accion")
+}
+
 // ============================================================
 // PIPELINE STAGE (etapa del pipeline)
 // Catálogo CONFIGURABLE (requisito explícito de Roldán). Ordenable.
@@ -529,6 +585,15 @@ model DealActividad {
   destacada    Boolean       @default(false)
   // Enlace externo (ej. propuesta en Google Drive) — alternativa a subir archivo (REQ-03)
   enlace_url   String?       @db.VarChar(500)
+  // ── Modelo de actividad table-driven (SOL-04) — aditivo sobre el enum legacy ──
+  // Tipo desde el catálogo (naturaleza + banderas agendable/con_resultado)
+  tipo_accion_id String?          @db.Uuid
+  tipo_accion    TipoAccion?      @relation(fields: [tipo_accion_id], references: [id], onDelete: SetNull)
+  // Estado de planeación (solo agendables): PLANEADA → REALIZADA. null = no agendable
+  estado_plan    EstadoPlaneacion?
+  // Resultado capturado al marcar Realizada (mueve el termómetro según su efecto)
+  resultado_id   String?          @db.Uuid
+  resultado      ResultadoAccion? @relation(fields: [resultado_id], references: [id], onDelete: SetNull)
   created_at   DateTime      @default(now()) @db.Timestamptz(6)
 
   @@index([deal_id])
