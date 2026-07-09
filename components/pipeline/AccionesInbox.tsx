@@ -5,11 +5,13 @@ import { useRouter } from "next/navigation";
 import Toast, { ToastData } from "@/components/ui/Toast";
 import {
   Phone, Mail, MessageCircle, StickyNote, ListChecks, CalendarClock, ChevronRight,
+  LayoutList, CalendarDays,
 } from "lucide-react";
 import {
   TEMPERATURA_META, ESTADO_ACCION_META, ESTADO_ACCION_CICLO, GRUPO_URGENCIA_META,
   type AccionItem, type TipoActividad, type EstadoAccion, type GrupoUrgencia,
 } from "@/types/crm";
+import CalendarioAcciones from "@/components/pipeline/CalendarioAcciones";
 import { formatCompacto, formatFechaHora } from "@/lib/utils";
 
 const TIPO_ICON: Record<TipoActividad, typeof Phone> = {
@@ -51,6 +53,7 @@ export default function AccionesInbox({
 }) {
   const router = useRouter();
   const [items, setItems] = useState<AccionItem[]>(acciones);
+  const [vista, setVista] = useState<"lista" | "calendario">("lista");
   const [vendedorFiltro, setVendedorFiltro] = useState("todos");
   const [tipoFiltro, setTipoFiltro] = useState<"todos" | TipoActividad>("todos");
   const [estadoFiltro, setEstadoFiltro] = useState<"todos" | EstadoAccion>("todos");
@@ -147,6 +150,23 @@ export default function AccionesInbox({
           </p>
         </div>
         <div className="flex items-center gap-2">
+          {/* Toggle Lista / Calendario (SOL-13) */}
+          <div className="flex items-center gap-0.5 rounded-lg bg-surface p-0.5">
+            {([
+              { key: "lista", label: "Lista", icon: LayoutList },
+              { key: "calendario", label: "Calendario", icon: CalendarDays },
+            ] as const).map(({ key, label, icon: Icon }) => (
+              <button
+                key={key}
+                onClick={() => setVista(key)}
+                className={`flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-semibold transition-colors ${
+                  vista === key ? "bg-white text-navy shadow-sm" : "text-gray-500 hover:text-navy"
+                }`}
+              >
+                <Icon size={13} /> {label}
+              </button>
+            ))}
+          </div>
           <select
             value={estadoFiltro}
             onChange={(e) => setEstadoFiltro(e.target.value as typeof estadoFiltro)}
@@ -187,6 +207,15 @@ export default function AccionesInbox({
         ))}
       </div>
 
+      {vista === "calendario" ? (
+        <div className="flex-1 overflow-hidden bg-surface">
+          <CalendarioAcciones
+            acciones={filtered}
+            ahora={ahora}
+            onAbrir={(dealId) => router.push(`/pipeline/${dealId}`)}
+          />
+        </div>
+      ) : (
       <div className="flex-1 overflow-y-auto bg-surface px-6 py-5">
         {filtered.length === 0 && (
           <div className="flex flex-col items-center gap-2 py-16 text-center">
@@ -279,6 +308,7 @@ export default function AccionesInbox({
           );
         })}
       </div>
+      )}
     </div>
   );
 }
