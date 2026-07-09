@@ -9,6 +9,12 @@ interface Props {
 }
 
 const COLORS = ["#E8751A", "#1B2A4A", "#22C55E", "#3B82F6", "#F59E0B", "#64748B", "#A855F7", "#14B8A6"];
+// Color por defecto del catálogo (TipoCotizacion.color): si el tipo no tiene color propio
+// configurado, se cae a la paleta para no dejar todas las porciones grises.
+const TIPO_COLOR_DEFAULT = "#6b7a99";
+function colorDeTipo(color: string, index: number): string {
+  return color && color.toLowerCase() !== TIPO_COLOR_DEFAULT ? color : COLORS[index % COLORS.length];
+}
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function CustomTooltip({ active, payload }: any) {
@@ -58,7 +64,7 @@ export default function GraficoVentasPorTipo({ data }: Props) {
                 paddingAngle={2}
               >
                 {chartData.map((item, index) => (
-                  <Cell key={item.tipo_id} fill={COLORS[index % COLORS.length]} />
+                  <Cell key={item.tipo_id} fill={colorDeTipo(item.color, index)} />
                 ))}
               </Pie>
               <Tooltip content={<CustomTooltip />} />
@@ -69,7 +75,7 @@ export default function GraficoVentasPorTipo({ data }: Props) {
             {chartData.map((item, index) => (
               <div key={item.tipo_id} className="grid grid-cols-[1fr_auto] items-center gap-3 rounded-lg bg-gray-50 px-3 py-2">
                 <span className="flex min-w-0 items-center gap-2">
-                  <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: COLORS[index % COLORS.length] }} />
+                  <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: colorDeTipo(item.color, index) }} />
                   <span className="truncate text-xs font-medium text-gray-600" title={item.tipo}>
                     {shortLabel(item.tipo)}
                   </span>

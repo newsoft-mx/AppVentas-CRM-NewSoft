@@ -49,6 +49,7 @@ export interface VentasVendedorItem {
 export interface VentasTipoItem {
   tipo_id: string;
   tipo: string;
+  color: string;
   ordenes_venta: number;
   total_mxn: number;
 }

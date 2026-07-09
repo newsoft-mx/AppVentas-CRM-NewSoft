@@ -177,7 +177,7 @@ async function fetchVentasPorTipo(filtros: FiltroReportes, session: SessionPaylo
       moneda: true,
       tipo_cambio: true,
       subtotal_con_descuento: true,
-      tipo_cotizacion: { select: { id: true, nombre: true } },
+      tipo_cotizacion: { select: { id: true, nombre: true, color: true } },
     },
   });
 
@@ -187,6 +187,7 @@ async function fetchVentasPorTipo(filtros: FiltroReportes, session: SessionPaylo
     const current = map.get(key) ?? {
       tipo_id: key,
       tipo: orden.tipo_cotizacion.nombre,
+      color: orden.tipo_cotizacion.color,
       ordenes_venta: 0,
       total_mxn: 0,
     };

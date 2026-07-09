@@ -56,6 +56,11 @@ export const tipoCotizacionCreateSchema = z.object({
     .nullable()
     .optional()
     .transform((v) => v?.trim() || null),
+  // Color del catálogo (SOL-07 P4-B): pinta la porción del gráfico "ventas por tipo"
+  color: z
+    .string()
+    .regex(/^#[0-9A-Fa-f]{6}$/, "Color inválido (usa #RRGGBB)")
+    .optional(),
 });
 
 // En update también se puede cambiar el estado activo
