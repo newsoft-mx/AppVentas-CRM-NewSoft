@@ -30,12 +30,31 @@ export interface ResultadoAccionOpcion {
   sugiere_reagendar: boolean;
 }
 
+export interface TipoAccionOpcion {
+  id: string;
+  nombre: string;
+  color: string;
+  agendable: boolean;
+  con_resultado: boolean;
+}
+
 interface Props {
   deal: DealDetalle;
   stages: StageResumen[];
   canWrite: boolean;
+  /** Catálogo de tipos de acción (SOL-04): pills del composer */
+  tiposAccion?: TipoAccionOpcion[];
   /** Catálogo de resultados de acción (SOL-04): mueven el termómetro al registrar la interacción */
   resultadosAccion?: ResultadoAccionOpcion[];
+}
+
+// Deriva el tipo legado (para ícono/placeholder/éxito) a partir del nombre del tipo del catálogo.
+function tipoLegado(nombre: string): TipoActividad {
+  const n = nombre.toLowerCase();
+  if (n.includes("llamad")) return "LLAMADA";
+  if (n.includes("mail") || n.includes("correo")) return "EMAIL";
+  if (n.includes("whats")) return "WHATSAPP";
+  return "NOTA";
 }
 
 function fmtFull(n: number): string {
@@ -74,13 +93,14 @@ const PLACEHOLDER: Record<TipoActividad, string> = {
   SISTEMA: "",
 };
 
-export default function DealDetalleClient({ deal, stages, canWrite, resultadosAccion = [] }: Props) {
+export default function DealDetalleClient({ deal, stages, canWrite, tiposAccion = [], resultadosAccion = [] }: Props) {
   const router = useRouter();
   const [temperatura, setTemperatura] = useState<Temperatura>(deal.temperatura);
   const temp = TEMPERATURA_META[temperatura];
   const [actividades, setActividades] = useState<DealActividadItem[]>(deal.actividades);
   const [filtroVer, setFiltroVer] = useState<"TODAS" | "NOTA" | "LLAMADA" | "EMAIL" | "WHATSAPP">("TODAS");
   const [tipoNueva, setTipoNueva] = useState<TipoActividad>("NOTA");
+  const [tipoAccionSel, setTipoAccionSel] = useState<TipoAccionOpcion | null>(null);
   const [texto, setTexto] = useState("");
   // Contacto precargado por defecto: el primer contacto del deal (REQ-03)
   const [contactoSel, setContactoSel] = useState(deal.contactos[0]?.id ?? "");
@@ -249,7 +269,8 @@ export default function DealDetalleClient({ deal, stages, canWrite, resultadosAc
           fecha_evento: fechaEvento || undefined,
           exitosa: tipoNueva === "LLAMADA" ? exitosa : undefined,
           fecha_tarea: seguimiento || undefined,
-          resultado_id: tipoNueva !== "NOTA" ? resultadoSel || undefined : undefined,
+          tipo_accion_id: tipoAccionSel?.id || undefined,
+          resultado_id: mostrarResultado ? resultadoSel || undefined : undefined,
           enlace_url: enlace.trim() || undefined,
         }),
       });
@@ -279,6 +300,11 @@ export default function DealDetalleClient({ deal, stages, canWrite, resultadosAc
       setGuardando(false);
     }
   }
+
+  // Composer basado en catálogo (SOL-04); con fallback a los pills fijos si no hay tipos configurados.
+  const catalogoTipos = tiposAccion.length > 0;
+  const mostrarInteraccion = catalogoTipos ? !!tipoAccionSel?.con_resultado : tipoNueva !== "NOTA";
+  const mostrarResultado = mostrarInteraccion && resultadosAccion.length > 0;
 
   return (
     <div className="flex h-full flex-col">
@@ -489,21 +515,42 @@ export default function DealDetalleClient({ deal, stages, canWrite, resultadosAc
               }}
             >
               <div className="mb-3 flex flex-wrap items-center gap-2">
-                {TIPO_PILLS.map(({ tipo, label, icon: Icon }) => (
-                  <button
-                    key={tipo}
-                    onClick={() => setTipoNueva(tipo)}
-                    className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold transition-colors ${
-                      tipoNueva === tipo ? "border-navy bg-navy text-white" : "border-surface-border text-gray-500 hover:bg-surface"
-                    }`}
-                  >
-                    <Icon size={13} /> {label}
-                  </button>
-                ))}
+                {catalogoTipos
+                  ? tiposAccion.map((t) => {
+                      const activo = tipoAccionSel?.id === t.id;
+                      return (
+                        <button
+                          key={t.id}
+                          onClick={() => {
+                            setTipoAccionSel(t);
+                            setTipoNueva(tipoLegado(t.nombre));
+                            if (!t.con_resultado) setResultadoSel("");
+                          }}
+                          className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold transition-colors ${
+                            activo ? "text-white" : "border-surface-border text-gray-500 hover:bg-surface"
+                          }`}
+                          style={activo ? { background: t.color, borderColor: t.color } : undefined}
+                        >
+                          <span className="h-2 w-2 rounded-full" style={{ background: activo ? "#fff" : t.color }} />
+                          {t.nombre}
+                        </button>
+                      );
+                    })
+                  : TIPO_PILLS.map(({ tipo, label, icon: Icon }) => (
+                      <button
+                        key={tipo}
+                        onClick={() => setTipoNueva(tipo)}
+                        className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold transition-colors ${
+                          tipoNueva === tipo ? "border-navy bg-navy text-white" : "border-surface-border text-gray-500 hover:bg-surface"
+                        }`}
+                      >
+                        <Icon size={13} /> {label}
+                      </button>
+                    ))}
               </div>
 
-              {/* Campos según el tipo */}
-              {tipoNueva !== "NOTA" && (
+              {/* Campos según el tipo (catálogo: cuando el tipo captura resultado) */}
+              {mostrarInteraccion && (
                 <div className="mb-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <label className="flex flex-col gap-1 text-[11px] font-medium text-gray-500">
                     {tipoNueva === "EMAIL" ? "¿A quién?" : "¿Con quién?"}
@@ -530,7 +577,7 @@ export default function DealDetalleClient({ deal, stages, canWrite, resultadosAc
                       <input type="checkbox" checked={exitosa} onChange={(e) => setExitosa(e.target.checked)} className="h-4 w-4" /> ¿Contestó / fue exitosa?
                     </label>
                   )}
-                  {resultadosAccion.length > 0 && (
+                  {mostrarResultado && (
                     <label className="flex flex-col gap-1 text-[11px] font-medium text-gray-500 sm:col-span-2">
                       Resultado <span className="font-normal text-gray-400">(ajusta el termómetro)</span>
                       <select

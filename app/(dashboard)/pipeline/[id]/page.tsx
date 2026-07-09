@@ -45,7 +45,7 @@ export default async function DealDetallePage({
 
   if (!deal) notFound();
 
-  const [stages, historial, resultadosAccion] = await Promise.all([
+  const [stages, historial, tiposAccion, resultadosAccion] = await Promise.all([
     prisma.pipelineStage.findMany({
       where: { activo: true },
       orderBy: { orden: "asc" },
@@ -57,6 +57,12 @@ export default async function DealDetallePage({
           select: { estatus: true, total_mxn: true },
         })
       : Promise.resolve([]),
+    // Catálogo de tipos de acción (SOL-04): pills del composer
+    prisma.tipoAccion.findMany({
+      where: { activo: true },
+      orderBy: { orden: "asc" },
+      select: { id: true, nombre: true, color: true, agendable: true, con_resultado: true },
+    }),
     // Catálogo de resultados de acción (SOL-04): mueven el termómetro al registrar la interacción
     prisma.resultadoAccion.findMany({
       where: { activo: true },
@@ -140,6 +146,6 @@ export default async function DealDetallePage({
   const stagesSerialized: StageResumen[] = stages;
 
   return (
-    <DealDetalleClient deal={detalle} stages={stagesSerialized} canWrite={canWrite(session)} resultadosAccion={resultadosAccion} />
+    <DealDetalleClient deal={detalle} stages={stagesSerialized} canWrite={canWrite(session)} tiposAccion={tiposAccion} resultadosAccion={resultadosAccion} />
   );
 }
