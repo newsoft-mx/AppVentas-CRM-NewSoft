@@ -1,5 +1,6 @@
 import {
   subirTemperatura,
+  ajustarTemperatura,
   enfriarPorInactividad,
   cruzaUmbralAvance,
   actividadExitosa,
@@ -22,6 +23,25 @@ describe("termometro — subir", () => {
 
   it("no supera el tope MUY_CALIENTE (clamp)", () => {
     expect(subirTemperatura("MUY_CALIENTE", "EMAIL", PARAMS)).toBe("MUY_CALIENTE");
+  });
+});
+
+describe("termometro — ajustar por resultado (SOL-04)", () => {
+  it("un resultado positivo (+1) sube un nivel", () => {
+    expect(ajustarTemperatura("TIBIO", 1)).toBe("CALIENTE");
+  });
+
+  it("un resultado negativo (−1) baja un nivel", () => {
+    expect(ajustarTemperatura("TIBIO", -1)).toBe("FRIO");
+  });
+
+  it("un resultado neutro (0) no mueve el termómetro", () => {
+    expect(ajustarTemperatura("TIBIO", 0)).toBe("TIBIO");
+  });
+
+  it("no baja de MUY_FRIO ni sube de MUY_CALIENTE (clamp)", () => {
+    expect(ajustarTemperatura("MUY_FRIO", -1)).toBe("MUY_FRIO");
+    expect(ajustarTemperatura("MUY_CALIENTE", 1)).toBe("MUY_CALIENTE");
   });
 });
 

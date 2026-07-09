@@ -22,10 +22,19 @@ import {
 } from "@/types/crm";
 // El panel de IA (DealAIPanel) está construido pero se libera en Fase 2.
 
+export interface ResultadoAccionOpcion {
+  id: string;
+  nombre: string;
+  efecto: "POSITIVO" | "NEUTRO" | "NEGATIVO";
+  sugiere_reagendar: boolean;
+}
+
 interface Props {
   deal: DealDetalle;
   stages: StageResumen[];
   canWrite: boolean;
+  /** Catálogo de resultados de acción (SOL-04): mueven el termómetro al registrar la interacción */
+  resultadosAccion?: ResultadoAccionOpcion[];
 }
 
 function fmtFull(n: number): string {
@@ -64,7 +73,7 @@ const PLACEHOLDER: Record<TipoActividad, string> = {
   SISTEMA: "",
 };
 
-export default function DealDetalleClient({ deal, stages, canWrite }: Props) {
+export default function DealDetalleClient({ deal, stages, canWrite, resultadosAccion = [] }: Props) {
   const router = useRouter();
   const [temperatura, setTemperatura] = useState<Temperatura>(deal.temperatura);
   const temp = TEMPERATURA_META[temperatura];
@@ -77,6 +86,7 @@ export default function DealDetalleClient({ deal, stages, canWrite }: Props) {
   const [fechaEvento, setFechaEvento] = useState("");
   const [exitosa, setExitosa] = useState(true);
   const [seguimiento, setSeguimiento] = useState("");
+  const [resultadoSel, setResultadoSel] = useState("");
   const [enlace, setEnlace] = useState("");
   const [guardando, setGuardando] = useState(false);
   // Compositor compacto por defecto: enlace + agendar se revelan al enfocar o
@@ -238,6 +248,7 @@ export default function DealDetalleClient({ deal, stages, canWrite }: Props) {
           fecha_evento: fechaEvento || undefined,
           exitosa: tipoNueva === "LLAMADA" ? exitosa : undefined,
           fecha_tarea: seguimiento || undefined,
+          resultado_id: tipoNueva !== "NOTA" ? resultadoSel || undefined : undefined,
           enlace_url: enlace.trim() || undefined,
         }),
       });
@@ -247,6 +258,10 @@ export default function DealDetalleClient({ deal, stages, canWrite }: Props) {
       // Termómetro y sugerencia de avance devueltos por el servidor (REQ-06)
       if (data.temperatura) setTemperatura(data.temperatura as Temperatura);
       if (data.sugerir_avance) setSugerirAvance(true);
+      // Cierre de ciclo (SOL-04): el resultado sugiere agendar la próxima acción
+      if (data.sugerir_reagendar) {
+        setToast({ type: "success", message: "Registrado. El resultado sugiere agendar la próxima acción." });
+      }
       // En modo AUTOMÁTICO el servidor ya avanzó de etapa y registró el evento SISTEMA:
       // refrescar para reflejar la nueva etapa y la entrada en la bitácora.
       if (data.avanzo_etapa) router.refresh();
@@ -255,6 +270,7 @@ export default function DealDetalleClient({ deal, stages, canWrite }: Props) {
       setFechaEvento("");
       setExitosa(true);
       setSeguimiento("");
+      setResultadoSel("");
       setEnlace("");
     } catch {
       setToast({ type: "error", message: "No se pudo guardar la actividad." });
@@ -511,6 +527,24 @@ export default function DealDetalleClient({ deal, stages, canWrite }: Props) {
                   {tipoNueva === "LLAMADA" && (
                     <label className="flex items-center gap-2 text-sm text-gray-600 sm:col-span-2">
                       <input type="checkbox" checked={exitosa} onChange={(e) => setExitosa(e.target.checked)} className="h-4 w-4" /> ¿Contestó / fue exitosa?
+                    </label>
+                  )}
+                  {resultadosAccion.length > 0 && (
+                    <label className="flex flex-col gap-1 text-[11px] font-medium text-gray-500 sm:col-span-2">
+                      Resultado <span className="font-normal text-gray-400">(ajusta el termómetro)</span>
+                      <select
+                        value={resultadoSel}
+                        onChange={(e) => setResultadoSel(e.target.value)}
+                        className="rounded-lg border border-surface-border bg-white px-3 py-2 text-sm text-navy outline-none focus:border-orange"
+                      >
+                        <option value="">— Sin registrar resultado —</option>
+                        {resultadosAccion.map((r) => (
+                          <option key={r.id} value={r.id}>
+                            {r.nombre}
+                            {r.efecto === "POSITIVO" ? "  ▲" : r.efecto === "NEGATIVO" ? "  ▼" : ""}
+                          </option>
+                        ))}
+                      </select>
                     </label>
                   )}
                 </div>
