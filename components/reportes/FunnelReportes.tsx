@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { ArrowUp, ArrowDown } from "lucide-react";
+import { formatCompacto } from "@/lib/utils";
 
 interface Vendedor {
   id: string;
@@ -12,6 +13,7 @@ interface FunnelData {
   etapas: { stage_id: string; nombre: string; count: number; conversion: number }[];
   ganados: number;
   perdidos: number;
+  valor_total: number;
   tasa_cierre: number;
 }
 interface ResultadosData {
@@ -246,7 +248,8 @@ export default function FunnelReportes({
           {/* NIVEL 1 — ¿cómo venimos? (KPIs con ancla) */}
           <div>
             <p className="mb-2 text-xs font-medium uppercase tracking-wider text-gray-400">¿Cómo venimos?</p>
-            <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+            <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
+              <Scorecard label="Valor del pipeline" value={formatCompacto(f.valor_total)} delta={prev ? deltaPct(f.valor_total, prev.funnel.valor_total) : null} />
               <Scorecard label="Tasa de cierre" value={f.tasa_cierre} suffix="%" delta={prev ? deltaPts(f.tasa_cierre, prev.funnel.tasa_cierre) : null} />
               <Scorecard label="Ganados" value={rz.ganados} delta={prev ? deltaPct(rz.ganados, prev.resultados.ganados) : null} />
               <Scorecard label="Perdidos" value={rz.perdidos} delta={prev ? deltaPct(rz.perdidos, prev.resultados.perdidos) : null} mejorSiSube={false} />
