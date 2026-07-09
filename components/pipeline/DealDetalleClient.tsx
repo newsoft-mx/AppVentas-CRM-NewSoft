@@ -17,6 +17,7 @@ import { formatCompacto, formatFechaHora } from "@/lib/utils";
 const RAZONES_PERDIDA = ["Precio", "Tiempo / urgencia", "Competencia", "Sin presupuesto", "Sin respuesta", "No era el momento", "Otro"];
 import {
   TEMPERATURA_META, ROL_CONTACTO_LABEL, ESTADO_ACCION_META, ESTADO_ACCION_CICLO,
+  EFECTO_META, ESTADO_PLAN_META,
   type DealDetalle, type DealActividadItem, type StageResumen, type TipoActividad,
   type Temperatura, type EstadoAccion,
 } from "@/types/crm";
@@ -635,6 +636,29 @@ export default function DealDetalleClient({ deal, stages, canWrite, resultadosAc
                       <div className="flex flex-wrap items-center gap-2 text-xs">
                         <span className="font-semibold text-navy">{a.autor}</span>
                         {a.contacto_nombre && <span className="text-gray-400">· con {a.contacto_nombre}</span>}
+                        {/* Modelo de actividad (SOL-04): tipo del catálogo (color), estado y resultado */}
+                        {a.tipo_accion && (
+                          <span
+                            className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-semibold"
+                            style={{ background: a.tipo_accion.color + "1A", color: a.tipo_accion.color }}
+                          >
+                            <span className="h-1.5 w-1.5 rounded-full" style={{ background: a.tipo_accion.color }} />
+                            {a.tipo_accion.nombre}
+                          </span>
+                        )}
+                        {a.estado_plan && (
+                          <span className={`rounded px-1.5 py-0.5 text-[10px] font-semibold ${ESTADO_PLAN_META[a.estado_plan].chip}`}>
+                            {ESTADO_PLAN_META[a.estado_plan].label}
+                          </span>
+                        )}
+                        {a.resultado && (
+                          <span className={`flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-semibold ${EFECTO_META[a.resultado.efecto].chip}`}>
+                            {EFECTO_META[a.resultado.efecto].arrow && (
+                              <span>{EFECTO_META[a.resultado.efecto].arrow}</span>
+                            )}
+                            {a.resultado.nombre}
+                          </span>
+                        )}
                         {a.tipo === "LLAMADA" && a.exitosa !== null && (
                           <span className={`flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-semibold ${a.exitosa ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}>
                             <span className="h-1.5 w-1.5 rounded-full" style={{ background: a.exitosa ? "#1D9E75" : "#F5A623" }} />

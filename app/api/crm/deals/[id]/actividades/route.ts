@@ -140,7 +140,11 @@ export async function POST(
         resultado_id: resultadoId,
         estado_plan: estadoPlan,
       },
-      include: { contacto: { select: { nombre: true } } },
+      include: {
+        contacto: { select: { nombre: true } },
+        tipo_accion: { select: { id: true, nombre: true, color: true } },
+        resultado: { select: { id: true, nombre: true, efecto: true } },
+      },
     });
 
     // ── Termómetro: el resultado del catálogo (SOL-04) define el efecto (positivo sube, negativo baja);
@@ -220,9 +224,13 @@ export async function POST(
           enlace_url: actividad.enlace_url,
           fecha_tarea: actividad.fecha_tarea ? actividad.fecha_tarea.toISOString() : null,
           created_at: actividad.created_at.toISOString(),
-          tipo_accion_id: actividad.tipo_accion_id,
-          resultado_id: actividad.resultado_id,
           estado_plan: actividad.estado_plan,
+          tipo_accion: actividad.tipo_accion
+            ? { id: actividad.tipo_accion.id, nombre: actividad.tipo_accion.nombre, color: actividad.tipo_accion.color }
+            : null,
+          resultado: actividad.resultado
+            ? { id: actividad.resultado.id, nombre: actividad.resultado.nombre, efecto: actividad.resultado.efecto }
+            : null,
         },
         temperatura: temperaturaActual,
         sugerir_avance: sugerirAvance,

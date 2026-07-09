@@ -101,6 +101,21 @@ export interface DealContactoItem {
   whatsapp: string | null;
 }
 
+// Modelo de actividad (SOL-04)
+export type EfectoTermometro = "POSITIVO" | "NEUTRO" | "NEGATIVO";
+export type EstadoPlaneacion = "PLANEADA" | "REALIZADA";
+
+export const EFECTO_META: Record<EfectoTermometro, { label: string; chip: string; arrow: string }> = {
+  POSITIVO: { label: "Positivo", chip: "bg-emerald-50 text-emerald-700", arrow: "▲" },
+  NEUTRO: { label: "Neutro", chip: "bg-gray-100 text-gray-600", arrow: "" },
+  NEGATIVO: { label: "Negativo", chip: "bg-red-50 text-red-700", arrow: "▼" },
+};
+
+export const ESTADO_PLAN_META: Record<EstadoPlaneacion, { label: string; chip: string }> = {
+  PLANEADA: { label: "Planeada", chip: "bg-blue-50 text-blue-700" },
+  REALIZADA: { label: "Realizada", chip: "bg-emerald-50 text-emerald-700" },
+};
+
 export interface DealActividadItem {
   id: string;
   tipo: TipoActividad;
@@ -116,6 +131,10 @@ export interface DealActividadItem {
   enlace_url: string | null;
   fecha_tarea: string | null;
   created_at: string;
+  // Modelo de actividad (SOL-04): tipo del catálogo + resultado + estado de planeación
+  estado_plan: EstadoPlaneacion | null;
+  tipo_accion: { id: string; nombre: string; color: string } | null;
+  resultado: { id: string; nombre: string; efecto: EfectoTermometro } | null;
 }
 
 export interface DealDetalle {

@@ -33,7 +33,12 @@ export default async function DealDetallePage({
       contactos: { orderBy: { created_at: "asc" } },
       actividades: {
         orderBy: { created_at: "desc" },
-        include: { contacto: { select: { nombre: true } } },
+        include: {
+          contacto: { select: { nombre: true } },
+          // Modelo de actividad (SOL-04): tipo del catálogo (color) y resultado (efecto)
+          tipo_accion: { select: { id: true, nombre: true, color: true } },
+          resultado: { select: { id: true, nombre: true, efecto: true } },
+        },
       },
     },
   });
@@ -117,6 +122,13 @@ export default async function DealDetallePage({
       enlace_url: a.enlace_url,
       fecha_tarea: a.fecha_tarea ? a.fecha_tarea.toISOString() : null,
       created_at: a.created_at.toISOString(),
+      estado_plan: a.estado_plan,
+      tipo_accion: a.tipo_accion
+        ? { id: a.tipo_accion.id, nombre: a.tipo_accion.nombre, color: a.tipo_accion.color }
+        : null,
+      resultado: a.resultado
+        ? { id: a.resultado.id, nombre: a.resultado.nombre, efecto: a.resultado.efecto }
+        : null,
     })),
     historial: {
       ordenes_total: historial.length,
