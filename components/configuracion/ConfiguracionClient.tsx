@@ -1,14 +1,18 @@
 "use client";
 
 import { useState } from "react";
-import { Building2, Tag, CreditCard, UserRound, Users, Workflow } from "lucide-react";
+import { Building2, Tag, CreditCard, UserRound, Users, Workflow, Activity } from "lucide-react";
 import TabEmpresa from "./TabEmpresa";
 import TabTipos from "./TabTipos";
 import TabCondiciones from "./TabCondiciones";
 import TabVendedores from "./TabVendedores";
 import TabUsuarios from "./TabUsuarios";
 import TabPipelineStages from "./TabPipelineStages";
+import TabModeloActividad from "./TabModeloActividad";
 import type { Empresa, TipoCotizacion, CondicionComercial, Vendedor, Usuario, PipelineStageConfig } from "@/types/configuracion";
+
+interface TipoAccionCfg { id: string; nombre: string; color: string; agendable: boolean; con_resultado: boolean; activo: boolean; }
+interface ResultadoAccionCfg { id: string; nombre: string; efecto: "POSITIVO" | "NEUTRO" | "NEGATIVO"; sugiere_reagendar: boolean; activo: boolean; }
 
 interface ConfiguracionClientProps {
   initialEmpresa: Empresa | null;
@@ -17,6 +21,8 @@ interface ConfiguracionClientProps {
   initialVendedores: Vendedor[];
   initialUsuarios: Usuario[];
   initialStages: PipelineStageConfig[];
+  initialTiposAccion: TipoAccionCfg[];
+  initialResultados: ResultadoAccionCfg[];
 }
 
 const TABS = [
@@ -26,6 +32,7 @@ const TABS = [
   { id: "vendedores", label: "Vendedores", icon: UserRound },
   { id: "usuarios", label: "Usuarios", icon: Users },
   { id: "pipeline", label: "Etapas del Pipeline", icon: Workflow },
+  { id: "actividad", label: "Modelo de actividad", icon: Activity },
 ] as const;
 
 type TabId = (typeof TABS)[number]["id"];
@@ -37,6 +44,8 @@ export default function ConfiguracionClient({
   initialVendedores,
   initialUsuarios,
   initialStages,
+  initialTiposAccion,
+  initialResultados,
 }: ConfiguracionClientProps) {
   const [activeTab, setActiveTab] = useState<TabId>("empresa");
 
@@ -110,6 +119,10 @@ export default function ConfiguracionClient({
 
           {activeTab === "pipeline" && (
             <TabPipelineStages initialStages={initialStages} />
+          )}
+
+          {activeTab === "actividad" && (
+            <TabModeloActividad initialTipos={initialTiposAccion} initialResultados={initialResultados} />
           )}
         </div>
       </div>
