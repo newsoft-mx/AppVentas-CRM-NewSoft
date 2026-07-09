@@ -26,6 +26,7 @@ interface Props {
   deal: DealDetalle;
   stages: StageResumen[];
   canWrite: boolean;
+  motivos?: string[]; // catálogo de motivos de pérdida (SOL-10)
 }
 
 function fmtFull(n: number): string {
@@ -64,8 +65,10 @@ const PLACEHOLDER: Record<TipoActividad, string> = {
   SISTEMA: "",
 };
 
-export default function DealDetalleClient({ deal, stages, canWrite }: Props) {
+export default function DealDetalleClient({ deal, stages, canWrite, motivos = [] }: Props) {
   const router = useRouter();
+  // Motivos del catálogo (SOL-10); si viene vacío, fallback a la lista base.
+  const razonesPerdida = motivos.length ? motivos : RAZONES_PERDIDA;
   const [temperatura, setTemperatura] = useState<Temperatura>(deal.temperatura);
   const temp = TEMPERATURA_META[temperatura];
   const [actividades, setActividades] = useState<DealActividadItem[]>(deal.actividades);
@@ -673,7 +676,7 @@ export default function DealDetalleClient({ deal, stages, canWrite }: Props) {
               <label className="label">Razón de pérdida *</label>
               <select className="input" value={razon} onChange={(e) => setRazon(e.target.value)}>
                 <option value="">Selecciona…</option>
-                {RAZONES_PERDIDA.map((r) => <option key={r} value={r}>{r}</option>)}
+                {razonesPerdida.map((r) => <option key={r} value={r}>{r}</option>)}
               </select>
             </div>
             <div>
