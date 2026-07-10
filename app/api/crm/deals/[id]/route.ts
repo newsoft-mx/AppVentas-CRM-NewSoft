@@ -1,12 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { canWrite, requireAuth } from "@/lib/session";
 import { scopeDealWhere } from "@/lib/access-control";
 
 export const dynamic = "force-dynamic";
 
+const TEMPS = ["MUY_FRIO", "FRIO", "TIBIO", "CALIENTE", "MUY_CALIENTE"];
+
 // ── PATCH /api/crm/deals/:id ────────────────────────────────────
-// Actualiza campos editables del deal (por ahora: notas / resumen del proyecto, REQ-05).
+// Edición completa de la ficha del deal (SOL-01): acepta cualquier subconjunto
+// de los campos capturados en el alta. Sigue soportando { notas } solo.
 export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -23,17 +27,80 @@ export async function PATCH(
     return NextResponse.json({ error: "JSON inválido" }, { status: 400 });
   }
 
-  const { notas } = (body ?? {}) as { notas?: unknown };
-  if (typeof notas !== "string") {
-    return NextResponse.json({ error: "notas (string) requerido" }, { status: 422 });
+  const b = (body ?? {}) as Record<string, unknown>;
+  const data: Record<string, unknown> = {};
+  const errores: string[] = [];
+
+  // String opcional: vacío → null
+  const strOpc = (k: string) => {
+    if (b[k] === undefined) return;
+    const v = typeof b[k] === "string" ? (b[k] as string).trim() : "";
+    data[k] = v || null;
+  };
+  // Numérico ≥0: opcional admite null; no-opcional rechaza vacío
+  const num = (k: string, opcional: boolean) => {
+    if (b[k] === undefined) return;
+    const raw = b[k];
+    if (raw === "" || raw === null) {
+      if (opcional) data[k] = null;
+      else errores.push(`${k} inválido`);
+      return;
+    }
+    const n = Number(raw);
+    if (Number.isFinite(n) && n >= 0) data[k] = n;
+    else errores.push(`${k} inválido`);
+  };
+
+  if (b.nombre !== undefined) {
+    const n = typeof b.nombre === "string" ? b.nombre.trim() : "";
+    if (!n) errores.push("El nombre no puede estar vacío");
+    else data.nombre = n;
   }
-  if (notas.length > 2000) {
-    return NextResponse.json({ error: "La descripción es demasiado larga (máx. 2000)" }, { status: 422 });
+  if (b.cliente_id !== undefined) {
+    if (typeof b.cliente_id === "string" && b.cliente_id) data.cliente_id = b.cliente_id;
+    else errores.push("cliente_id inválido");
   }
+  if (b.stage_id !== undefined) {
+    if (typeof b.stage_id === "string" && b.stage_id) data.stage_id = b.stage_id;
+    else errores.push("stage_id inválido");
+  }
+  if (b.vendedor_id !== undefined)
+    data.vendedor_id = typeof b.vendedor_id === "string" && b.vendedor_id ? b.vendedor_id : null;
+  if (b.tipo_cotizacion_id !== undefined)
+    data.tipo_cotizacion_id = typeof b.tipo_cotizacion_id === "string" && b.tipo_cotizacion_id ? b.tipo_cotizacion_id : null;
+  if (b.temperatura !== undefined) {
+    if (TEMPS.includes(b.temperatura as string)) data.temperatura = b.temperatura;
+    else errores.push("temperatura inválida");
+  }
+  num("valor", false);
+  num("setup", true);
+  num("mensualidad", true);
+  strOpc("canal");
+  strOpc("origen");
+  if (b.notas !== undefined) {
+    const n = typeof b.notas === "string" ? b.notas.trim() : "";
+    if (n.length > 2000) errores.push("La descripción es demasiado larga (máx. 2000)");
+    else data.notas = n || null;
+  }
+  if (b.fecha_cierre_estimada !== undefined) {
+    const raw = b.fecha_cierre_estimada;
+    if (!raw) data.fecha_cierre_estimada = null;
+    else {
+      const d = new Date(`${raw as string}T00:00:00`);
+      if (Number.isNaN(d.getTime())) errores.push("fecha_cierre_estimada inválida");
+      else data.fecha_cierre_estimada = d;
+    }
+  }
+
+  if (errores.length) return NextResponse.json({ error: errores.join("; ") }, { status: 422 });
+  if (Object.keys(data).length === 0) return NextResponse.json({ error: "Nada para actualizar" }, { status: 422 });
 
   try {
     // Scoping por vendedor (evita IDOR): un VENDEDOR solo edita sus propios deals.
-    const r = await prisma.deal.updateMany({ where: scopeDealWhere(session, { id }), data: { notas: notas.trim() || null } });
+    const r = await prisma.deal.updateMany({
+      where: scopeDealWhere(session, { id }),
+      data: data as Prisma.DealUpdateManyMutationInput,
+    });
     if (r.count === 0) return NextResponse.json({ error: "Deal no encontrado" }, { status: 404 });
     return NextResponse.json({ ok: true });
   } catch {

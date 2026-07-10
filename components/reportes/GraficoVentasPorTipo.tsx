@@ -3,17 +3,17 @@
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
 import type { VentasTipoItem } from "@/types/reportes";
 import { formatMXNEntero as fullMXN } from "@/lib/utils";
+import { colorCategoria } from "@/lib/catalog-colors";
 
 interface Props {
   data: VentasTipoItem[];
 }
 
-const COLORS = ["#E8751A", "#1B2A4A", "#22C55E", "#3B82F6", "#F59E0B", "#64748B", "#A855F7", "#14B8A6"];
 // Color por defecto del catálogo (TipoCotizacion.color): si el tipo no tiene color propio
-// configurado, se cae a la paleta para no dejar todas las porciones grises.
+// configurado, se cae a la paleta centralizada para no dejar todas las porciones grises.
 const TIPO_COLOR_DEFAULT = "#6b7a99";
 function colorDeTipo(color: string, index: number): string {
-  return color && color.toLowerCase() !== TIPO_COLOR_DEFAULT ? color : COLORS[index % COLORS.length];
+  return color && color.toLowerCase() !== TIPO_COLOR_DEFAULT ? color : colorCategoria(index);
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

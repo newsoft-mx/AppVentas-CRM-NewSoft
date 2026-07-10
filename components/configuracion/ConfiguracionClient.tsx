@@ -1,16 +1,18 @@
 "use client";
 
 import { useState } from "react";
-import { Building2, Tag, CreditCard, UserRound, Users, Workflow, Activity } from "lucide-react";
+import { Building2, Tag, CreditCard, UserRound, Users, Workflow, XCircle, Activity } from "lucide-react";
 import TabEmpresa from "./TabEmpresa";
 import TabTipos from "./TabTipos";
 import TabCondiciones from "./TabCondiciones";
 import TabVendedores from "./TabVendedores";
 import TabUsuarios from "./TabUsuarios";
 import TabPipelineStages from "./TabPipelineStages";
+import TabMotivosPerdida from "./TabMotivosPerdida";
 import TabModeloActividad from "./TabModeloActividad";
 import type { Empresa, TipoCotizacion, CondicionComercial, Vendedor, Usuario, PipelineStageConfig } from "@/types/configuracion";
 
+interface MotivoPerdida { id: string; nombre: string; orden: number; activo: boolean; }
 interface TipoAccionCfg { id: string; nombre: string; color: string; agendable: boolean; con_resultado: boolean; activo: boolean; }
 interface ResultadoAccionCfg { id: string; nombre: string; efecto: "POSITIVO" | "NEUTRO" | "NEGATIVO"; sugiere_reagendar: boolean; activo: boolean; }
 
@@ -21,6 +23,7 @@ interface ConfiguracionClientProps {
   initialVendedores: Vendedor[];
   initialUsuarios: Usuario[];
   initialStages: PipelineStageConfig[];
+  initialMotivos: MotivoPerdida[];
   initialTiposAccion: TipoAccionCfg[];
   initialResultados: ResultadoAccionCfg[];
 }
@@ -32,6 +35,7 @@ const TABS = [
   { id: "vendedores", label: "Vendedores", icon: UserRound },
   { id: "usuarios", label: "Usuarios", icon: Users },
   { id: "pipeline", label: "Etapas del Pipeline", icon: Workflow },
+  { id: "motivos", label: "Motivos de pérdida", icon: XCircle },
   { id: "actividad", label: "Modelo de actividad", icon: Activity },
 ] as const;
 
@@ -44,6 +48,7 @@ export default function ConfiguracionClient({
   initialVendedores,
   initialUsuarios,
   initialStages,
+  initialMotivos,
   initialTiposAccion,
   initialResultados,
 }: ConfiguracionClientProps) {
@@ -119,6 +124,10 @@ export default function ConfiguracionClient({
 
           {activeTab === "pipeline" && (
             <TabPipelineStages initialStages={initialStages} />
+          )}
+
+          {activeTab === "motivos" && (
+            <TabMotivosPerdida initialMotivos={initialMotivos} />
           )}
 
           {activeTab === "actividad" && (

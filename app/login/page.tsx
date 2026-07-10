@@ -46,8 +46,8 @@ function LoginForm() {
             <Image
               src="/newsoft-logo.png"
               alt="NewSoft"
-              width={180}
-              height={39}
+              width={876}
+              height={191}
               className="h-9 w-auto"
               unoptimized
               priority

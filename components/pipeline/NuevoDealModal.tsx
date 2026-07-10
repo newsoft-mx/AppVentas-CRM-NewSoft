@@ -5,34 +5,54 @@ import Modal from "@/components/ui/Modal";
 import SearchableSelect from "@/components/ui/SearchableSelect";
 import { TEMPERATURA_META, ROL_CONTACTO_LABEL, type DealResumen, type StageResumen, type Temperatura, type RolContacto } from "@/types/crm";
 
+// Valores actuales del deal para el modo edición (SOL-01)
+export interface DealEditInitial {
+  id: string;
+  nombre: string;
+  cliente_id: string;
+  vendedor_id: string | null;
+  stage_id: string;
+  tipo_cotizacion_id: string | null;
+  temperatura: Temperatura;
+  valor: number;
+  setup: number | null;
+  mensualidad: number | null;
+  canal: string | null;
+  origen: string | null;
+  fecha_cierre_estimada: string | null; // YYYY-MM-DD
+}
+
 interface Props {
   stages: StageResumen[];
   vendedores: { id: string; nombre: string }[];
   clientes: { id: string; nombre: string }[];
   tipos: { id: string; nombre: string }[];
   onClose: () => void;
-  onCreated: (deal: DealResumen) => void;
+  onCreated?: (deal: DealResumen) => void;
+  deal?: DealEditInitial; // si viene → modo edición
+  onSaved?: () => void; // callback tras editar
 }
 
 const TEMPS: Temperatura[] = ["MUY_FRIO", "FRIO", "TIBIO", "CALIENTE", "MUY_CALIENTE"];
 
-export default function NuevoDealModal({ stages, vendedores, clientes, tipos, onClose, onCreated }: Props) {
-  // Modo de cliente: existente o nuevo prospecto (REQ-02)
+export default function NuevoDealModal({ stages, vendedores, clientes, tipos, onClose, onCreated, deal, onSaved }: Props) {
+  const editando = !!deal;
+  // Modo de cliente: existente o nuevo prospecto (REQ-02). En edición: siempre existente.
   const [modoCliente, setModoCliente] = useState<"existente" | "prospecto">("existente");
   const [form, setForm] = useState({
-    nombre: "",
-    cliente_id: "",
+    nombre: deal?.nombre ?? "",
+    cliente_id: deal?.cliente_id ?? "",
     prospecto_nombre: "",
-    vendedor_id: "",
-    stage_id: stages[0]?.id ?? "",
-    tipo_cotizacion_id: "",
-    temperatura: "TIBIO" as Temperatura,
-    valor: "",
-    setup: "",
-    mensualidad: "",
-    canal: "",
-    origen: "",
-    fecha_cierre_estimada: "",
+    vendedor_id: deal?.vendedor_id ?? "",
+    stage_id: deal?.stage_id ?? stages[0]?.id ?? "",
+    tipo_cotizacion_id: deal?.tipo_cotizacion_id ?? "",
+    temperatura: deal?.temperatura ?? ("TIBIO" as Temperatura),
+    valor: deal?.valor != null ? String(deal.valor) : "",
+    setup: deal?.setup != null ? String(deal.setup) : "",
+    mensualidad: deal?.mensualidad != null ? String(deal.mensualidad) : "",
+    canal: deal?.canal ?? "",
+    origen: deal?.origen ?? "",
+    fecha_cierre_estimada: deal?.fecha_cierre_estimada ?? "",
     contacto_nombre: "",
     contacto_rol: "DECISOR" as RolContacto,
     contacto_email: "",
@@ -45,6 +65,44 @@ export default function NuevoDealModal({ stages, vendedores, clientes, tipos, on
   const set = (k: keyof typeof form, v: string) => setForm((f) => ({ ...f, [k]: v }));
 
   async function guardar() {
+    // ── Modo edición (SOL-01): PATCH de los campos del deal, sin contacto ──
+    if (editando && deal) {
+      if (!form.nombre.trim() || !form.cliente_id || !form.stage_id) {
+        setError("Nombre del proyecto, cliente y etapa son obligatorios.");
+        return;
+      }
+      setGuardando(true);
+      setError(null);
+      try {
+        const res = await fetch(`/api/crm/deals/${deal.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            nombre: form.nombre,
+            cliente_id: form.cliente_id,
+            vendedor_id: form.vendedor_id || null,
+            stage_id: form.stage_id,
+            tipo_cotizacion_id: form.tipo_cotizacion_id || null,
+            temperatura: form.temperatura,
+            valor: form.valor,
+            setup: form.setup,
+            mensualidad: form.mensualidad,
+            canal: form.canal,
+            origen: form.origen,
+            fecha_cierre_estimada: form.fecha_cierre_estimada,
+          }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data?.error ?? "Error");
+        onSaved?.();
+        onClose();
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "No se pudieron guardar los cambios.");
+        setGuardando(false);
+      }
+      return;
+    }
+
     const clienteOk = modoCliente === "existente" ? form.cliente_id : form.prospecto_nombre.trim();
     if (!form.nombre.trim() || !clienteOk || !form.stage_id) {
       setError("Nombre del proyecto, cliente/prospecto y etapa son obligatorios.");
@@ -83,7 +141,7 @@ export default function NuevoDealModal({ stages, vendedores, clientes, tipos, on
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error ?? "Error");
-      onCreated(data as DealResumen);
+      onCreated?.(data as DealResumen);
     } catch (e) {
       setError(e instanceof Error ? e.message : "No se pudo crear el deal.");
       setGuardando(false);
@@ -91,7 +149,7 @@ export default function NuevoDealModal({ stages, vendedores, clientes, tipos, on
   }
 
   return (
-    <Modal title="Nuevo Deal" onClose={onClose} size="lg">
+    <Modal title={editando ? "Editar Deal" : "Nuevo Deal"} onClose={onClose} size="lg">
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <Campo label="Nombre del proyecto *" full>
           <input className={inputCls} value={form.nombre} onChange={(e) => set("nombre", e.target.value)} placeholder="Ej. Portal de Proveedores" />
@@ -101,10 +159,12 @@ export default function NuevoDealModal({ stages, vendedores, clientes, tipos, on
         <div className="sm:col-span-2">
           <div className="mb-1.5 flex items-center gap-2">
             <label className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">Cliente *</label>
-            <div className="flex overflow-hidden rounded-md border border-surface-border text-[11px] font-semibold">
-              <button type="button" onClick={() => setModoCliente("existente")} className={`px-2.5 py-1 ${modoCliente === "existente" ? "bg-navy text-white" : "text-gray-500"}`}>Existente</button>
-              <button type="button" onClick={() => setModoCliente("prospecto")} className={`px-2.5 py-1 ${modoCliente === "prospecto" ? "bg-orange text-white" : "text-gray-500"}`}>Nuevo prospecto</button>
-            </div>
+            {!editando && (
+              <div className="flex overflow-hidden rounded-md border border-surface-border text-[11px] font-semibold">
+                <button type="button" onClick={() => setModoCliente("existente")} className={`px-2.5 py-1 ${modoCliente === "existente" ? "bg-navy text-white" : "text-gray-500"}`}>Existente</button>
+                <button type="button" onClick={() => setModoCliente("prospecto")} className={`px-2.5 py-1 ${modoCliente === "prospecto" ? "bg-orange text-white" : "text-gray-500"}`}>Nuevo prospecto</button>
+              </div>
+            )}
           </div>
           {modoCliente === "existente" ? (
             <SearchableSelect
@@ -170,7 +230,8 @@ export default function NuevoDealModal({ stages, vendedores, clientes, tipos, on
         </Campo>
       </div>
 
-      {/* Contacto principal (obligatorio) */}
+      {/* Contacto principal (obligatorio en alta; en edición se gestiona en la ficha) */}
+      {!editando && (
       <div className="mt-5 border-t border-surface-border pt-4">
         <div className="mb-3 text-[11px] font-bold uppercase tracking-wide text-gray-400">Contacto principal *</div>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -195,6 +256,7 @@ export default function NuevoDealModal({ stages, vendedores, clientes, tipos, on
           </Campo>
         </div>
       </div>
+      )}
 
       {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
 
@@ -203,7 +265,7 @@ export default function NuevoDealModal({ stages, vendedores, clientes, tipos, on
           Cancelar
         </button>
         <button onClick={guardar} disabled={guardando} className="rounded-lg bg-orange px-4 py-2 text-sm font-semibold text-white hover:bg-orange/90 disabled:opacity-50">
-          {guardando ? "Creando…" : "Crear deal"}
+          {guardando ? (editando ? "Guardando…" : "Creando…") : editando ? "Guardar cambios" : "Crear deal"}
         </button>
       </div>
     </Modal>

@@ -1,18 +1,20 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   ArrowLeft, Phone, Mail, MessageCircle, StickyNote,
   Building2, Trophy, Cog, ChevronDown, XCircle, PauseCircle, Play, CalendarClock,
-  Star, Link2, ArrowUpCircle, ChevronRight, UserPlus, Pencil,
+  Star, Link2, ArrowUpCircle, ChevronRight, UserPlus, Pencil, Trash2,
 } from "lucide-react";
 import Modal from "@/components/ui/Modal";
 import Toast, { ToastData } from "@/components/ui/Toast";
 import Termometro from "@/components/pipeline/Termometro";
+import NuevoDealModal from "@/components/pipeline/NuevoDealModal";
 import { cruzaUmbralAvance } from "@/lib/termometro";
 import { formatCompacto, formatFechaHora } from "@/lib/utils";
+import { ahoraLocal } from "@/lib/filter-utils";
 
 const RAZONES_PERDIDA = ["Precio", "Tiempo / urgencia", "Competencia", "Sin presupuesto", "Sin respuesta", "No era el momento", "Otro"];
 import {
@@ -42,6 +44,10 @@ interface Props {
   deal: DealDetalle;
   stages: StageResumen[];
   canWrite: boolean;
+  vendedores?: { id: string; nombre: string }[];
+  clientes?: { id: string; nombre: string }[];
+  tipos?: { id: string; nombre: string }[];
+  motivos?: string[]; // catálogo de motivos de pérdida (SOL-10)
   /** Catálogo de tipos de acción (SOL-04): pills del composer */
   tiposAccion?: TipoAccionOpcion[];
   /** Catálogo de resultados de acción (SOL-04): mueven el termómetro al registrar la interacción */
@@ -93,8 +99,14 @@ const PLACEHOLDER: Record<TipoActividad, string> = {
   SISTEMA: "",
 };
 
-export default function DealDetalleClient({ deal, stages, canWrite, tiposAccion = [], resultadosAccion = [] }: Props) {
+export default function DealDetalleClient({
+  deal, stages, canWrite,
+  vendedores = [], clientes = [], tipos = [], motivos = [],
+  tiposAccion = [], resultadosAccion = [],
+}: Props) {
   const router = useRouter();
+  // Motivos del catálogo (SOL-10); si viene vacío, fallback a la lista base.
+  const razonesPerdida = motivos.length ? motivos : RAZONES_PERDIDA;
   const [temperatura, setTemperatura] = useState<Temperatura>(deal.temperatura);
   const temp = TEMPERATURA_META[temperatura];
   const [actividades, setActividades] = useState<DealActividadItem[]>(deal.actividades);
@@ -105,6 +117,9 @@ export default function DealDetalleClient({ deal, stages, canWrite, tiposAccion 
   // Contacto precargado por defecto: el primer contacto del deal (REQ-03)
   const [contactoSel, setContactoSel] = useState(deal.contactos[0]?.id ?? "");
   const [fechaEvento, setFechaEvento] = useState("");
+  // Precargar "Cuándo ocurrió" con ahora (editable). En useEffect para evitar
+  // mismatch de hidratación (new Date() difiere entre server y cliente). (SOL-03)
+  useEffect(() => setFechaEvento(ahoraLocal()), []);
   const [exitosa, setExitosa] = useState(true);
   const [seguimiento, setSeguimiento] = useState("");
   const [resultadoSel, setResultadoSel] = useState("");
@@ -116,6 +131,7 @@ export default function DealDetalleClient({ deal, stages, canWrite, tiposAccion 
   const composerAbierto = composerFocus || Boolean(texto.trim() || enlace.trim() || seguimiento);
   const [procesando, setProcesando] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
   const [modalPerdida, setModalPerdida] = useState(false);
   const [razon, setRazon] = useState("");
   const [comentarioP, setComentarioP] = useState("");
@@ -134,6 +150,9 @@ export default function DealDetalleClient({ deal, stages, canWrite, tiposAccion 
   const [notas, setNotas] = useState(deal.notas ?? "");
   const [editandoNotas, setEditandoNotas] = useState(false);
   const [toast, setToast] = useState<ToastData | null>(null);
+  // Edición/eliminación de entradas de bitácora (SOL-02)
+  const [editandoId, setEditandoId] = useState<string | null>(null);
+  const [textoEdit, setTextoEdit] = useState("");
   async function guardarNotas() {
     // No cerrar el editor hasta confirmar el guardado: si el PATCH falla, el texto
     // solo vive en memoria y se perdería al recargar (pérdida silenciosa de datos).
@@ -205,6 +224,40 @@ export default function DealDetalleClient({ deal, stages, canWrite, tiposAccion 
       // Revertir el pin optimista si el servidor no lo aceptó.
       setActividades((cur) => cur.map((x) => (x.id === a.id ? { ...x, destacada: !nuevo } : x)));
       setToast({ type: "error", message: "No se pudo actualizar la actividad." });
+    }
+  }
+
+  // Editar el contenido de una entrada (SOL-02) → marca "editado"
+  async function guardarEdicion(a: DealActividadItem) {
+    const nuevo = textoEdit.trim();
+    if (!nuevo || nuevo === a.contenido) { setEditandoId(null); return; }
+    const prev = actividades;
+    setActividades((cur) => cur.map((x) => (x.id === a.id ? { ...x, contenido: nuevo, editada: true } : x)));
+    setEditandoId(null);
+    try {
+      const res = await fetch(`/api/crm/actividades/${a.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ contenido: nuevo }),
+      });
+      if (!res.ok) throw new Error();
+    } catch {
+      setActividades(prev);
+      setToast({ type: "error", message: "No se pudo guardar la edición." });
+    }
+  }
+
+  // Eliminar (soft-delete) una entrada de la bitácora (SOL-02)
+  async function eliminarActividad(a: DealActividadItem) {
+    if (!window.confirm("¿Eliminar esta entrada de la bitácora? Podés registrar otra si hace falta.")) return;
+    const prev = actividades;
+    setActividades((cur) => cur.filter((x) => x.id !== a.id));
+    try {
+      const res = await fetch(`/api/crm/actividades/${a.id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error();
+    } catch {
+      setActividades(prev);
+      setToast({ type: "error", message: "No se pudo eliminar la entrada." });
     }
   }
 
@@ -289,7 +342,7 @@ export default function DealDetalleClient({ deal, stages, canWrite, tiposAccion 
       if (data.avanzo_etapa) router.refresh();
       setTexto("");
       setContactoSel(deal.contactos[0]?.id ?? "");
-      setFechaEvento("");
+      setFechaEvento(ahoraLocal());
       setExitosa(true);
       setSeguimiento("");
       setResultadoSel("");
@@ -363,7 +416,17 @@ export default function DealDetalleClient({ deal, stages, canWrite, tiposAccion 
             <span className="h-1.5 w-1.5 rounded-full" style={{ background: temp.color }} />
             {temp.label} · {deal.stage.nombre}
           </span>
-          <h1 className="mt-2.5 text-lg font-bold leading-tight text-navy">{deal.nombre}</h1>
+          <div className="mt-2.5 flex items-start justify-between gap-2">
+            <h1 className="text-lg font-bold leading-tight text-navy">{deal.nombre}</h1>
+            {canWrite && (
+              <button
+                onClick={() => setEditOpen(true)}
+                className="mt-0.5 inline-flex shrink-0 items-center gap-1 rounded-lg border border-surface-border px-2 py-1 text-xs font-medium text-gray-600 transition-colors hover:border-orange hover:text-orange"
+              >
+                <Pencil size={12} /> Editar
+              </button>
+            )}
+          </div>
           <div className="mt-1.5 flex items-center gap-1.5 text-sm text-gray-500">
             <Building2 size={14} className="text-gray-400" />
             {deal.cliente?.nombre ?? "Sin cliente"}
@@ -725,13 +788,42 @@ export default function DealDetalleClient({ deal, stages, canWrite, tiposAccion 
                             />
                           </button>
                         )}
-                        <span className="ml-auto text-[11px] text-gray-400">{formatFechaHora(a.fecha_evento ?? a.created_at)}</span>
+                        {canWrite && a.tipo !== "SISTEMA" && editandoId !== a.id && (
+                          <>
+                            <button onClick={() => { setEditandoId(a.id); setTextoEdit(a.contenido); }} title="Editar" className="text-gray-300 hover:text-navy">
+                              <Pencil size={12} />
+                            </button>
+                            <button onClick={() => eliminarActividad(a)} title="Eliminar" className="text-gray-300 hover:text-red-500">
+                              <Trash2 size={12} />
+                            </button>
+                          </>
+                        )}
+                        <span className="ml-auto text-[11px] text-gray-400">
+                          {a.editada && <span className="mr-1 italic text-gray-300">editado ·</span>}
+                          {formatFechaHora(a.fecha_evento ?? a.created_at)}
+                        </span>
                       </div>
                       <div
                         className="mt-1 rounded-lg border border-surface-border bg-white px-3 py-2 text-sm leading-relaxed text-gray-700"
                         style={{ borderLeftWidth: 3, borderLeftColor: a.destacada ? "#F5A623" : meta.color }}
                       >
-                        {a.contenido}
+                        {editandoId === a.id ? (
+                          <div className="space-y-2">
+                            <textarea
+                              autoFocus
+                              value={textoEdit}
+                              onChange={(e) => setTextoEdit(e.target.value)}
+                              rows={3}
+                              className="w-full resize-none rounded border border-orange bg-white px-2 py-1 text-sm text-navy outline-none"
+                            />
+                            <div className="flex justify-end gap-2">
+                              <button onClick={() => setEditandoId(null)} className="rounded px-2 py-1 text-xs font-medium text-gray-500 hover:bg-gray-100">Cancelar</button>
+                              <button onClick={() => guardarEdicion(a)} className="rounded bg-orange px-2.5 py-1 text-xs font-semibold text-white hover:bg-orange/90">Guardar</button>
+                            </div>
+                          </div>
+                        ) : (
+                          a.contenido
+                        )}
                         {a.enlace_url && /^https?:\/\//i.test(a.enlace_url) && (
                           <a
                             href={a.enlace_url}
@@ -778,7 +870,7 @@ export default function DealDetalleClient({ deal, stages, canWrite, tiposAccion 
               <label className="label">Razón de pérdida *</label>
               <select className="input" value={razon} onChange={(e) => setRazon(e.target.value)}>
                 <option value="">Selecciona…</option>
-                {RAZONES_PERDIDA.map((r) => <option key={r} value={r}>{r}</option>)}
+                {razonesPerdida.map((r) => <option key={r} value={r}>{r}</option>)}
               </select>
             </div>
             <div>
@@ -797,6 +889,33 @@ export default function DealDetalleClient({ deal, stages, canWrite, tiposAccion 
             </div>
           </div>
         </Modal>
+      )}
+
+      {/* Editar ficha completa del deal (SOL-01) — reusa el modal de alta en modo edición */}
+      {editOpen && (
+        <NuevoDealModal
+          stages={stages}
+          vendedores={vendedores}
+          clientes={clientes}
+          tipos={tipos}
+          deal={{
+            id: deal.id,
+            nombre: deal.nombre,
+            cliente_id: deal.cliente?.id ?? "",
+            vendedor_id: deal.vendedor?.id ?? null,
+            stage_id: deal.stage.id,
+            tipo_cotizacion_id: deal.tipo?.id ?? null,
+            temperatura: deal.temperatura,
+            valor: deal.valor,
+            setup: deal.setup,
+            mensualidad: deal.mensualidad,
+            canal: deal.canal,
+            origen: deal.origen,
+            fecha_cierre_estimada: deal.fecha_cierre_estimada ? deal.fecha_cierre_estimada.slice(0, 10) : null,
+          }}
+          onClose={() => setEditOpen(false)}
+          onSaved={() => { setEditOpen(false); router.refresh(); }}
+        />
       )}
     </div>
   );

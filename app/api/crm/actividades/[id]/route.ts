@@ -30,11 +30,12 @@ export async function PATCH(
     return NextResponse.json({ error: "JSON inválido" }, { status: 400 });
   }
 
-  const { estado_accion, completada, fecha_tarea, destacada } = (body ?? {}) as {
+  const { estado_accion, completada, fecha_tarea, destacada, contenido } = (body ?? {}) as {
     estado_accion?: unknown;
     completada?: unknown;
     fecha_tarea?: unknown;
     destacada?: unknown;
+    contenido?: unknown;
   };
 
   const data: {
@@ -42,7 +43,20 @@ export async function PATCH(
     completada?: boolean;
     fecha_tarea?: Date | null;
     destacada?: boolean;
+    contenido?: string;
+    editada?: boolean;
+    editada_at?: Date;
   } = {};
+
+  // Editar el contenido de la entrada (SOL-02) → deja marca "editada"
+  if (contenido !== undefined) {
+    const c = typeof contenido === "string" ? contenido.trim() : "";
+    if (!c) return NextResponse.json({ error: "El contenido no puede estar vacío" }, { status: 422 });
+    if (c.length > 5000) return NextResponse.json({ error: "Contenido demasiado largo" }, { status: 422 });
+    data.contenido = c;
+    data.editada = true;
+    data.editada_at = new Date();
+  }
 
   // Destacar/pin (bookmark)
   if (destacada !== undefined) {
@@ -97,5 +111,30 @@ export async function PATCH(
     return NextResponse.json({ ok: true });
   } catch {
     return NextResponse.json({ error: "Error al actualizar la tarea" }, { status: 500 });
+  }
+}
+
+// ── DELETE /api/crm/actividades/:id ─────────────────────────────
+// Soft-delete (SOL-02): marca eliminada=true; NO borra en duro, para no romper
+// el rastro auditable que consumen termómetro, probabilidad e IA (Fase 2).
+export async function DELETE(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { id } = await params;
+  const session = await requireAuth(req);
+  if (!session) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+  if (!canWrite(session)) return NextResponse.json({ error: "Sin permisos" }, { status: 403 });
+
+  try {
+    // Mismo scoping que el PATCH: la actividad debe pertenecer a un deal accesible.
+    const act = await prisma.dealActividad.findUnique({ where: { id }, select: { deal_id: true } });
+    if (!act) return NextResponse.json({ error: "Actividad no encontrada" }, { status: 404 });
+    const deal = await prisma.deal.findFirst({ where: scopeDealWhere(session, { id: act.deal_id }), select: { id: true } });
+    if (!deal) return NextResponse.json({ error: "Actividad no encontrada" }, { status: 404 });
+    await prisma.dealActividad.update({ where: { id }, data: { eliminada: true, eliminada_at: new Date() } });
+    return NextResponse.json({ ok: true });
+  } catch {
+    return NextResponse.json({ error: "Error al eliminar la entrada" }, { status: 500 });
   }
 }
