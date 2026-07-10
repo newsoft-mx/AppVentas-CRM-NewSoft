@@ -32,6 +32,7 @@ export default async function DealDetallePage({
       tipo_cotizacion: { select: { id: true, nombre: true } },
       contactos: { orderBy: { created_at: "asc" } },
       actividades: {
+        where: { eliminada: false },
         orderBy: { created_at: "desc" },
         include: { contacto: { select: { nombre: true } } },
       },
@@ -40,7 +41,7 @@ export default async function DealDetallePage({
 
   if (!deal) notFound();
 
-  const [stages, historial, motivos] = await Promise.all([
+  const [stages, historial, vendedores, clientes, tipos, motivos] = await Promise.all([
     prisma.pipelineStage.findMany({
       where: { activo: true },
       orderBy: { orden: "asc" },
@@ -52,6 +53,9 @@ export default async function DealDetallePage({
           select: { estatus: true, total_mxn: true },
         })
       : Promise.resolve([]),
+    prisma.vendedor.findMany({ where: { activo: true }, select: { id: true, nombre: true }, orderBy: { nombre: "asc" } }),
+    prisma.cliente.findMany({ where: { activo: true }, select: { id: true, nombre: true }, orderBy: { nombre: "asc" } }),
+    prisma.tipoCotizacion.findMany({ where: { activo: true }, select: { id: true, nombre: true }, orderBy: { nombre: "asc" } }),
     prisma.motivoPerdida.findMany({
       where: { activo: true },
       orderBy: [{ orden: "asc" }, { nombre: "asc" }],
@@ -113,6 +117,7 @@ export default async function DealDetallePage({
       completada: a.completada,
       estado_accion: a.estado_accion,
       destacada: a.destacada,
+      editada: a.editada,
       enlace_url: a.enlace_url,
       fecha_tarea: a.fecha_tarea ? a.fecha_tarea.toISOString() : null,
       created_at: a.created_at.toISOString(),
@@ -127,6 +132,14 @@ export default async function DealDetallePage({
   const stagesSerialized: StageResumen[] = stages;
 
   return (
-    <DealDetalleClient deal={detalle} stages={stagesSerialized} canWrite={canWrite(session)} motivos={motivos.map((m) => m.nombre)} />
+    <DealDetalleClient
+      deal={detalle}
+      stages={stagesSerialized}
+      canWrite={canWrite(session)}
+      vendedores={vendedores}
+      clientes={clientes}
+      tipos={tipos}
+      motivos={motivos.map((m) => m.nombre)}
+    />
   );
 }

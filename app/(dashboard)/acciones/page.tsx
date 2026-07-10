@@ -21,6 +21,7 @@ export default async function AccionesPage() {
         es_tarea: true,
         completada: false,
         fecha_tarea: { not: null },
+        eliminada: false,
         deal: dealScope,
       },
       include: {
