@@ -28,6 +28,7 @@ interface StageCtx {
 /** Contexto compartido: se carga UNA vez por request y se reusa para todos los deals (evita N+1). */
 export interface ScoringContext {
   config: ScoringConfig;
+  avance_modo: "SUGERIR" | "AUTOMATICO";
   tipos: { id: string; peso: number }[];
   resultados: { id: string; factor: number }[];
   stages: StageCtx[]; // activas, ordenadas por `orden`
@@ -36,8 +37,9 @@ export interface ScoringContext {
 
 /** Carga config + catálogos + etapas una sola vez. */
 export async function getScoringContext(): Promise<ScoringContext> {
-  const [config, tipos, resultados, stages] = await Promise.all([
+  const [config, cfgRow, tipos, resultados, stages] = await Promise.all([
     getScoringConfig(),
+    prisma.crmConfig.findUnique({ where: { id: "crm" }, select: { avance_modo: true } }),
     // Todos (incluye inactivos): una actividad histórica debe resolver su peso/factor.
     prisma.tipoAccion.findMany({ select: { id: true, peso: true } }),
     prisma.resultadoAccion.findMany({ select: { id: true, factor: true } }),
@@ -55,6 +57,7 @@ export async function getScoringContext(): Promise<ScoringContext> {
   }));
   return {
     config,
+    avance_modo: cfgRow?.avance_modo ?? "SUGERIR",
     tipos: tipos.map((t) => ({ id: t.id, peso: t.peso })),
     resultados: resultados.map((r) => ({ id: r.id, factor: Number(r.factor) })),
     stages: stagesCtx,

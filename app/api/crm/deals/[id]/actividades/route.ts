@@ -2,14 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { canWrite, requireAuth } from "@/lib/session";
 import { scopeDealWhere } from "@/lib/access-control";
-import { getCrmConfig, toParametrosTermometro } from "@/lib/crm-config";
-import {
-  subirTemperatura,
-  ajustarTemperatura,
-  cruzaUmbralAvance,
-  actividadExitosa,
-} from "@/lib/termometro";
-import type { Temperatura } from "@/types/crm";
+import { getScoringContext, dealScoreView } from "@/lib/deal-score";
 
 export const dynamic = "force-dynamic";
 
@@ -81,7 +74,7 @@ export async function POST(
   try {
     const deal = await prisma.deal.findFirst({
       where: scopeDealWhere(session, { id }),
-      select: { id: true, stage_id: true, temperatura: true, stage: { select: { umbral_avance: true, orden: true } } },
+      select: { id: true, stage_id: true, ajuste_manual: true, created_at: true },
     });
     if (!deal) return NextResponse.json({ error: "Deal no encontrado" }, { status: 404 });
 
@@ -104,16 +97,14 @@ export async function POST(
       tipoAccionId = ta?.id ?? null;
     }
     let resultadoId: string | null = null;
-    let efectoResultado: "POSITIVO" | "NEUTRO" | "NEGATIVO" | null = null;
     let sugiereReagendar = false;
     if (resultado_id) {
       const r = await prisma.resultadoAccion.findFirst({
         where: { id: resultado_id, activo: true },
-        select: { id: true, efecto: true, sugiere_reagendar: true },
+        select: { id: true, sugiere_reagendar: true },
       });
       if (r) {
         resultadoId = r.id;
-        efectoResultado = r.efecto;
         sugiereReagendar = r.sugiere_reagendar;
       }
     }
@@ -147,64 +138,42 @@ export async function POST(
       },
     });
 
-    // ── Termómetro: el resultado del catálogo (SOL-04) define el efecto (positivo sube, negativo baja);
-    // si la actividad no captura resultado, se mantiene la lógica legada (actividad exitosa sube).
-    let temperaturaActual = deal.temperatura as Temperatura;
+    // ── Scoring: se RECALCULA on-read desde todo el historial (SSOT). Nada de temperatura persistida.
+    const ctx = await getScoringContext();
+    const actsAll = await prisma.dealActividad.findMany({
+      where: { deal_id: id, eliminada: false },
+      select: { id: true, tipo_accion_id: true, resultado_id: true, created_at: true },
+    });
+    const dealBase = { ajuste_manual: deal.ajuste_manual, stage_id: deal.stage_id, created_at: deal.created_at };
+    const ahora = new Date();
+    const view = dealScoreView(ctx, { ...dealBase, actividades: actsAll }, ahora);
+    // Score ANTES de esta actividad (para disparar avance solo al CRUZAR al alza, no en cada nota a tope)
+    const scoreAntes = dealScoreView(
+      ctx,
+      { ...dealBase, actividades: actsAll.filter((a) => a.id !== actividad.id) },
+      ahora
+    ).score;
+    const umbral = ctx.stageById.get(deal.stage_id)?.umbral_avance_score ?? null;
+    const cruzoAlAlza = umbral != null && scoreAntes < umbral && view.score >= umbral && view.siguienteStageId !== null;
+
     let sugerirAvance = false;
     let avanzoEtapa = false;
-    const config = await getCrmConfig();
-
-    let nuevaTemp = temperaturaActual;
-    if (efectoResultado) {
-      const delta = efectoResultado === "POSITIVO" ? 1 : efectoResultado === "NEGATIVO" ? -1 : 0;
-      nuevaTemp = ajustarTemperatura(temperaturaActual, delta);
-    } else if (actividadExitosa(tipoActividad, exitosaVal)) {
-      nuevaTemp = subirTemperatura(temperaturaActual, tipoActividad, toParametrosTermometro(config));
-    }
-
-    const cambio = nuevaTemp !== temperaturaActual;
-    // "Subió" solo cuenta para avance de etapa; un resultado negativo baja pero no avanza.
-    const subio = cambio && efectoResultado !== "NEGATIVO";
-    if (cambio) {
-      temperaturaActual = nuevaTemp;
-      await prisma.deal.update({ where: { id }, data: { temperatura: nuevaTemp } });
-    }
-    const cruza = cruzaUmbralAvance(temperaturaActual, deal.stage.umbral_avance as Temperatura | null);
-    // Solo sugerir/avanzar cuando la temperatura subió (evita re-sugerir en cada nota a tope)
-    if (cruza && subio) {
-        if (config.avance_modo === "AUTOMATICO") {
-          // Avanzar a la siguiente etapa activa (por orden)
-          const siguiente = await prisma.pipelineStage.findFirst({
-            where: { activo: true, orden: { gt: deal.stage.orden } },
-            orderBy: { orden: "asc" },
-            select: { id: true, nombre: true, probabilidad_base: true },
-          });
-          if (siguiente) {
-            await prisma.deal.update({
-              where: { id },
-              data: {
-                stage_id: siguiente.id,
-                fecha_entrada_stage: new Date(),
-                probabilidad: siguiente.probabilidad_base,
-              },
-            });
-            await prisma.dealActividad.create({
-              data: {
-                deal_id: id,
-                tipo: "SISTEMA",
-                autor: "Sistema",
-                contenido: `Avance automático a "${siguiente.nombre}" (termómetro en ${temperaturaActual}).`,
-              },
-            });
-            // Historial de etapa (embudo de conversión)
-            await prisma.dealStageEvent.create({
-              data: { deal_id: id, from_stage_id: deal.stage_id, to_stage_id: siguiente.id },
-            });
-            avanzoEtapa = true;
-          }
-        } else {
-          sugerirAvance = true; // modo SUGERIR → el front muestra el banner
-        }
+    if (cruzoAlAlza && view.siguienteStageId) {
+      if (ctx.avance_modo === "AUTOMATICO") {
+        await prisma.deal.update({
+          where: { id },
+          data: { stage_id: view.siguienteStageId, fecha_entrada_stage: new Date() },
+        });
+        await prisma.dealActividad.create({
+          data: { deal_id: id, tipo: "SISTEMA", autor: "Sistema", contenido: `Avance automático (score ${view.score}/100).` },
+        });
+        await prisma.dealStageEvent.create({
+          data: { deal_id: id, from_stage_id: deal.stage_id, to_stage_id: view.siguienteStageId },
+        });
+        avanzoEtapa = true;
+      } else {
+        sugerirAvance = true; // modo SUGERIR → el front muestra el banner
+      }
     }
 
     return NextResponse.json(
@@ -232,7 +201,10 @@ export async function POST(
             ? { id: actividad.resultado.id, nombre: actividad.resultado.nombre, efecto: actividad.resultado.efecto }
             : null,
         },
-        temperatura: temperaturaActual,
+        // Score y derivaciones recalculadas (SSOT). Si avanzó de etapa, el front refresca.
+        score: view.score,
+        temperatura: view.temperatura,
+        probabilidad: view.probabilidad,
         sugerir_avance: sugerirAvance,
         avanzo_etapa: avanzoEtapa,
         // Cierre de ciclo (SOL-04): el resultado sugiere agendar la próxima acción

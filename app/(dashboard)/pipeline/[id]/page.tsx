@@ -174,6 +174,7 @@ export default async function DealDetallePage({
       motivos={motivos.map((m) => m.nombre)}
       tiposAccion={tiposAccion}
       resultadosAccion={resultadosAccion}
+      sugerirAvanceInicial={view.cruzaAvance}
     />
   );
 }

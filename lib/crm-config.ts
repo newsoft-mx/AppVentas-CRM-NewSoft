@@ -1,5 +1,4 @@
 import { prisma } from "@/lib/prisma";
-import type { ParametrosTermometro } from "@/lib/termometro";
 import type { ScoringConfig } from "@/lib/scoring";
 import type { TipoActividad } from "@/types/crm";
 
@@ -28,10 +27,6 @@ export async function getCrmConfig(): Promise<CrmConfigData> {
       (row.puntos_actividad as Partial<Record<TipoActividad, number>>) ?? DEFAULTS.puntos_actividad,
     enfriamiento_nivel: row.enfriamiento_nivel,
   };
-}
-
-export function toParametrosTermometro(c: CrmConfigData): ParametrosTermometro {
-  return { puntos_actividad: c.puntos_actividad, enfriamiento_nivel: c.enfriamiento_nivel };
 }
 
 // ── Motor de scoring (feature/scoring-engine) ──

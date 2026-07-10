@@ -10,6 +10,7 @@ const stages = [
 ];
 const CTX: ScoringContext = {
   config: { score_inicial: 50, decay_por_dia: 2, umbral_inactividad_dias: 7, niveles_umbral: [20, 40, 60, 80], sensibilidad_prob: 0.4 },
+  avance_modo: "SUGERIR",
   tipos: [{ id: "reu", peso: 40 }, { id: "wa", peso: 10 }],
   resultados: [{ id: "ok", factor: 1 }, { id: "nc", factor: -0.3 }],
   stages,

@@ -68,10 +68,8 @@ export async function PATCH(
     data.vendedor_id = typeof b.vendedor_id === "string" && b.vendedor_id ? b.vendedor_id : null;
   if (b.tipo_cotizacion_id !== undefined)
     data.tipo_cotizacion_id = typeof b.tipo_cotizacion_id === "string" && b.tipo_cotizacion_id ? b.tipo_cotizacion_id : null;
-  if (b.temperatura !== undefined) {
-    if (TEMPS.includes(b.temperatura as string)) data.temperatura = b.temperatura;
-    else errores.push("temperatura inválida");
-  }
+  // La temperatura NO se edita acá: se deriva del score. El override manual va por
+  // PATCH /deals/:id/temperatura (escribe ajuste_manual).
   num("valor", false);
   num("setup", true);
   num("mensualidad", true);

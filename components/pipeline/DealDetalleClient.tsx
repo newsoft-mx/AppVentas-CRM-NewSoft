@@ -12,7 +12,6 @@ import Modal from "@/components/ui/Modal";
 import Toast, { ToastData } from "@/components/ui/Toast";
 import Termometro from "@/components/pipeline/Termometro";
 import NuevoDealModal from "@/components/pipeline/NuevoDealModal";
-import { cruzaUmbralAvance } from "@/lib/termometro";
 import { formatCompacto, formatFechaHora } from "@/lib/utils";
 import { ahoraLocal } from "@/lib/filter-utils";
 
@@ -52,6 +51,8 @@ interface Props {
   tiposAccion?: TipoAccionOpcion[];
   /** Catálogo de resultados de acción (SOL-04): mueven el termómetro al registrar la interacción */
   resultadosAccion?: ResultadoAccionOpcion[];
+  /** ¿El score ya cruza el umbral de avance? Derivado en el server (dealScoreView). */
+  sugerirAvanceInicial?: boolean;
 }
 
 // Deriva el tipo legado (para ícono/placeholder/éxito) a partir del nombre del tipo del catálogo.
@@ -102,7 +103,7 @@ const PLACEHOLDER: Record<TipoActividad, string> = {
 export default function DealDetalleClient({
   deal, stages, canWrite,
   vendedores = [], clientes = [], tipos = [], motivos = [],
-  tiposAccion = [], resultadosAccion = [],
+  tiposAccion = [], resultadosAccion = [], sugerirAvanceInicial = false,
 }: Props) {
   const router = useRouter();
   // Motivos del catálogo (SOL-10); si viene vacío, fallback a la lista base.
@@ -140,11 +141,8 @@ export default function DealDetalleClient({
     .filter((s) => s.orden > deal.stage.orden)
     .sort((a, b) => a.orden - b.orden)[0] ?? null;
 
-  // Banner de sugerencia de avance (modo SUGERIR, REQ-06): persiste mientras el
-  // termómetro cruza el umbral de la etapa y hay una etapa siguiente.
-  const [sugerirAvance, setSugerirAvance] = useState(
-    Boolean(siguienteStage) && cruzaUmbralAvance(deal.temperatura, deal.stage.umbral_avance)
-  );
+  // Banner de sugerencia de avance: el server ya derivó si el score cruza el umbral (SSOT).
+  const [sugerirAvance, setSugerirAvance] = useState(Boolean(siguienteStage) && sugerirAvanceInicial);
 
   // Resumen / descripción del proyecto (REQ-05.3) — editable inline
   const [notas, setNotas] = useState(deal.notas ?? "");
