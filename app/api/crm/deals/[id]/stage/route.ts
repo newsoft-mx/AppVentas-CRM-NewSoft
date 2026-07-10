@@ -55,8 +55,7 @@ export async function PATCH(
         data: {
           stage_id: nuevoStage.id,
           fecha_entrada_stage: new Date(),
-          // Probabilidad automática: se ajusta a la de la nueva etapa
-          probabilidad: nuevoStage.probabilidad_base,
+          // La probabilidad se DERIVA del score + etapa (dealScoreView); no se persiste.
         },
       }),
       prisma.dealActividad.create({

@@ -12,7 +12,7 @@ export async function GET(req: NextRequest) {
     orderBy: [{ activo: "desc" }, { orden: "asc" }],
     select: {
       id: true, nombre: true, orden: true, color: true,
-      activo: true, probabilidad_base: true, umbral_avance: true,
+      activo: true, probabilidad_base: true, umbral_avance_score: true,
     },
   });
   return NextResponse.json(stages);
@@ -43,7 +43,7 @@ export async function POST(req: NextRequest) {
       data: { nombre, color, orden: Math.round(orden), probabilidad_base },
       select: {
       id: true, nombre: true, orden: true, color: true,
-      activo: true, probabilidad_base: true, umbral_avance: true,
+      activo: true, probabilidad_base: true, umbral_avance_score: true,
     },
     });
     return NextResponse.json(stage, { status: 201 });

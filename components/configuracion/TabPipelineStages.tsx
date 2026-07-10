@@ -12,7 +12,7 @@ interface FormState {
   color: string;
   orden: number;
   probabilidad_base: number;
-  umbral_avance: string; // "" = sin umbral
+  umbral_avance_score: string; // "" = sin umbral (score 0-100)
   activo: boolean;
 }
 
@@ -21,16 +21,9 @@ const emptyForm: FormState = {
   color: "#9BA5BE",
   orden: 0,
   probabilidad_base: 0,
-  umbral_avance: "",
+  umbral_avance_score: "",
   activo: true,
 };
-
-const TEMP_OPCIONES: { value: string; label: string }[] = [
-  { value: "", label: "Sin avance automático" },
-  { value: "TIBIO", label: "Tibio" },
-  { value: "CALIENTE", label: "Caliente" },
-  { value: "MUY_CALIENTE", label: "Muy caliente" },
-];
 
 export default function TabPipelineStages({ initialStages }: { initialStages: PipelineStageConfig[] }) {
   const [stages, setStages] = useState<PipelineStageConfig[]>(initialStages);
@@ -61,7 +54,7 @@ export default function TabPipelineStages({ initialStages }: { initialStages: Pi
       color: s.color,
       orden: s.orden,
       probabilidad_base: s.probabilidad_base,
-      umbral_avance: s.umbral_avance ?? "",
+      umbral_avance_score: s.umbral_avance_score != null ? String(s.umbral_avance_score) : "",
       activo: s.activo,
     });
     setFormError("");
@@ -89,7 +82,7 @@ export default function TabPipelineStages({ initialStages }: { initialStages: Pi
         color: form.color,
         orden: form.orden,
         probabilidad_base: form.probabilidad_base,
-        umbral_avance: form.umbral_avance || null,
+        umbral_avance_score: form.umbral_avance_score === "" ? null : Number(form.umbral_avance_score),
         ...(editing && { activo: form.activo }),
       };
       const saved = await save(payload, editing ?? undefined);
@@ -183,7 +176,7 @@ export default function TabPipelineStages({ initialStages }: { initialStages: Pi
                   </td>
                   <td className="px-4 py-3 text-center text-sm font-semibold text-navy">{s.probabilidad_base}%</td>
                   <td className="px-4 py-3 text-center text-xs text-gray-500">
-                    {TEMP_OPCIONES.find((o) => o.value === (s.umbral_avance ?? ""))?.label ?? "—"}
+                    {s.umbral_avance_score != null ? `Score ≥ ${s.umbral_avance_score}` : "—"}
                   </td>
                   <td className="px-4 py-3 text-center">
                     <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${s.activo ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}>
@@ -226,11 +219,14 @@ export default function TabPipelineStages({ initialStages }: { initialStages: Pi
               </div>
             </div>
             <div>
-              <label className="label">Umbral de avance (termómetro)</label>
-              <select className="input" value={form.umbral_avance} onChange={(e) => setForm((p) => ({ ...p, umbral_avance: e.target.value }))}>
-                {TEMP_OPCIONES.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-              </select>
-              <p className="mt-1 text-xs text-gray-400">Al alcanzar esta temperatura, el deal sugiere (o avanza) a la siguiente etapa.</p>
+              <label className="label">Umbral de avance (score 0–100)</label>
+              <input
+                type="number" min={0} max={100} className="input"
+                value={form.umbral_avance_score}
+                placeholder="Sin avance automático"
+                onChange={(e) => setForm((p) => ({ ...p, umbral_avance_score: e.target.value }))}
+              />
+              <p className="mt-1 text-xs text-gray-400">Al alcanzar este score, el deal sugiere (o avanza) a la siguiente etapa. Vacío = sin avance.</p>
             </div>
             {editing && (
               <label className="flex items-center gap-2 text-sm text-gray-700">

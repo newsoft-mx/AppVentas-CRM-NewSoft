@@ -1,11 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { canWrite, requireAuth } from "@/lib/session";
-import type { DealResumen, Temperatura } from "@/types/crm";
+import { getScoringContext, dealScoreView } from "@/lib/deal-score";
+import type { DealResumen } from "@/types/crm";
 
 export const dynamic = "force-dynamic";
-
-const TEMPERATURAS = ["MUY_FRIO", "FRIO", "TIBIO", "CALIENTE", "MUY_CALIENTE"];
 
 function num(v: unknown): number | null {
   if (v === null || v === undefined || v === "") return null;
@@ -30,9 +29,6 @@ export async function POST(req: NextRequest) {
   const nombre = typeof body.nombre === "string" ? body.nombre.trim() : "";
   let cliente_id = typeof body.cliente_id === "string" ? body.cliente_id : "";
   const stage_id = typeof body.stage_id === "string" ? body.stage_id : "";
-  const temperatura = TEMPERATURAS.includes(body.temperatura as string)
-    ? (body.temperatura as Temperatura)
-    : "TIBIO";
 
   // Contacto obligatorio: un deal nace con al menos un contacto.
   const ROLES = ["DECISOR", "INFLUENCIADOR", "USUARIO", "OTRO"];
@@ -89,13 +85,11 @@ export async function POST(req: NextRequest) {
     // Validar FKs (cliente activo, stage activo)
     const [cliente, stage] = await Promise.all([
       prisma.cliente.findFirst({ where: { id: cliente_id, activo: true }, select: { id: true } }),
-      prisma.pipelineStage.findFirst({ where: { id: stage_id, activo: true }, select: { id: true, probabilidad_base: true } }),
+      prisma.pipelineStage.findFirst({ where: { id: stage_id, activo: true }, select: { id: true } }),
     ]);
     if (!cliente) return NextResponse.json({ error: "Cliente inválido", campo: "cliente_id" }, { status: 422 });
     if (!stage) return NextResponse.json({ error: "Etapa inválida", campo: "stage_id" }, { status: 422 });
 
-    // Probabilidad automática: deriva de la etapa (no se captura a mano)
-    const probabilidad = stage.probabilidad_base;
     const fechaCierre = typeof body.fecha_cierre_estimada === "string" && body.fecha_cierre_estimada
       ? new Date(body.fecha_cierre_estimada) : null;
 
@@ -106,8 +100,7 @@ export async function POST(req: NextRequest) {
         stage_id,
         vendedor_id: typeof body.vendedor_id === "string" && body.vendedor_id ? body.vendedor_id : null,
         tipo_cotizacion_id: typeof body.tipo_cotizacion_id === "string" && body.tipo_cotizacion_id ? body.tipo_cotizacion_id : null,
-        temperatura,
-        probabilidad: probabilidad != null ? Math.min(100, Math.max(0, Math.round(probabilidad))) : null,
+        // temperatura/probabilidad se DERIVAN del score (dealScoreView); no se persisten.
         moneda: body.moneda === "USD" ? "USD" : "MXN",
         valor: num(body.valor) ?? 0,
         setup: num(body.setup),
@@ -139,13 +132,21 @@ export async function POST(req: NextRequest) {
       },
     });
 
+    // Score derivado del deal recién creado (sin actividades → score inicial) vía el SSOT
+    const ctx = await getScoringContext();
+    const view = dealScoreView(
+      ctx,
+      { ajuste_manual: deal.ajuste_manual, stage_id: deal.stage_id, created_at: deal.created_at, actividades: [] },
+      new Date()
+    );
+
     const resumen: DealResumen = {
       id: deal.id,
       nombre: deal.nombre,
       valor: Number(deal.valor),
       moneda: deal.moneda,
-      temperatura: deal.temperatura as Temperatura,
-      probabilidad: deal.probabilidad,
+      temperatura: view.temperatura,
+      probabilidad: view.probabilidad,
       resultado: deal.resultado,
       stage_id: deal.stage_id,
       dias_en_etapa: 0,

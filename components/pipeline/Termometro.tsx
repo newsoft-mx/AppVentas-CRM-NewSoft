@@ -11,19 +11,23 @@ const ESCALA: Temperatura[] = ["MUY_FRIO", "FRIO", "TIBIO", "CALIENTE", "MUY_CAL
 export default function Termometro({
   dealId,
   temperatura,
+  score,
   canWrite,
   onChange,
 }: {
   dealId: string;
   temperatura: Temperatura;
+  score: number;
   canWrite: boolean;
   onChange?: (t: Temperatura) => void;
 }) {
   const [valor, setValor] = useState<Temperatura>(temperatura);
+  const [scoreVal, setScoreVal] = useState<number>(score);
   const [guardando, setGuardando] = useState(false);
   const [toast, setToast] = useState<ToastData | null>(null);
-  // Re-sincronizar si el padre actualiza la temperatura (ej. tras registrar actividad exitosa)
+  // Re-sincronizar si el padre actualiza (ej. tras registrar actividad)
   useEffect(() => setValor(temperatura), [temperatura]);
+  useEffect(() => setScoreVal(score), [score]);
   const meta = TEMPERATURA_META[valor];
   const nivel = ESCALA.indexOf(valor);
 
@@ -40,6 +44,10 @@ export default function Termometro({
         body: JSON.stringify({ temperatura: t }),
       });
       if (!res.ok) throw new Error();
+      // El server recalcula el score real (ajuste_manual + fórmula); reflejamos su respuesta.
+      const j = await res.json();
+      if (typeof j.score === "number") setScoreVal(j.score);
+      if (j.temperatura) { setValor(j.temperatura); onChange?.(j.temperatura); }
     } catch {
       setValor(prev);
       onChange?.(prev);
@@ -72,6 +80,9 @@ export default function Termometro({
       </div>
       <span className="text-xs font-semibold" style={{ color: meta.color }}>
         {meta.label}
+      </span>
+      <span className="rounded-full bg-gray-100 px-1.5 py-0.5 text-[11px] font-bold tabular-nums text-gray-600" title="Score de salud (0-100)">
+        {scoreVal}
       </span>
       </div>
     </>

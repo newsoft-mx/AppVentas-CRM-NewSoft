@@ -402,9 +402,12 @@ model TipoAccion {
   nombre        String   @db.VarChar(100)
   orden         Int      @default(0)
   color         String   @default("#6B7A99") @db.VarChar(20) // editable (SOL-07)
+  // Peso relativo de la interacción en el score (se normaliza al computar: share = peso/Σpesos).
+  // Editable; 0 = no aporta señal (ej. Nota interna, Pendiente).
+  peso          Int      @default(5)
   // ¿Agendable? → admite fecha futura y ciclo Planeada→Realizada
   agendable     Boolean  @default(true)
-  // ¿Con resultado? → produce desenlace que mueve termómetro/probabilidad
+  // ¿Con resultado? → produce desenlace que mueve el score
   con_resultado Boolean  @default(true)
   activo        Boolean  @default(true)
   created_at    DateTime @default(now()) @db.Timestamptz(6)
@@ -420,6 +423,9 @@ model ResultadoAccion {
   id                String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   nombre            String           @db.VarChar(100)
   orden             Int              @default(0)
+  // Calidad del desenlace [−1.00 … +1.00]: multiplica el peso del tipo (delta = peso × factor).
+  // efecto (POSITIVO/NEUTRO/NEGATIVO) queda como etiqueta derivada del signo del factor.
+  factor            Decimal          @default(0) @db.Decimal(3, 2)
   efecto            EfectoTermometro @default(NEUTRO)
   sugiere_reagendar Boolean          @default(false)
   activo            Boolean          @default(true)
@@ -444,9 +450,9 @@ model PipelineStage {
   color             String   @default("#9BA5BE") @db.VarChar(20)
   // Probabilidad de cierre base (0-100) para los deals en esta etapa
   probabilidad_base Int      @default(0)
-  // Temperatura que, al alcanzarse, dispara la sugerencia/avance a la siguiente etapa (REQ-06).
-  // null = la etapa no dispara avance por termómetro.
-  umbral_avance     TemperaturaDeal?
+  // Score 0–100 que, al alcanzarse, dispara la sugerencia/avance a la siguiente etapa.
+  // null = la etapa no avanza por score.
+  umbral_avance_score Int?
   activo            Boolean  @default(true)
   created_at        DateTime @default(now()) @db.Timestamptz(6)
   updated_at        DateTime @updatedAt @db.Timestamptz(6)
@@ -465,13 +471,17 @@ model CrmConfig {
   id                      String     @id @default("crm")
   // Días sin actividad tras los cuales el deal se enfría / requiere atención
   umbral_inactividad_dias Int        @default(7)
-  // Modo de avance de etapa al cruzar el umbral del termómetro
+  // Modo de avance de etapa al cruzar el umbral del score
   avance_modo             AvanceModo @default(SUGERIR)
-  // Cuántos niveles sube el termómetro por cada tipo de actividad exitosa
-  // (JSON: { LLAMADA: 1, EMAIL: 1, WHATSAPP: 1, NOTA: 0 })
-  puntos_actividad        Json       @default("{\"LLAMADA\":1,\"EMAIL\":1,\"WHATSAPP\":1,\"NOTA\":0}")
-  // Cuántos niveles enfría una racha de inactividad
-  enfriamiento_nivel      Int        @default(1)
+  // ── Motor de scoring (feature/scoring-engine) ──
+  // Score con el que nace un deal sin actividad (0–100)
+  score_inicial           Int        @default(50)
+  // Puntos que pierde el score por cada día de inactividad más allá del umbral
+  decay_por_dia           Int        @default(2)
+  // Cortes de los 5 niveles (color del termómetro): [FRIO, TIBIO, CALIENTE, MUY_CALIENTE]
+  niveles_umbral          Json       @default("[20,40,60,80]")
+  // Etapas SIN umbral de avance: cuánto mueve el score a la probabilidad por punto (± banda)
+  sensibilidad_prob       Decimal    @default(0.4) @db.Decimal(4, 2)
   updated_at              DateTime   @updatedAt @db.Timestamptz(6)
 
   @@map("crm_config")
@@ -498,10 +508,9 @@ model Deal {
   tipo_cotizacion_id String?         @db.Uuid
   tipo_cotizacion    TipoCotizacion? @relation(fields: [tipo_cotizacion_id], references: [id])
 
-  // Clasificación
-  temperatura  TemperaturaDeal @default(TIBIO)
-  // Probabilidad de cierre 0-100 (motor híbrido: base por stage ajustada por IA)
-  probabilidad Int?
+  // Scoring: temperatura/probabilidad se DERIVAN on-read (dealScoreView), no se persisten.
+  // Único estado persistido del score: el ajuste manual del vendedor (sobrevive recálculos).
+  ajuste_manual Int @default(0)
 
   // Montos (Decimal — regla del proyecto)
   moneda      Moneda   @default(MXN)
