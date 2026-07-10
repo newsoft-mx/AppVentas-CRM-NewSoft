@@ -3,11 +3,10 @@ import { getServerSession } from "@/lib/server-session";
 import { canWrite } from "@/lib/session";
 import { scopeDealWhere } from "@/lib/access-control";
 import { estadoAtencion } from "@/lib/atencion";
-import { getCrmConfig, toParametrosTermometro } from "@/lib/crm-config";
-import { temperaturaEfectiva } from "@/lib/termometro";
+import { getScoringContext, dealScoreView } from "@/lib/deal-score";
 import PipelineKanban from "@/components/pipeline/PipelineKanban";
 import type { Metadata } from "next";
-import type { DealResumen, StageResumen, Temperatura } from "@/types/crm";
+import type { DealResumen, StageResumen } from "@/types/crm";
 
 export const metadata: Metadata = { title: "Pipeline CRM" };
 export const dynamic = "force-dynamic";
@@ -72,13 +71,14 @@ export default async function PipelinePage() {
 
   // Última actividad por deal — acotada a los deals cargados; + config + conteos por período
   const dealIds = deals.map((d) => d.id);
-  const [ultimas, config, nuevosHoy, nuevosSemana, nuevosMes, perdidosRaw] = await Promise.all([
-    prisma.dealActividad.groupBy({
-      by: ["deal_id"],
+  const [actsScore, ctx, nuevosHoy, nuevosSemana, nuevosMes, perdidosRaw] = await Promise.all([
+    // Actividades de todos los deals visibles en UNA query (para el score, sin N+1)
+    prisma.dealActividad.findMany({
       where: { deal_id: { in: dealIds }, eliminada: false },
-      _max: { created_at: true },
+      orderBy: { created_at: "asc" },
+      select: { deal_id: true, tipo_accion_id: true, resultado_id: true, created_at: true },
     }),
-    getCrmConfig(),
+    getScoringContext(),
     prisma.deal.count({ where: scopeDealWhere(session, { created_at: { gte: inicioDia } }) }),
     prisma.deal.count({ where: scopeDealWhere(session, { created_at: { gte: inicioSemana } }) }),
     prisma.deal.count({ where: scopeDealWhere(session, { created_at: { gte: inicioMes } }) }),
@@ -95,8 +95,15 @@ export default async function PipelinePage() {
       },
     }),
   ]);
-  const ultimaPorDeal = new Map(ultimas.map((u) => [u.deal_id, u._max.created_at]));
-  const params = toParametrosTermometro(config);
+  // Agrupa por deal: actividades (para el score) + última fecha (para atención). asc → última gana.
+  const actsByDeal = new Map<string, { tipo_accion_id: string | null; resultado_id: string | null; created_at: Date }[]>();
+  const ultimaPorDeal = new Map<string, Date>();
+  for (const a of actsScore) {
+    const arr = actsByDeal.get(a.deal_id) ?? [];
+    arr.push({ tipo_accion_id: a.tipo_accion_id, resultado_id: a.resultado_id, created_at: a.created_at });
+    actsByDeal.set(a.deal_id, arr);
+    ultimaPorDeal.set(a.deal_id, a.created_at);
+  }
 
   const stagesSerialized: StageResumen[] = stages;
 
@@ -113,13 +120,11 @@ export default async function PipelinePage() {
             created_at: ultimaPorDeal.get(d.id) ?? d.created_at,
           },
         ];
-    const atencion = estadoAtencion(atencionInput, ahora, config.umbral_inactividad_dias).estado;
-    // Temperatura efectiva: enfriada si el deal lleva inactivo más del umbral (display)
-    const tempEfectiva = temperaturaEfectiva(
-      d.temperatura as Temperatura,
-      ultimaPorDeal.get(d.id) ?? null,
-      config.umbral_inactividad_dias,
-      params,
+    const atencion = estadoAtencion(atencionInput, ahora, ctx.config.umbral_inactividad_dias).estado;
+    // Score y sus derivaciones desde el SSOT (único punto de derivación)
+    const view = dealScoreView(
+      ctx,
+      { ajuste_manual: d.ajuste_manual, stage_id: d.stage_id, created_at: d.created_at, actividades: actsByDeal.get(d.id) ?? [] },
       ahora
     );
 
@@ -128,8 +133,8 @@ export default async function PipelinePage() {
       nombre: d.nombre,
       valor: Number(d.valor),
       moneda: d.moneda,
-      temperatura: tempEfectiva,
-      probabilidad: d.probabilidad,
+      temperatura: view.temperatura,
+      probabilidad: view.probabilidad,
       resultado: d.resultado,
       stage_id: d.stage_id,
       dias_en_etapa: diasEnEtapa(d.fecha_entrada_stage),

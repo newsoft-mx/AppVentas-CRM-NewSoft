@@ -3,6 +3,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { prisma } from "@/lib/prisma";
 import { canWrite, requireAuth } from "@/lib/session";
 import { scopeDealWhere } from "@/lib/access-control";
+import { getScoringContext, dealScoreView } from "@/lib/deal-score";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -37,14 +38,26 @@ export async function POST(
   });
   if (!deal) return NextResponse.json({ error: "Deal no encontrado" }, { status: 404 });
 
+  // Score derivado desde el SSOT (no las columnas persistidas)
+  const scoringCtx = await getScoringContext();
+  const scoringActs = await prisma.dealActividad.findMany({
+    where: { deal_id: id, eliminada: false },
+    select: { tipo_accion_id: true, resultado_id: true, created_at: true },
+  });
+  const view = dealScoreView(
+    scoringCtx,
+    { ajuste_manual: deal.ajuste_manual, stage_id: deal.stage_id, created_at: deal.created_at, actividades: scoringActs },
+    new Date()
+  );
+
   const contexto = [
     `Deal: ${deal.nombre}`,
     `Cliente: ${deal.cliente?.nombre ?? "—"}`,
-    `Etapa: ${deal.stage?.nombre ?? "—"} · Temperatura: ${deal.temperatura}`,
+    `Etapa: ${deal.stage?.nombre ?? "—"} · Temperatura: ${view.temperatura} (score ${view.score}/100)`,
     `Tipo: ${deal.tipo_cotizacion?.nombre ?? "—"}`,
     `Monto: ${Number(deal.valor).toLocaleString("es-MX")} ${deal.moneda}`,
     `Vendedor: ${deal.vendedor?.nombre ?? "Sin asignar"}`,
-    deal.probabilidad != null ? `Probabilidad: ${deal.probabilidad}%` : "",
+    `Probabilidad: ${view.probabilidad}%`,
     deal.actividades.length
       ? `Bitácora:\n${deal.actividades.map((a) => `- [${a.tipo}] ${a.contenido}`).join("\n")}`
       : "Sin actividad registrada.",

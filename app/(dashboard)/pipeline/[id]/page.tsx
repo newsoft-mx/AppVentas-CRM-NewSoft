@@ -4,6 +4,7 @@ import { getServerSession } from "@/lib/server-session";
 import { canWrite } from "@/lib/session";
 import { scopeDealWhere } from "@/lib/access-control";
 import DealDetalleClient from "@/components/pipeline/DealDetalleClient";
+import { getScoringContext, dealScoreView } from "@/lib/deal-score";
 import type { Metadata } from "next";
 import type { DealDetalle, StageResumen, Temperatura } from "@/types/crm";
 
@@ -83,6 +84,14 @@ export default async function DealDetallePage({
   const ganadas = historial.filter((o) => o.estatus === "VENTA");
   const totalFacturado = ganadas.reduce((s, o) => s + Number(o.total_mxn), 0);
 
+  // Score y sus derivaciones desde el SSOT (mismo adaptador que el Kanban → mismo número)
+  const scoringCtx = await getScoringContext();
+  const view = dealScoreView(
+    scoringCtx,
+    { ajuste_manual: deal.ajuste_manual, stage_id: deal.stage_id, created_at: deal.created_at, actividades: deal.actividades },
+    new Date()
+  );
+
   const detalle: DealDetalle = {
     id: deal.id,
     nombre: deal.nombre,
@@ -91,10 +100,9 @@ export default async function DealDetallePage({
     setup: deal.setup != null ? Number(deal.setup) : null,
     mensualidad: deal.mensualidad != null ? Number(deal.mensualidad) : null,
     meses: deal.meses,
-    // Temperatura GUARDADA (el termómetro del detalle es editable; el override debe escribir
-    // el valor real). El enfriamiento por inactividad se muestra solo como pista en el Kanban.
-    temperatura: deal.temperatura as Temperatura,
-    probabilidad: deal.probabilidad,
+    // Score y sus derivaciones vienen del SSOT (dealScoreView), no de columnas persistidas.
+    temperatura: view.temperatura,
+    probabilidad: view.probabilidad,
     canal: deal.canal,
     origen: deal.origen,
     resultado: deal.resultado,
