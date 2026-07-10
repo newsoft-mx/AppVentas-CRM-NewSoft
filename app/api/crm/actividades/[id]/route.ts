@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { canWrite, requireAuth } from "@/lib/session";
 import { scopeDealWhere } from "@/lib/access-control";
+import { MAX_CONTENIDO, MSG_CONTENIDO_LARGO } from "@/lib/actividad";
 
 export const dynamic = "force-dynamic";
 
@@ -52,7 +53,7 @@ export async function PATCH(
   if (contenido !== undefined) {
     const c = typeof contenido === "string" ? contenido.trim() : "";
     if (!c) return NextResponse.json({ error: "El contenido no puede estar vacío" }, { status: 422 });
-    if (c.length > 5000) return NextResponse.json({ error: "Contenido demasiado largo" }, { status: 422 });
+    if (c.length > MAX_CONTENIDO) return NextResponse.json({ error: MSG_CONTENIDO_LARGO }, { status: 422 });
     data.contenido = c;
     data.editada = true;
     data.editada_at = new Date();
