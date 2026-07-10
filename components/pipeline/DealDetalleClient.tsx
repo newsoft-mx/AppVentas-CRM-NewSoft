@@ -12,7 +12,10 @@ import Modal from "@/components/ui/Modal";
 import Toast, { ToastData } from "@/components/ui/Toast";
 import Termometro from "@/components/pipeline/Termometro";
 import NuevoDealModal from "@/components/pipeline/NuevoDealModal";
+import Markdown from "@/components/ui/Markdown";
+import MarkdownEditor from "@/components/ui/MarkdownEditor";
 import { formatCompacto, formatFechaHora } from "@/lib/utils";
+import { MAX_CONTENIDO } from "@/lib/actividad";
 import { ahoraLocal } from "@/lib/filter-utils";
 
 const RAZONES_PERDIDA = ["Precio", "Tiempo / urgencia", "Competencia", "Sin presupuesto", "Sin respuesta", "No era el momento", "Otro"];
@@ -238,10 +241,13 @@ export default function DealDetalleClient({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ contenido: nuevo }),
       });
-      if (!res.ok) throw new Error();
-    } catch {
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        throw new Error(data?.error ?? "No se pudo guardar la edición.");
+      }
+    } catch (e) {
       setActividades(prev);
-      setToast({ type: "error", message: "No se pudo guardar la edición." });
+      setToast({ type: "error", message: e instanceof Error ? e.message : "No se pudo guardar la edición." });
     }
   }
 
@@ -325,8 +331,8 @@ export default function DealDetalleClient({
           enlace_url: enlace.trim() || undefined,
         }),
       });
-      if (!res.ok) throw new Error();
-      const data = await res.json();
+      const data = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(data?.error ?? "No se pudo guardar la actividad.");
       setActividades((cur) => [data.actividad as DealActividadItem, ...cur]);
       // Termómetro y sugerencia de avance devueltos por el servidor (REQ-06)
       if (data.temperatura) setTemperatura(data.temperatura as Temperatura);
@@ -345,8 +351,8 @@ export default function DealDetalleClient({
       setSeguimiento("");
       setResultadoSel("");
       setEnlace("");
-    } catch {
-      setToast({ type: "error", message: "No se pudo guardar la actividad." });
+    } catch (e) {
+      setToast({ type: "error", message: e instanceof Error ? e.message : "No se pudo guardar la actividad." });
     } finally {
       setGuardando(false);
     }
@@ -660,13 +666,7 @@ export default function DealDetalleClient({
                 </div>
               )}
 
-              <textarea
-                value={texto}
-                onChange={(e) => setTexto(e.target.value)}
-                placeholder={PLACEHOLDER[tipoNueva]}
-                rows={3}
-                className="w-full resize-none rounded-lg border border-surface-border bg-surface px-3.5 py-2.5 text-sm text-navy outline-none focus:border-orange focus:bg-white"
-              />
+              <MarkdownEditor value={texto} onChange={setTexto} placeholder={PLACEHOLDER[tipoNueva]} />
 
               {/* Opcionales (enlace + agendar): se revelan al componer para no saturar la vista */}
               {composerAbierto && (
@@ -700,7 +700,7 @@ export default function DealDetalleClient({
               <div className="mt-3 flex justify-end">
                 <button
                   onClick={guardarActividad}
-                  disabled={!texto.trim() || guardando}
+                  disabled={!texto.trim() || texto.length > MAX_CONTENIDO || guardando}
                   className="rounded-lg bg-navy px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-navy-700 disabled:opacity-50"
                 >
                   {guardando ? "Guardando…" : "Registrar"}
@@ -808,20 +808,20 @@ export default function DealDetalleClient({
                       >
                         {editandoId === a.id ? (
                           <div className="space-y-2">
-                            <textarea
-                              autoFocus
-                              value={textoEdit}
-                              onChange={(e) => setTextoEdit(e.target.value)}
-                              rows={3}
-                              className="w-full resize-none rounded border border-orange bg-white px-2 py-1 text-sm text-navy outline-none"
-                            />
+                            <MarkdownEditor value={textoEdit} onChange={setTextoEdit} autoFocus />
                             <div className="flex justify-end gap-2">
                               <button onClick={() => setEditandoId(null)} className="rounded px-2 py-1 text-xs font-medium text-gray-500 hover:bg-gray-100">Cancelar</button>
-                              <button onClick={() => guardarEdicion(a)} className="rounded bg-orange px-2.5 py-1 text-xs font-semibold text-white hover:bg-orange/90">Guardar</button>
+                              <button
+                                onClick={() => guardarEdicion(a)}
+                                disabled={textoEdit.length > MAX_CONTENIDO}
+                                className="rounded bg-orange px-2.5 py-1 text-xs font-semibold text-white hover:bg-orange/90 disabled:opacity-50"
+                              >
+                                Guardar
+                              </button>
                             </div>
                           </div>
                         ) : (
-                          a.contenido
+                          <Markdown>{a.contenido}</Markdown>
                         )}
                         {a.enlace_url && /^https?:\/\//i.test(a.enlace_url) && (
                           <a
