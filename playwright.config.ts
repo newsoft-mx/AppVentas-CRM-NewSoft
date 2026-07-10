@@ -38,8 +38,10 @@ export default defineConfig({
     },
   ],
   // Reusa el server local si ya está arriba (preview MCP en 3001); si no, lo levanta.
+  // --webpack: el dev de Turbopack a veces devuelve 404 en rutas API dinámicas
+  // ([id]) bajo la carga de la suite; webpack (igual que el build) es estable.
   webServer: {
-    command: "npm run dev -- -p 3001",
+    command: "npm run dev -- -p 3001 --webpack",
     url: BASE_URL + "/login",
     reuseExistingServer: true,
     timeout: 120_000,
