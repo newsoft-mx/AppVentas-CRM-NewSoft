@@ -34,7 +34,20 @@ export interface DealResumen {
   cliente: { id: string; nombre: string } | null;
   vendedor: { id: string; nombre: string } | null;
   tipo: { id: string; nombre: string } | null;
+  /** Nombres de los contactos del deal (para el buscador, SOL-17) */
+  contactos: string[];
+  /** Motivo de pérdida (solo si resultado = PERDIDO), para el desglose (SOL-06/18) */
+  razon_perdida: string | null;
 }
+
+// Estado del deal (resultado): label + color central (pilar 5). Un solo lugar
+// para el badge/columna/chip de estado en el pipeline.
+export const ESTADO_DEAL_META: Record<DealResultado, { label: string; color: string }> = {
+  ABIERTO: { label: "Activo", color: "#6B7A99" },
+  SUSPENDIDO: { label: "Pausado", color: "#2A5298" },
+  GANADO: { label: "Ganado", color: "#1D9E75" },
+  PERDIDO: { label: "Perdido", color: "#E8330A" },
+};
 
 export type EstadoAtencion = "EN_SEGUIMIENTO" | "VENCIDO" | "SIN_PROXIMA";
 
