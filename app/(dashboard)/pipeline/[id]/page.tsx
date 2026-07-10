@@ -34,14 +34,19 @@ export default async function DealDetallePage({
       actividades: {
         where: { eliminada: false },
         orderBy: { created_at: "desc" },
-        include: { contacto: { select: { nombre: true } } },
+        include: {
+          contacto: { select: { nombre: true } },
+          // Modelo de actividad (SOL-04): tipo del catálogo (color) y resultado (efecto)
+          tipo_accion: { select: { id: true, nombre: true, color: true } },
+          resultado: { select: { id: true, nombre: true, efecto: true } },
+        },
       },
     },
   });
 
   if (!deal) notFound();
 
-  const [stages, historial, vendedores, clientes, tipos, motivos] = await Promise.all([
+  const [stages, historial, vendedores, clientes, tipos, motivos, tiposAccion, resultadosAccion] = await Promise.all([
     prisma.pipelineStage.findMany({
       where: { activo: true },
       orderBy: { orden: "asc" },
@@ -60,6 +65,18 @@ export default async function DealDetallePage({
       where: { activo: true },
       orderBy: [{ orden: "asc" }, { nombre: "asc" }],
       select: { nombre: true },
+    }),
+    // Catálogo de tipos de acción (SOL-04): pills del composer
+    prisma.tipoAccion.findMany({
+      where: { activo: true },
+      orderBy: { orden: "asc" },
+      select: { id: true, nombre: true, color: true, agendable: true, con_resultado: true },
+    }),
+    // Catálogo de resultados de acción (SOL-04): mueven el termómetro al registrar la interacción
+    prisma.resultadoAccion.findMany({
+      where: { activo: true },
+      orderBy: { orden: "asc" },
+      select: { id: true, nombre: true, efecto: true, sugiere_reagendar: true },
     }),
   ]);
 
@@ -121,6 +138,13 @@ export default async function DealDetallePage({
       enlace_url: a.enlace_url,
       fecha_tarea: a.fecha_tarea ? a.fecha_tarea.toISOString() : null,
       created_at: a.created_at.toISOString(),
+      estado_plan: a.estado_plan,
+      tipo_accion: a.tipo_accion
+        ? { id: a.tipo_accion.id, nombre: a.tipo_accion.nombre, color: a.tipo_accion.color }
+        : null,
+      resultado: a.resultado
+        ? { id: a.resultado.id, nombre: a.resultado.nombre, efecto: a.resultado.efecto }
+        : null,
     })),
     historial: {
       ordenes_total: historial.length,
@@ -140,6 +164,8 @@ export default async function DealDetallePage({
       clientes={clientes}
       tipos={tipos}
       motivos={motivos.map((m) => m.nombre)}
+      tiposAccion={tiposAccion}
+      resultadosAccion={resultadosAccion}
     />
   );
 }

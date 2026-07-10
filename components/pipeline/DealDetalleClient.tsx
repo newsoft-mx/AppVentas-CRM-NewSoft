@@ -19,10 +19,26 @@ import { ahoraLocal } from "@/lib/filter-utils";
 const RAZONES_PERDIDA = ["Precio", "Tiempo / urgencia", "Competencia", "Sin presupuesto", "Sin respuesta", "No era el momento", "Otro"];
 import {
   TEMPERATURA_META, ROL_CONTACTO_LABEL, ESTADO_ACCION_META, ESTADO_ACCION_CICLO,
+  EFECTO_META, ESTADO_PLAN_META,
   type DealDetalle, type DealActividadItem, type StageResumen, type TipoActividad,
   type Temperatura, type EstadoAccion,
 } from "@/types/crm";
 // El panel de IA (DealAIPanel) está construido pero se libera en Fase 2.
+
+export interface ResultadoAccionOpcion {
+  id: string;
+  nombre: string;
+  efecto: "POSITIVO" | "NEUTRO" | "NEGATIVO";
+  sugiere_reagendar: boolean;
+}
+
+export interface TipoAccionOpcion {
+  id: string;
+  nombre: string;
+  color: string;
+  agendable: boolean;
+  con_resultado: boolean;
+}
 
 interface Props {
   deal: DealDetalle;
@@ -32,6 +48,19 @@ interface Props {
   clientes?: { id: string; nombre: string }[];
   tipos?: { id: string; nombre: string }[];
   motivos?: string[]; // catálogo de motivos de pérdida (SOL-10)
+  /** Catálogo de tipos de acción (SOL-04): pills del composer */
+  tiposAccion?: TipoAccionOpcion[];
+  /** Catálogo de resultados de acción (SOL-04): mueven el termómetro al registrar la interacción */
+  resultadosAccion?: ResultadoAccionOpcion[];
+}
+
+// Deriva el tipo legado (para ícono/placeholder/éxito) a partir del nombre del tipo del catálogo.
+function tipoLegado(nombre: string): TipoActividad {
+  const n = nombre.toLowerCase();
+  if (n.includes("llamad")) return "LLAMADA";
+  if (n.includes("mail") || n.includes("correo")) return "EMAIL";
+  if (n.includes("whats")) return "WHATSAPP";
+  return "NOTA";
 }
 
 function fmtFull(n: number): string {
@@ -70,7 +99,11 @@ const PLACEHOLDER: Record<TipoActividad, string> = {
   SISTEMA: "",
 };
 
-export default function DealDetalleClient({ deal, stages, canWrite, vendedores = [], clientes = [], tipos = [], motivos = [] }: Props) {
+export default function DealDetalleClient({
+  deal, stages, canWrite,
+  vendedores = [], clientes = [], tipos = [], motivos = [],
+  tiposAccion = [], resultadosAccion = [],
+}: Props) {
   const router = useRouter();
   // Motivos del catálogo (SOL-10); si viene vacío, fallback a la lista base.
   const razonesPerdida = motivos.length ? motivos : RAZONES_PERDIDA;
@@ -79,6 +112,7 @@ export default function DealDetalleClient({ deal, stages, canWrite, vendedores =
   const [actividades, setActividades] = useState<DealActividadItem[]>(deal.actividades);
   const [filtroVer, setFiltroVer] = useState<"TODAS" | "NOTA" | "LLAMADA" | "EMAIL" | "WHATSAPP">("TODAS");
   const [tipoNueva, setTipoNueva] = useState<TipoActividad>("NOTA");
+  const [tipoAccionSel, setTipoAccionSel] = useState<TipoAccionOpcion | null>(null);
   const [texto, setTexto] = useState("");
   // Contacto precargado por defecto: el primer contacto del deal (REQ-03)
   const [contactoSel, setContactoSel] = useState(deal.contactos[0]?.id ?? "");
@@ -88,6 +122,7 @@ export default function DealDetalleClient({ deal, stages, canWrite, vendedores =
   useEffect(() => setFechaEvento(ahoraLocal()), []);
   const [exitosa, setExitosa] = useState(true);
   const [seguimiento, setSeguimiento] = useState("");
+  const [resultadoSel, setResultadoSel] = useState("");
   const [enlace, setEnlace] = useState("");
   const [guardando, setGuardando] = useState(false);
   // Compositor compacto por defecto: enlace + agendar se revelan al enfocar o
@@ -287,6 +322,8 @@ export default function DealDetalleClient({ deal, stages, canWrite, vendedores =
           fecha_evento: fechaEvento || undefined,
           exitosa: tipoNueva === "LLAMADA" ? exitosa : undefined,
           fecha_tarea: seguimiento || undefined,
+          tipo_accion_id: tipoAccionSel?.id || undefined,
+          resultado_id: mostrarResultado ? resultadoSel || undefined : undefined,
           enlace_url: enlace.trim() || undefined,
         }),
       });
@@ -296,6 +333,10 @@ export default function DealDetalleClient({ deal, stages, canWrite, vendedores =
       // Termómetro y sugerencia de avance devueltos por el servidor (REQ-06)
       if (data.temperatura) setTemperatura(data.temperatura as Temperatura);
       if (data.sugerir_avance) setSugerirAvance(true);
+      // Cierre de ciclo (SOL-04): el resultado sugiere agendar la próxima acción
+      if (data.sugerir_reagendar) {
+        setToast({ type: "success", message: "Registrado. El resultado sugiere agendar la próxima acción." });
+      }
       // En modo AUTOMÁTICO el servidor ya avanzó de etapa y registró el evento SISTEMA:
       // refrescar para reflejar la nueva etapa y la entrada en la bitácora.
       if (data.avanzo_etapa) router.refresh();
@@ -304,6 +345,7 @@ export default function DealDetalleClient({ deal, stages, canWrite, vendedores =
       setFechaEvento(ahoraLocal());
       setExitosa(true);
       setSeguimiento("");
+      setResultadoSel("");
       setEnlace("");
     } catch {
       setToast({ type: "error", message: "No se pudo guardar la actividad." });
@@ -311,6 +353,11 @@ export default function DealDetalleClient({ deal, stages, canWrite, vendedores =
       setGuardando(false);
     }
   }
+
+  // Composer basado en catálogo (SOL-04); con fallback a los pills fijos si no hay tipos configurados.
+  const catalogoTipos = tiposAccion.length > 0;
+  const mostrarInteraccion = catalogoTipos ? !!tipoAccionSel?.con_resultado : tipoNueva !== "NOTA";
+  const mostrarResultado = mostrarInteraccion && resultadosAccion.length > 0;
 
   return (
     <div className="flex h-full flex-col">
@@ -531,21 +578,42 @@ export default function DealDetalleClient({ deal, stages, canWrite, vendedores =
               }}
             >
               <div className="mb-3 flex flex-wrap items-center gap-2">
-                {TIPO_PILLS.map(({ tipo, label, icon: Icon }) => (
-                  <button
-                    key={tipo}
-                    onClick={() => setTipoNueva(tipo)}
-                    className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold transition-colors ${
-                      tipoNueva === tipo ? "border-navy bg-navy text-white" : "border-surface-border text-gray-500 hover:bg-surface"
-                    }`}
-                  >
-                    <Icon size={13} /> {label}
-                  </button>
-                ))}
+                {catalogoTipos
+                  ? tiposAccion.map((t) => {
+                      const activo = tipoAccionSel?.id === t.id;
+                      return (
+                        <button
+                          key={t.id}
+                          onClick={() => {
+                            setTipoAccionSel(t);
+                            setTipoNueva(tipoLegado(t.nombre));
+                            if (!t.con_resultado) setResultadoSel("");
+                          }}
+                          className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold transition-colors ${
+                            activo ? "text-white" : "border-surface-border text-gray-500 hover:bg-surface"
+                          }`}
+                          style={activo ? { background: t.color, borderColor: t.color } : undefined}
+                        >
+                          <span className="h-2 w-2 rounded-full" style={{ background: activo ? "#fff" : t.color }} />
+                          {t.nombre}
+                        </button>
+                      );
+                    })
+                  : TIPO_PILLS.map(({ tipo, label, icon: Icon }) => (
+                      <button
+                        key={tipo}
+                        onClick={() => setTipoNueva(tipo)}
+                        className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold transition-colors ${
+                          tipoNueva === tipo ? "border-navy bg-navy text-white" : "border-surface-border text-gray-500 hover:bg-surface"
+                        }`}
+                      >
+                        <Icon size={13} /> {label}
+                      </button>
+                    ))}
               </div>
 
-              {/* Campos según el tipo */}
-              {tipoNueva !== "NOTA" && (
+              {/* Campos según el tipo (catálogo: cuando el tipo captura resultado) */}
+              {mostrarInteraccion && (
                 <div className="mb-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <label className="flex flex-col gap-1 text-[11px] font-medium text-gray-500">
                     {tipoNueva === "EMAIL" ? "¿A quién?" : "¿Con quién?"}
@@ -570,6 +638,24 @@ export default function DealDetalleClient({ deal, stages, canWrite, vendedores =
                   {tipoNueva === "LLAMADA" && (
                     <label className="flex items-center gap-2 text-sm text-gray-600 sm:col-span-2">
                       <input type="checkbox" checked={exitosa} onChange={(e) => setExitosa(e.target.checked)} className="h-4 w-4" /> ¿Contestó / fue exitosa?
+                    </label>
+                  )}
+                  {mostrarResultado && (
+                    <label className="flex flex-col gap-1 text-[11px] font-medium text-gray-500 sm:col-span-2">
+                      Resultado <span className="font-normal text-gray-400">(ajusta el termómetro)</span>
+                      <select
+                        value={resultadoSel}
+                        onChange={(e) => setResultadoSel(e.target.value)}
+                        className="rounded-lg border border-surface-border bg-white px-3 py-2 text-sm text-navy outline-none focus:border-orange"
+                      >
+                        <option value="">— Sin registrar resultado —</option>
+                        {resultadosAccion.map((r) => (
+                          <option key={r.id} value={r.id}>
+                            {r.nombre}
+                            {r.efecto === "POSITIVO" ? "  ▲" : r.efecto === "NEGATIVO" ? "  ▼" : ""}
+                          </option>
+                        ))}
+                      </select>
                     </label>
                   )}
                 </div>
@@ -660,6 +746,29 @@ export default function DealDetalleClient({ deal, stages, canWrite, vendedores =
                       <div className="flex flex-wrap items-center gap-2 text-xs">
                         <span className="font-semibold text-navy">{a.autor}</span>
                         {a.contacto_nombre && <span className="text-gray-400">· con {a.contacto_nombre}</span>}
+                        {/* Modelo de actividad (SOL-04): tipo del catálogo (color), estado y resultado */}
+                        {a.tipo_accion && (
+                          <span
+                            className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-semibold"
+                            style={{ background: a.tipo_accion.color + "1A", color: a.tipo_accion.color }}
+                          >
+                            <span className="h-1.5 w-1.5 rounded-full" style={{ background: a.tipo_accion.color }} />
+                            {a.tipo_accion.nombre}
+                          </span>
+                        )}
+                        {a.estado_plan && (
+                          <span className={`rounded px-1.5 py-0.5 text-[10px] font-semibold ${ESTADO_PLAN_META[a.estado_plan].chip}`}>
+                            {ESTADO_PLAN_META[a.estado_plan].label}
+                          </span>
+                        )}
+                        {a.resultado && (
+                          <span className={`flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-semibold ${EFECTO_META[a.resultado.efecto].chip}`}>
+                            {EFECTO_META[a.resultado.efecto].arrow && (
+                              <span>{EFECTO_META[a.resultado.efecto].arrow}</span>
+                            )}
+                            {a.resultado.nombre}
+                          </span>
+                        )}
                         {a.tipo === "LLAMADA" && a.exitosa !== null && (
                           <span className={`flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-semibold ${a.exitosa ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}>
                             <span className="h-1.5 w-1.5 rounded-full" style={{ background: a.exitosa ? "#1D9E75" : "#F5A623" }} />

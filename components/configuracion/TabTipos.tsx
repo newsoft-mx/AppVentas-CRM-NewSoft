@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
-import { Plus, Pencil, Tag } from "lucide-react";
+import { Plus, Pencil } from "lucide-react";
 import Modal from "@/components/ui/Modal";
 import Toast, { ToastData } from "@/components/ui/Toast";
 import type { TipoCotizacion } from "@/types/configuracion";
@@ -14,13 +14,17 @@ interface FormState {
   nombre: string;
   descripcion: string;
   texto_contrato: string;
+  color: string;
   activo: boolean;
 }
+
+const COLOR_DEFAULT = "#6B7A99";
 
 const emptyForm: FormState = {
   nombre: "",
   descripcion: "",
   texto_contrato: "",
+  color: COLOR_DEFAULT,
   activo: true,
 };
 
@@ -51,6 +55,7 @@ export default function TabTipos({ initialTipos }: TabTiposProps) {
       nombre: tipo.nombre,
       descripcion: tipo.descripcion ?? "",
       texto_contrato: tipo.texto_contrato ?? "",
+      color: tipo.color ?? COLOR_DEFAULT,
       activo: tipo.activo,
     });
     setFormError("");
@@ -120,12 +125,14 @@ export default function TabTipos({ initialTipos }: TabTiposProps) {
             nombre: form.nombre,
             descripcion: form.descripcion || null,
             texto_contrato: normalizeMarkdownText(form.texto_contrato) || null,
+            color: form.color,
             activo: form.activo,
           }
         : {
             nombre: form.nombre,
             descripcion: form.descripcion || null,
             texto_contrato: normalizeMarkdownText(form.texto_contrato) || null,
+            color: form.color,
           };
 
       const res = await fetch(url, {
@@ -287,6 +294,29 @@ export default function TabTipos({ initialTipos }: TabTiposProps) {
             </div>
 
             <div>
+              <label className="label">Color en reportes</label>
+              <p className="mb-2 text-xs text-gray-400">
+                Pinta la porción de este tipo en el gráfico &quot;ventas por tipo&quot;.
+              </p>
+              <div className="flex items-center gap-2">
+                <input
+                  type="color"
+                  value={form.color}
+                  onChange={(e) => setForm((f) => ({ ...f, color: e.target.value }))}
+                  className="h-9 w-12 shrink-0 cursor-pointer rounded border border-surface-border bg-white p-0.5"
+                  aria-label="Selector de color"
+                />
+                <input
+                  className="input font-mono uppercase"
+                  value={form.color}
+                  onChange={(e) => setForm((f) => ({ ...f, color: e.target.value }))}
+                  placeholder="#6B7A99"
+                  maxLength={7}
+                />
+              </div>
+            </div>
+
+            <div>
               <label className="label">Texto de contrato / condición</label>
               <p className="mb-2 text-xs text-gray-400">
                 Puedes pegar texto largo desde Notion en formato Markdown. Si pegas saltos como &lt;br&gt;, se convertirán a saltos de línea en el PDF.
@@ -395,7 +425,11 @@ function TipoRow({
     <tr className={`hover:bg-gray-50 transition-colors ${!tipo.activo ? "opacity-50" : ""}`}>
       <td className="px-4 py-3">
         <div className="flex items-center gap-2">
-          <Tag size={14} className="text-orange shrink-0" />
+          <span
+            className="h-3.5 w-3.5 shrink-0 rounded-full ring-1 ring-black/10"
+            style={{ background: tipo.color || "#6B7A99" }}
+            title={tipo.color || "#6B7A99"}
+          />
           <span className="font-medium text-gray-900">{tipo.nombre}</span>
         </div>
       </td>

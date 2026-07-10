@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Building2, Tag, CreditCard, UserRound, Users, Workflow, XCircle } from "lucide-react";
+import { Building2, Tag, CreditCard, UserRound, Users, Workflow, XCircle, Activity } from "lucide-react";
 import TabEmpresa from "./TabEmpresa";
 import TabTipos from "./TabTipos";
 import TabCondiciones from "./TabCondiciones";
@@ -9,9 +9,12 @@ import TabVendedores from "./TabVendedores";
 import TabUsuarios from "./TabUsuarios";
 import TabPipelineStages from "./TabPipelineStages";
 import TabMotivosPerdida from "./TabMotivosPerdida";
+import TabModeloActividad from "./TabModeloActividad";
 import type { Empresa, TipoCotizacion, CondicionComercial, Vendedor, Usuario, PipelineStageConfig } from "@/types/configuracion";
 
 interface MotivoPerdida { id: string; nombre: string; orden: number; activo: boolean; }
+interface TipoAccionCfg { id: string; nombre: string; color: string; agendable: boolean; con_resultado: boolean; activo: boolean; }
+interface ResultadoAccionCfg { id: string; nombre: string; efecto: "POSITIVO" | "NEUTRO" | "NEGATIVO"; sugiere_reagendar: boolean; activo: boolean; }
 
 interface ConfiguracionClientProps {
   initialEmpresa: Empresa | null;
@@ -21,6 +24,8 @@ interface ConfiguracionClientProps {
   initialUsuarios: Usuario[];
   initialStages: PipelineStageConfig[];
   initialMotivos: MotivoPerdida[];
+  initialTiposAccion: TipoAccionCfg[];
+  initialResultados: ResultadoAccionCfg[];
 }
 
 const TABS = [
@@ -31,6 +36,7 @@ const TABS = [
   { id: "usuarios", label: "Usuarios", icon: Users },
   { id: "pipeline", label: "Etapas del Pipeline", icon: Workflow },
   { id: "motivos", label: "Motivos de pérdida", icon: XCircle },
+  { id: "actividad", label: "Modelo de actividad", icon: Activity },
 ] as const;
 
 type TabId = (typeof TABS)[number]["id"];
@@ -43,6 +49,8 @@ export default function ConfiguracionClient({
   initialUsuarios,
   initialStages,
   initialMotivos,
+  initialTiposAccion,
+  initialResultados,
 }: ConfiguracionClientProps) {
   const [activeTab, setActiveTab] = useState<TabId>("empresa");
 
@@ -120,6 +128,10 @@ export default function ConfiguracionClient({
 
           {activeTab === "motivos" && (
             <TabMotivosPerdida initialMotivos={initialMotivos} />
+          )}
+
+          {activeTab === "actividad" && (
+            <TabModeloActividad initialTipos={initialTiposAccion} initialResultados={initialResultados} />
           )}
         </div>
       </div>

@@ -5,6 +5,7 @@ import { scopeDealWhere } from "@/lib/access-control";
 import { getCrmConfig, toParametrosTermometro } from "@/lib/crm-config";
 import {
   subirTemperatura,
+  ajustarTemperatura,
   cruzaUmbralAvance,
   actividadExitosa,
 } from "@/lib/termometro";
@@ -33,16 +34,28 @@ export async function POST(
     return NextResponse.json({ error: "JSON inválido" }, { status: 400 });
   }
 
-  const { tipo, contenido, contacto_id, fecha_evento, exitosa, fecha_tarea, enlace_url } =
-    (body ?? {}) as {
-      tipo?: string;
-      contenido?: string;
-      contacto_id?: string;
-      fecha_evento?: string;
-      exitosa?: boolean;
-      fecha_tarea?: string;
-      enlace_url?: string;
-    };
+  const {
+    tipo,
+    contenido,
+    contacto_id,
+    fecha_evento,
+    exitosa,
+    fecha_tarea,
+    enlace_url,
+    tipo_accion_id,
+    resultado_id,
+  } = (body ?? {}) as {
+    tipo?: string;
+    contenido?: string;
+    contacto_id?: string;
+    fecha_evento?: string;
+    exitosa?: boolean;
+    fecha_tarea?: string;
+    enlace_url?: string;
+    // Modelo de actividad (SOL-04): tipo del catálogo + resultado (mueve el termómetro)
+    tipo_accion_id?: string;
+    resultado_id?: string;
+  };
 
   if (!tipo || !TIPOS.includes(tipo as (typeof TIPOS)[number])) {
     return NextResponse.json({ error: "Tipo inválido", campo: "tipo" }, { status: 422 });
@@ -81,6 +94,32 @@ export async function POST(
 
     const exitosaVal = tipoActividad === "LLAMADA" ? (typeof exitosa === "boolean" ? exitosa : null) : null;
 
+    // ── Modelo de actividad (SOL-04): valida tipo/resultado del catálogo y captura su efecto.
+    let tipoAccionId: string | null = null;
+    if (tipo_accion_id) {
+      const ta = await prisma.tipoAccion.findFirst({
+        where: { id: tipo_accion_id, activo: true },
+        select: { id: true },
+      });
+      tipoAccionId = ta?.id ?? null;
+    }
+    let resultadoId: string | null = null;
+    let efectoResultado: "POSITIVO" | "NEUTRO" | "NEGATIVO" | null = null;
+    let sugiereReagendar = false;
+    if (resultado_id) {
+      const r = await prisma.resultadoAccion.findFirst({
+        where: { id: resultado_id, activo: true },
+        select: { id: true, efecto: true, sugiere_reagendar: true },
+      });
+      if (r) {
+        resultadoId = r.id;
+        efectoResultado = r.efecto;
+        sugiereReagendar = r.sugiere_reagendar;
+      }
+    }
+    // Estado de planeación: si capturó resultado, la acción está REALIZADA; si agenda a futuro, PLANEADA.
+    const estadoPlan = resultadoId ? "REALIZADA" : fecha_tarea ? "PLANEADA" : null;
+
     const actividad = await prisma.dealActividad.create({
       data: {
         deal_id: id,
@@ -96,25 +135,43 @@ export async function POST(
         // Seguimiento opcional: agenda el próximo paso (con fecha y hora)
         es_tarea: Boolean(fecha_tarea),
         fecha_tarea: fecha_tarea ? new Date(fecha_tarea) : null,
+        // Modelo de actividad (SOL-04)
+        tipo_accion_id: tipoAccionId,
+        resultado_id: resultadoId,
+        estado_plan: estadoPlan,
       },
-      include: { contacto: { select: { nombre: true } } },
+      include: {
+        contacto: { select: { nombre: true } },
+        tipo_accion: { select: { id: true, nombre: true, color: true } },
+        resultado: { select: { id: true, nombre: true, efecto: true } },
+      },
     });
 
-    // ── Termómetro (REQ-06): una actividad exitosa sube la temperatura; la fallida no.
+    // ── Termómetro: el resultado del catálogo (SOL-04) define el efecto (positivo sube, negativo baja);
+    // si la actividad no captura resultado, se mantiene la lógica legada (actividad exitosa sube).
     let temperaturaActual = deal.temperatura as Temperatura;
     let sugerirAvance = false;
     let avanzoEtapa = false;
-    if (actividadExitosa(tipoActividad, exitosaVal)) {
-      const config = await getCrmConfig();
-      const nueva = subirTemperatura(temperaturaActual, tipoActividad, toParametrosTermometro(config));
-      const subio = nueva !== temperaturaActual;
-      if (subio) {
-        temperaturaActual = nueva;
-        await prisma.deal.update({ where: { id }, data: { temperatura: nueva } });
-      }
-      const cruza = cruzaUmbralAvance(temperaturaActual, deal.stage.umbral_avance as Temperatura | null);
-      // Solo actuar cuando la temperatura cambió (evita re-sugerir en cada nota a tope)
-      if (cruza && subio) {
+    const config = await getCrmConfig();
+
+    let nuevaTemp = temperaturaActual;
+    if (efectoResultado) {
+      const delta = efectoResultado === "POSITIVO" ? 1 : efectoResultado === "NEGATIVO" ? -1 : 0;
+      nuevaTemp = ajustarTemperatura(temperaturaActual, delta);
+    } else if (actividadExitosa(tipoActividad, exitosaVal)) {
+      nuevaTemp = subirTemperatura(temperaturaActual, tipoActividad, toParametrosTermometro(config));
+    }
+
+    const cambio = nuevaTemp !== temperaturaActual;
+    // "Subió" solo cuenta para avance de etapa; un resultado negativo baja pero no avanza.
+    const subio = cambio && efectoResultado !== "NEGATIVO";
+    if (cambio) {
+      temperaturaActual = nuevaTemp;
+      await prisma.deal.update({ where: { id }, data: { temperatura: nuevaTemp } });
+    }
+    const cruza = cruzaUmbralAvance(temperaturaActual, deal.stage.umbral_avance as Temperatura | null);
+    // Solo sugerir/avanzar cuando la temperatura subió (evita re-sugerir en cada nota a tope)
+    if (cruza && subio) {
         if (config.avance_modo === "AUTOMATICO") {
           // Avanzar a la siguiente etapa activa (por orden)
           const siguiente = await prisma.pipelineStage.findFirst({
@@ -148,7 +205,6 @@ export async function POST(
         } else {
           sugerirAvance = true; // modo SUGERIR → el front muestra el banner
         }
-      }
     }
 
     return NextResponse.json(
@@ -168,10 +224,19 @@ export async function POST(
           enlace_url: actividad.enlace_url,
           fecha_tarea: actividad.fecha_tarea ? actividad.fecha_tarea.toISOString() : null,
           created_at: actividad.created_at.toISOString(),
+          estado_plan: actividad.estado_plan,
+          tipo_accion: actividad.tipo_accion
+            ? { id: actividad.tipo_accion.id, nombre: actividad.tipo_accion.nombre, color: actividad.tipo_accion.color }
+            : null,
+          resultado: actividad.resultado
+            ? { id: actividad.resultado.id, nombre: actividad.resultado.nombre, efecto: actividad.resultado.efecto }
+            : null,
         },
         temperatura: temperaturaActual,
         sugerir_avance: sugerirAvance,
         avanzo_etapa: avanzoEtapa,
+        // Cierre de ciclo (SOL-04): el resultado sugiere agendar la próxima acción
+        sugerir_reagendar: sugiereReagendar,
       },
       { status: 201 }
     );

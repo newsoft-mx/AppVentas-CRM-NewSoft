@@ -56,3 +56,6 @@ next-env.d.ts
 # Editor
 .vscode/
 .idea/
+
+# Config local de Claude Code (no versionar)
+.claude/

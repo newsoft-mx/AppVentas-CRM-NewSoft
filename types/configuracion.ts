@@ -27,6 +27,7 @@ export interface TipoCotizacion {
   nombre: string;
   descripcion: string | null;
   texto_contrato: string | null;
+  color: string;
   activo: boolean;
   created_at: string;
 }

@@ -47,6 +47,15 @@ export function subirTemperatura(
   return desdeNivel(nivel(actual) + sube);
 }
 
+/**
+ * Mueve la temperatura N niveles (delta positivo sube, negativo baja), con clamp.
+ * Efecto del resultado de una acción del catálogo: POSITIVO → +1, NEGATIVO → −1.
+ */
+export function ajustarTemperatura(actual: Temperatura, delta: number): Temperatura {
+  if (delta === 0) return actual;
+  return desdeNivel(nivel(actual) + delta);
+}
+
 /** Enfría la temperatura cuando el deal supera el umbral de inactividad. */
 export function enfriarPorInactividad(
   actual: Temperatura,
