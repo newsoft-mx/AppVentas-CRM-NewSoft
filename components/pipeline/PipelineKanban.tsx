@@ -2,34 +2,24 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Filter, Building2, Clock, LayoutGrid, List, ArrowDownUp, PauseCircle, Flame, CalendarClock, XCircle } from "lucide-react";
+import { Plus, Filter, Building2, Clock, LayoutGrid, List, ArrowDownUp, Flame, CalendarClock, Search } from "lucide-react";
 import {
   TEMPERATURA_META,
   TEMPERATURAS_CALIENTES,
   TEMPERATURA_RANK,
   ATENCION_META,
+  ESTADO_DEAL_META,
   type DealResumen,
+  type DealResultado,
   type StageResumen,
 } from "@/types/crm";
 import NuevoDealModal from "@/components/pipeline/NuevoDealModal";
 import { formatCompacto, formatFechaHora } from "@/lib/utils";
 import Toast, { ToastData } from "@/components/ui/Toast";
 
-interface PerdidoItem {
-  id: string;
-  nombre: string;
-  valor: number;
-  moneda: string;
-  razon_perdida: string | null;
-  fecha_cierre_real: string | null;
-  cliente: string | null;
-  vendedor: string | null;
-}
-
 interface Props {
   stages: StageResumen[];
   deals: DealResumen[];
-  perdidos?: PerdidoItem[];
   vendedores: { id: string; nombre: string }[];
   clientes: { id: string; nombre: string }[];
   tipos: { id: string; nombre: string }[];
@@ -37,13 +27,19 @@ interface Props {
   altas: { hoy: number; semana: number; mes: number };
 }
 
+// Estados en orden de aparición (columnas sintéticas / chips). ABIERTO se
+// muestra en las columnas de etapa; el resto en columnas de estado.
+const ESTADOS_ORDEN: DealResultado[] = ["ABIERTO", "SUSPENDIDO", "GANADO", "PERDIDO"];
+const ESTADOS_DEFAULT: DealResultado[] = ["ABIERTO", "SUSPENDIDO"];
 
-export default function PipelineKanban({ stages, deals, perdidos = [], vendedores, clientes, tipos, canWrite, altas }: Props) {
+export default function PipelineKanban({ stages, deals, vendedores, clientes, tipos, canWrite, altas }: Props) {
   const router = useRouter();
   const [items, setItems] = useState<DealResumen[]>(deals);
   const [vendedorFiltro, setVendedorFiltro] = useState<string>("todos");
   const [tipoFiltro, setTipoFiltro] = useState<string>("todos");
-  const [verPerdidos, setVerPerdidos] = useState(false);
+  const [busqueda, setBusqueda] = useState("");
+  // Filtro multi-estado (SOL-18): unión de los estados seleccionados.
+  const [estadosSel, setEstadosSel] = useState<Set<DealResultado>>(new Set(ESTADOS_DEFAULT));
   const [vista, setVista] = useState<"tablero" | "lista">("tablero");
   const [orden, setOrden] = useState<"none" | "valor" | "temperatura" | "probabilidad" | "actividad" | "seguimiento">("none");
   const [dragId, setDragId] = useState<string | null>(null);
@@ -51,15 +47,39 @@ export default function PipelineKanban({ stages, deals, perdidos = [], vendedore
   const [toast, setToast] = useState<ToastData | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
 
-  const filtered = useMemo(
+  // Filtro por vendedor + tipo + búsqueda (SOL-17), ANTES del estado: sirve para
+  // contar cuántos deals hay por estado en el contexto actual.
+  const q = busqueda.trim().toLowerCase();
+  const preEstado = useMemo(
     () =>
       items.filter(
         (d) =>
           (vendedorFiltro === "todos" || d.vendedor?.id === vendedorFiltro) &&
-          (tipoFiltro === "todos" || d.tipo?.id === tipoFiltro)
+          (tipoFiltro === "todos" || d.tipo?.id === tipoFiltro) &&
+          (!q ||
+            d.nombre.toLowerCase().includes(q) ||
+            (d.cliente?.nombre.toLowerCase().includes(q) ?? false) ||
+            d.contactos.some((n) => n.toLowerCase().includes(q)))
       ),
-    [items, vendedorFiltro, tipoFiltro]
+    [items, vendedorFiltro, tipoFiltro, q]
   );
+  // Conteo por estado (para los chips) + set final filtrado por estado.
+  const countPorEstado = useMemo(() => {
+    const c: Record<DealResultado, number> = { ABIERTO: 0, SUSPENDIDO: 0, GANADO: 0, PERDIDO: 0 };
+    for (const d of preEstado) c[d.resultado]++;
+    return c;
+  }, [preEstado]);
+  const filtered = useMemo(() => preEstado.filter((d) => estadosSel.has(d.resultado)), [preEstado, estadosSel]);
+
+  function toggleEstado(est: DealResultado) {
+    setEstadosSel((prev) => {
+      const next = new Set(prev);
+      if (next.has(est)) next.delete(est);
+      else next.add(est);
+      // Nunca dejar el filtro vacío: "limpiar" restablece la vista por defecto (activos).
+      return next.size === 0 ? new Set(ESTADOS_DEFAULT) : next;
+    });
+  }
 
   function sortDeals(arr: DealResumen[]): DealResumen[] {
     if (orden === "none") return arr;
@@ -79,19 +99,31 @@ export default function PipelineKanban({ stages, deals, perdidos = [], vendedore
     return copy;
   }
 
-  // Deals activos (en etapas) vs suspendidos (columna Pausados)
+  // KPIs: siempre sobre el pipeline activo (ABIERTO), independiente de los chips de estado.
+  const activosKpi = preEstado.filter((d) => d.resultado === "ABIERTO");
+  const valorTotal = activosKpi.reduce((s, d) => s + d.valor, 0);
+  const calientes = activosKpi.filter((d) => TEMPERATURAS_CALIENTES.includes(d.temperatura)).length;
+  const promedio = activosKpi.length ? valorTotal / activosKpi.length : 0;
+
+  // Deals visibles según el filtro de estado.
   const activos = filtered.filter((d) => d.resultado === "ABIERTO");
-  const pausados = filtered.filter((d) => d.resultado === "SUSPENDIDO");
-
-  // KPIs (solo activos)
-  const valorTotal = activos.reduce((s, d) => s + d.valor, 0);
-  const calientes = activos.filter((d) =>
-    TEMPERATURAS_CALIENTES.includes(d.temperatura)
-  ).length;
-  const promedio = activos.length ? valorTotal / activos.length : 0;
-
-  const dealsByStage = (stageId: string) =>
-    sortDeals(activos.filter((d) => d.stage_id === stageId));
+  const dealsByStage = (stageId: string) => sortDeals(activos.filter((d) => d.stage_id === stageId));
+  // Deals de un estado no-abierto → columna sintética.
+  const dealsDeEstado = (est: DealResultado) => sortDeals(filtered.filter((d) => d.resultado === est));
+  // Motivos de perdidos en el set filtrado (SOL-06 preservado como strip).
+  const perdidosFiltrados = filtered.filter((d) => d.resultado === "PERDIDO");
+  const motivosPerdida = Object.entries(
+    perdidosFiltrados.reduce((acc, p) => {
+      const k = p.razon_perdida ?? "Sin motivo";
+      acc[k] = (acc[k] ?? 0) + 1;
+      return acc;
+    }, {} as Record<string, number>)
+  ).sort((a, b) => b[1] - a[1]);
+  // Estados no-abiertos a mostrar como columnas sintéticas (según selección).
+  const estadosSinteticos = (["SUSPENDIDO", "GANADO", "PERDIDO"] as DealResultado[]).filter(
+    (est) => estadosSel.has(est) && filtered.some((d) => d.resultado === est)
+  );
+  const hayColumnas = (estadosSel.has("ABIERTO") && activos.length > 0) || estadosSinteticos.length > 0;
 
   async function moverDeal(dealId: string, nuevoStageId: string) {
     const prev = items;
@@ -164,6 +196,16 @@ export default function PipelineKanban({ stages, deals, perdidos = [], vendedore
               </option>
             ))}
           </select>
+          {/* Buscador (SOL-17): deal, cliente o contacto; se combina con los filtros */}
+          <div className="flex items-center gap-1.5 rounded-lg border border-surface-border bg-white px-2.5 py-1.5 focus-within:border-orange">
+            <Search size={14} className="shrink-0 text-gray-400" />
+            <input
+              value={busqueda}
+              onChange={(e) => setBusqueda(e.target.value)}
+              placeholder="Buscar deal, cliente o contacto…"
+              className="w-48 bg-transparent text-sm text-navy outline-none placeholder:text-gray-400"
+            />
+          </div>
           {/* Toggle tablero / lista */}
           <div className="flex overflow-hidden rounded-lg border border-surface-border">
             <button
@@ -205,13 +247,29 @@ export default function PipelineKanban({ stages, deals, perdidos = [], vendedore
         <Kpi label="Esta semana" value={String(altas.semana)} />
         <Kpi label="Este mes" value={String(altas.mes)} />
         <div className="ml-auto flex items-center gap-2">
-          {/* Ver perdidos (SOL-06) — análisis de pérdida junto al pipeline */}
-          <button
-            onClick={() => setVerPerdidos((v) => !v)}
-            className={`flex items-center gap-1 rounded-lg border px-2.5 py-1.5 text-xs font-semibold transition-colors ${verPerdidos ? "border-red-300 bg-red-50 text-red-700" : "border-surface-border text-gray-500 hover:bg-surface"}`}
-          >
-            <XCircle size={13} /> Perdidos ({perdidos.length})
-          </button>
+          {/* Filtro multi-estado (SOL-18): chips unión activo/pausado/ganado/perdido */}
+          <div className="flex items-center gap-1">
+            {ESTADOS_ORDEN.map((est) => {
+              const meta = ESTADO_DEAL_META[est];
+              const on = estadosSel.has(est);
+              return (
+                <button
+                  key={est}
+                  onClick={() => toggleEstado(est)}
+                  className="flex items-center gap-1 rounded-lg border px-2 py-1.5 text-xs font-semibold transition-colors"
+                  style={
+                    on
+                      ? { borderColor: meta.color, color: meta.color, background: `${meta.color}14` }
+                      : { borderColor: "var(--surface-border, #E5E7EB)", color: "#9CA3AF" }
+                  }
+                  title={`${on ? "Ocultar" : "Mostrar"} ${meta.label.toLowerCase()}s`}
+                >
+                  <span className="h-1.5 w-1.5 rounded-full" style={{ background: meta.color }} />
+                  {meta.label} ({countPorEstado[est]})
+                </button>
+              );
+            })}
+          </div>
           <ArrowDownUp size={14} className="text-gray-400" />
           <select
             value={orden}
@@ -229,11 +287,26 @@ export default function PipelineKanban({ stages, deals, perdidos = [], vendedore
         </div>
       </div>
 
+      {/* Strip de motivos de pérdida (SOL-06): visible cuando hay perdidos en el filtro */}
+      {perdidosFiltrados.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2 border-b border-surface-border bg-white px-6 py-2.5">
+          <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">Motivos de pérdida</span>
+          {motivosPerdida.map(([razon, n]) => (
+            <span key={razon} className="inline-flex items-center gap-1.5 rounded-full border border-red-200 bg-red-50 px-2.5 py-0.5 text-xs font-medium text-red-700">
+              {razon} <span className="rounded-full bg-red-100 px-1.5">{n}</span>
+            </span>
+          ))}
+        </div>
+      )}
+
       {/* Tablero Kanban */}
-      {!verPerdidos && vista === "tablero" && (
+      {vista === "tablero" && (
       <div className="flex-1 overflow-x-auto bg-surface px-6 py-5">
+        {!hayColumnas ? (
+          <div className="rounded-xl border border-surface-border bg-white p-12 text-center text-gray-400">Sin deals con estos filtros.</div>
+        ) : (
         <div className="flex min-w-max items-start gap-3.5">
-          {stages.map((stage) => {
+          {estadosSel.has("ABIERTO") && stages.map((stage) => {
             const stageDeals = dealsByStage(stage.id);
             const totalStage = stageDeals.reduce((s, d) => s + d.valor, 0);
             const isOver = overStage === stage.id;
@@ -293,40 +366,47 @@ export default function PipelineKanban({ stages, deals, perdidos = [], vendedore
             );
           })}
 
-          {/* Columna sintética: deals suspendidos (estado, no etapa) */}
-          {pausados.length > 0 && (
-            <div className="flex w-60 shrink-0 flex-col">
-              <div className="rounded-t-xl border border-b-0 border-surface-border bg-white px-3.5 py-2.5">
-                <div className="flex items-center justify-between">
-                  <span className="flex items-center gap-1 text-xs font-bold text-navy"><PauseCircle size={13} className="text-[#2A5298]" /> Pausados</span>
-                  <span className="rounded-full bg-surface px-2 py-0.5 text-[11px] font-semibold text-gray-400">{pausados.length}</span>
+          {/* Columnas sintéticas por estado (pausado/ganado/perdido) — SOL-18 */}
+          {estadosSinteticos.map((est) => {
+            const meta = ESTADO_DEAL_META[est];
+            const dealsEst = dealsDeEstado(est);
+            return (
+              <div key={est} className="flex w-60 shrink-0 flex-col">
+                <div className="rounded-t-xl border border-b-0 border-surface-border bg-white px-3.5 py-2.5">
+                  <div className="flex items-center justify-between">
+                    <span className="flex items-center gap-1 text-xs font-bold text-navy">
+                      <span className="h-2 w-2 rounded-full" style={{ background: meta.color }} /> {meta.label}s
+                    </span>
+                    <span className="rounded-full bg-surface px-2 py-0.5 text-[11px] font-semibold text-gray-400">{dealsEst.length}</span>
+                  </div>
+                  <div className="mt-1.5 h-[3px] rounded-full" style={{ background: meta.color, opacity: 0.7 }} />
+                  <div className="mt-1.5 text-[13px] font-bold text-navy">
+                    {formatCompacto(dealsEst.reduce((s, d) => s + d.valor, 0))}{" "}
+                    <span className="text-[10px] font-medium text-gray-400">MXN</span>
+                  </div>
                 </div>
-                <div className="mt-1.5 h-[3px] rounded-full" style={{ background: "#2A5298", opacity: 0.7 }} />
-                <div className="mt-1.5 text-[13px] font-bold text-navy">
-                  {formatCompacto(pausados.reduce((s, d) => s + d.valor, 0))}{" "}
-                  <span className="text-[10px] font-medium text-gray-400">MXN</span>
+                <div className="flex min-h-[120px] flex-col gap-2 rounded-b-xl border border-t-0 border-surface-border bg-surface p-2">
+                  {dealsEst.map((deal) => (
+                    <DealCard
+                      key={deal.id}
+                      deal={deal}
+                      draggable={false}
+                      onDragStart={() => {}}
+                      onDragEnd={() => {}}
+                      onClick={() => router.push(`/pipeline/${deal.id}`)}
+                    />
+                  ))}
                 </div>
               </div>
-              <div className="flex min-h-[120px] flex-col gap-2 rounded-b-xl border border-t-0 border-surface-border bg-surface p-2">
-                {pausados.map((deal) => (
-                  <DealCard
-                    key={deal.id}
-                    deal={deal}
-                    draggable={false}
-                    onDragStart={() => {}}
-                    onDragEnd={() => {}}
-                    onClick={() => router.push(`/pipeline/${deal.id}`)}
-                  />
-                ))}
-              </div>
-            </div>
-          )}
+            );
+          })}
         </div>
+        )}
       </div>
       )}
 
-      {/* Vista lista */}
-      {!verPerdidos && vista === "lista" && (
+      {/* Vista lista — todos los estados seleccionados, con columna Estado (SOL-18) */}
+      {vista === "lista" && (
         <div className="flex-1 overflow-auto bg-surface px-6 py-5">
           <div className="overflow-hidden rounded-xl border border-surface-border bg-white">
             <table className="w-full text-sm">
@@ -334,6 +414,7 @@ export default function PipelineKanban({ stages, deals, perdidos = [], vendedore
                 <tr className="border-b border-surface-border bg-gray-50 text-left text-[11px] uppercase tracking-wide text-gray-500">
                   <th className="px-4 py-3 font-semibold">Deal</th>
                   <th className="px-4 py-3 font-semibold">Cliente</th>
+                  <th className="px-4 py-3 font-semibold">Estado</th>
                   <th className="px-4 py-3 font-semibold">Etapa</th>
                   <th className="px-4 py-3 text-center font-semibold">Temp.</th>
                   <th className="px-4 py-3 text-center font-semibold">Prob.</th>
@@ -344,12 +425,18 @@ export default function PipelineKanban({ stages, deals, perdidos = [], vendedore
                 </tr>
               </thead>
               <tbody className="divide-y divide-surface-border">
-                {sortDeals(activos).map((d) => {
+                {sortDeals(filtered).map((d) => {
                   const t = TEMPERATURA_META[d.temperatura];
+                  const est = ESTADO_DEAL_META[d.resultado];
                   return (
                     <tr key={d.id} onClick={() => router.push(`/pipeline/${d.id}`)} className="cursor-pointer hover:bg-surface">
                       <td className="px-4 py-2.5 font-semibold text-navy">{d.nombre}</td>
                       <td className="px-4 py-2.5 text-gray-600">{d.cliente?.nombre ?? "—"}</td>
+                      <td className="px-4 py-2.5">
+                        <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold" style={{ background: `${est.color}1A`, color: est.color }}>
+                          <span className="h-1.5 w-1.5 rounded-full" style={{ background: est.color }} />{est.label}
+                        </span>
+                      </td>
                       <td className="px-4 py-2.5 text-gray-600">{stages.find((s) => s.id === d.stage_id)?.nombre ?? "—"}</td>
                       <td className="px-4 py-2.5 text-center">
                         <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold" style={{ background: `${t.color}1A`, color: t.color }}>
@@ -364,74 +451,21 @@ export default function PipelineKanban({ stages, deals, perdidos = [], vendedore
                     </tr>
                   );
                 })}
-                {activos.length === 0 && (
-                  <tr><td colSpan={9} className="px-4 py-8 text-center text-gray-400">Sin deals activos con estos filtros.</td></tr>
+                {filtered.length === 0 && (
+                  <tr><td colSpan={10} className="px-4 py-8 text-center text-gray-400">Sin deals con estos filtros.</td></tr>
                 )}
               </tbody>
-              {activos.length > 0 && (
+              {filtered.length > 0 && (
                 <tfoot>
                   <tr className="border-t border-surface-border bg-gray-50 font-bold text-navy">
-                    <td className="px-4 py-3" colSpan={7}>Total ({activos.length} deals)</td>
-                    <td className="px-4 py-3 text-right">{formatCompacto(activos.reduce((s, d) => s + d.valor, 0))}</td>
+                    <td className="px-4 py-3" colSpan={8}>Total ({filtered.length} deals)</td>
+                    <td className="px-4 py-3 text-right">{formatCompacto(filtered.reduce((s, d) => s + d.valor, 0))}</td>
                     <td className="px-4 py-3" />
                   </tr>
                 </tfoot>
               )}
             </table>
           </div>
-        </div>
-      )}
-
-      {/* Análisis de perdidos (SOL-06) — resumen por motivo + tabla a la ficha */}
-      {verPerdidos && (
-        <div className="flex-1 overflow-auto bg-surface px-6 py-5">
-          {perdidos.length === 0 ? (
-            <div className="rounded-xl border border-surface-border bg-white p-12 text-center text-gray-400">
-              Sin deals perdidos registrados.
-            </div>
-          ) : (
-            <div className="space-y-4">
-              <div className="flex flex-wrap gap-2">
-                {Object.entries(
-                  perdidos.reduce((acc, p) => {
-                    const k = p.razon_perdida ?? "Sin motivo";
-                    acc[k] = (acc[k] ?? 0) + 1;
-                    return acc;
-                  }, {} as Record<string, number>)
-                )
-                  .sort((a, b) => b[1] - a[1])
-                  .map(([razon, n]) => (
-                    <span key={razon} className="inline-flex items-center gap-1.5 rounded-full border border-red-200 bg-red-50 px-2.5 py-1 text-xs font-medium text-red-700">
-                      {razon} <span className="rounded-full bg-red-100 px-1.5">{n}</span>
-                    </span>
-                  ))}
-              </div>
-              <div className="overflow-hidden rounded-xl border border-surface-border bg-white">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-surface-border text-left text-xs uppercase tracking-wide text-gray-400">
-                      <th className="px-4 py-3 font-medium">Deal</th>
-                      <th className="px-4 py-3 font-medium">Cliente</th>
-                      <th className="px-4 py-3 font-medium">Motivo</th>
-                      <th className="px-4 py-3 text-right font-medium">Valor</th>
-                      <th className="px-4 py-3 font-medium">Cierre</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-surface-border">
-                    {perdidos.map((p) => (
-                      <tr key={p.id} onClick={() => router.push(`/pipeline/${p.id}`)} className="cursor-pointer transition-colors hover:bg-gray-50">
-                        <td className="px-4 py-3 font-medium text-navy">{p.nombre}</td>
-                        <td className="px-4 py-3 text-gray-600">{p.cliente ?? "—"}</td>
-                        <td className="px-4 py-3"><span className="rounded-full bg-red-50 px-2 py-0.5 text-xs font-medium text-red-700">{p.razon_perdida ?? "Sin motivo"}</span></td>
-                        <td className="px-4 py-3 text-right tabular-nums text-gray-700">{formatCompacto(p.valor)} {p.moneda}</td>
-                        <td className="px-4 py-3 text-xs text-gray-500">{p.fecha_cierre_real ? formatFechaHora(p.fecha_cierre_real) : "—"}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
         </div>
       )}
 

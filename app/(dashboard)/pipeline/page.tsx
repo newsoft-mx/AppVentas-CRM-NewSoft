@@ -27,12 +27,14 @@ export default async function PipelinePage() {
       orderBy: { orden: "asc" },
       select: { id: true, nombre: true, orden: true, color: true },
     }),
+    // Todos los estados del deal (SOL-18): el filtro multi-estado decide cuáles se ven.
     prisma.deal.findMany({
-      where: scopeDealWhere(session, { resultado: { in: ["ABIERTO", "SUSPENDIDO"] } }),
+      where: scopeDealWhere(session, { resultado: { in: ["ABIERTO", "SUSPENDIDO", "GANADO", "PERDIDO"] } }),
       include: {
         cliente: { select: { id: true, nombre: true } },
         vendedor: { select: { id: true, nombre: true } },
         tipo_cotizacion: { select: { id: true, nombre: true } },
+        contactos: { select: { nombre: true } },
         _count: { select: { actividades: true } },
         // Próximo seguimiento pendiente (tarea agendada más cercana)
         actividades: {
@@ -71,7 +73,7 @@ export default async function PipelinePage() {
 
   // Última actividad por deal — acotada a los deals cargados; + config + conteos por período
   const dealIds = deals.map((d) => d.id);
-  const [actsScore, ctx, nuevosHoy, nuevosSemana, nuevosMes, perdidosRaw] = await Promise.all([
+  const [actsScore, ctx, nuevosHoy, nuevosSemana, nuevosMes] = await Promise.all([
     // Actividades de todos los deals visibles en UNA query (para el score, sin N+1)
     prisma.dealActividad.findMany({
       where: { deal_id: { in: dealIds }, eliminada: false },
@@ -82,18 +84,6 @@ export default async function PipelinePage() {
     prisma.deal.count({ where: scopeDealWhere(session, { created_at: { gte: inicioDia } }) }),
     prisma.deal.count({ where: scopeDealWhere(session, { created_at: { gte: inicioSemana } }) }),
     prisma.deal.count({ where: scopeDealWhere(session, { created_at: { gte: inicioMes } }) }),
-    // Deals perdidos para la vista de análisis de pérdida (SOL-06, empezar chico)
-    prisma.deal.findMany({
-      where: scopeDealWhere(session, { resultado: "PERDIDO" }),
-      orderBy: { fecha_cierre_real: "desc" },
-      take: 100,
-      select: {
-        id: true, nombre: true, valor: true, moneda: true, razon_perdida: true,
-        fecha_cierre_real: true,
-        cliente: { select: { nombre: true } },
-        vendedor: { select: { nombre: true } },
-      },
-    }),
   ]);
   // Agrupa por deal: actividades (para el score) + última fecha (para atención). asc → última gana.
   const actsByDeal = new Map<string, { tipo_accion_id: string | null; resultado_id: string | null; created_at: Date }[]>();
@@ -144,25 +134,15 @@ export default async function PipelinePage() {
       cliente: d.cliente ? { id: d.cliente.id, nombre: d.cliente.nombre } : null,
       vendedor: d.vendedor ? { id: d.vendedor.id, nombre: d.vendedor.nombre } : null,
       tipo: d.tipo_cotizacion ? { id: d.tipo_cotizacion.id, nombre: d.tipo_cotizacion.nombre } : null,
+      contactos: d.contactos.map((c) => c.nombre),
+      razon_perdida: d.razon_perdida,
     };
   });
-
-  const perdidos = perdidosRaw.map((d) => ({
-    id: d.id,
-    nombre: d.nombre,
-    valor: Number(d.valor),
-    moneda: d.moneda,
-    razon_perdida: d.razon_perdida,
-    fecha_cierre_real: d.fecha_cierre_real ? d.fecha_cierre_real.toISOString() : null,
-    cliente: d.cliente?.nombre ?? null,
-    vendedor: d.vendedor?.nombre ?? null,
-  }));
 
   return (
     <PipelineKanban
       stages={stagesSerialized}
       deals={dealsSerialized}
-      perdidos={perdidos}
       vendedores={vendedores}
       clientes={clientes}
       tipos={tipos}
