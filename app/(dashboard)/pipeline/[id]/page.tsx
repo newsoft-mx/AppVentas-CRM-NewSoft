@@ -27,7 +27,7 @@ export default async function DealDetallePage({
   const deal = await prisma.deal.findFirst({
     where: scopeDealWhere(session, { id }),
     include: {
-      stage: { select: { id: true, nombre: true, orden: true, umbral_avance: true } },
+      stage: { select: { id: true, nombre: true, orden: true } },
       cliente: { select: { id: true, nombre: true, estatus: true } },
       vendedor: { select: { id: true, nombre: true } },
       tipo_cotizacion: { select: { id: true, nombre: true } },
@@ -101,6 +101,7 @@ export default async function DealDetallePage({
     mensualidad: deal.mensualidad != null ? Number(deal.mensualidad) : null,
     meses: deal.meses,
     // Score y sus derivaciones vienen del SSOT (dealScoreView), no de columnas persistidas.
+    score: view.score,
     temperatura: view.temperatura,
     probabilidad: view.probabilidad,
     canal: deal.canal,
@@ -115,7 +116,6 @@ export default async function DealDetallePage({
       id: deal.stage.id,
       nombre: deal.stage.nombre,
       orden: deal.stage.orden,
-      umbral_avance: deal.stage.umbral_avance as Temperatura | null,
     },
     cliente: deal.cliente,
     vendedor: deal.vendedor,

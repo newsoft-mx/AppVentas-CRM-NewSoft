@@ -552,6 +552,7 @@ export default function DealDetalleClient({
             <Termometro
               dealId={deal.id}
               temperatura={temperatura}
+              score={deal.score}
               canWrite={canWrite}
               onChange={setTemperatura}
             />

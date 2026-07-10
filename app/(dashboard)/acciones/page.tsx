@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { getServerSession } from "@/lib/server-session";
 import { scopeDealWhere } from "@/lib/access-control";
+import { getScoringContext, dealScoreView } from "@/lib/deal-score";
 import AccionesInbox from "@/components/pipeline/AccionesInbox";
 import type { Metadata } from "next";
 import type { AccionItem, Temperatura } from "@/types/crm";
@@ -31,7 +32,9 @@ export default async function AccionesPage() {
             id: true,
             nombre: true,
             valor: true,
-            temperatura: true,
+            ajuste_manual: true,
+            stage_id: true,
+            created_at: true,
             vendedor: { select: { id: true, nombre: true } },
           },
         },
@@ -45,6 +48,31 @@ export default async function AccionesPage() {
     }),
   ]);
 
+  // Temperatura derivada por deal (SSOT): actividades de todos los deals de la lista en una query batch
+  const dealIds = [...new Set(tareas.map((t) => t.deal.id))];
+  const [ctx, actsScore] = await Promise.all([
+    getScoringContext(),
+    prisma.dealActividad.findMany({
+      where: { deal_id: { in: dealIds }, eliminada: false },
+      select: { deal_id: true, tipo_accion_id: true, resultado_id: true, created_at: true },
+    }),
+  ]);
+  const actsByDeal = new Map<string, { tipo_accion_id: string | null; resultado_id: string | null; created_at: Date }[]>();
+  for (const a of actsScore) {
+    const arr = actsByDeal.get(a.deal_id) ?? [];
+    arr.push({ tipo_accion_id: a.tipo_accion_id, resultado_id: a.resultado_id, created_at: a.created_at });
+    actsByDeal.set(a.deal_id, arr);
+  }
+  const ahora = new Date();
+  const tempByDeal = new Map<string, Temperatura>();
+  for (const t of tareas) {
+    if (tempByDeal.has(t.deal.id)) continue;
+    tempByDeal.set(
+      t.deal.id,
+      dealScoreView(ctx, { ajuste_manual: t.deal.ajuste_manual, stage_id: t.deal.stage_id, created_at: t.deal.created_at, actividades: actsByDeal.get(t.deal.id) ?? [] }, ahora).temperatura
+    );
+  }
+
   const acciones: AccionItem[] = tareas.map((t) => ({
     id: t.id,
     tipo: t.tipo,
@@ -56,7 +84,7 @@ export default async function AccionesPage() {
       id: t.deal.id,
       nombre: t.deal.nombre,
       valor: Number(t.deal.valor),
-      temperatura: t.deal.temperatura as Temperatura,
+      temperatura: tempByDeal.get(t.deal.id) ?? "TIBIO",
       vendedor: t.deal.vendedor,
     },
   }));

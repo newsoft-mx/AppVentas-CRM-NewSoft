@@ -146,6 +146,7 @@ export interface DealDetalle {
   setup: number | null;
   mensualidad: number | null;
   meses: number | null;
+  score: number; // 0-100, derivado (dealScoreView)
   temperatura: Temperatura;
   probabilidad: number | null;
   canal: string | null;
@@ -154,7 +155,7 @@ export interface DealDetalle {
   fecha_cierre_estimada: string | null;
   dias_abierto: number;
   notas: string | null;
-  stage: { id: string; nombre: string; orden: number; umbral_avance: Temperatura | null };
+  stage: { id: string; nombre: string; orden: number };
   cliente: { id: string; nombre: string; estatus: EstatusCliente } | null;
   vendedor: { id: string; nombre: string } | null;
   tipo: { id: string; nombre: string } | null;

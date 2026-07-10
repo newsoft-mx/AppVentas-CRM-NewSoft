@@ -649,8 +649,7 @@ async function main() {
           vendedor_id: vendedores[d.vend].id,
           stage_id: stages[d.stage - 1].id,
           tipo_cotizacion_id: d.tipo,
-          temperatura: d.temp as never,
-          probabilidad: d.prob,
+          // temperatura/probabilidad se derivan del score (dealScoreView); no se persisten.
           moneda: "MXN",
           valor: d.valor,
           setup: d.setup || null,
