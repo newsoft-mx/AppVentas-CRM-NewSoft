@@ -8,7 +8,6 @@ import StatusBadge from "./StatusBadge";
 import Toast, { ToastData } from "@/components/ui/Toast";
 import { formatMoneda, formatMXN, formatFecha, fechaParaInput, ESTATUS_COLORS, ESTATUS_LABELS } from "@/lib/utils";
 import type { OrdenDetalle, EstatusOrden } from "@/types/ordenes";
-import Link from "next/link";
 
 interface ClienteOpcion {
   id: string;
@@ -142,10 +141,16 @@ export default function OrdenDetalleClient({
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between mb-6">
         <div>
           <div className="flex items-center gap-2 text-sm text-gray-500 mb-2">
-            <Link href="/ventas" className="hover:text-navy transition-colors flex items-center gap-1">
+            {/* router.back() preserva los filtros de la lista (que viven en la
+                URL); un Link a /ventas los perdería. (SOL-12a) */}
+            <button
+              type="button"
+              onClick={() => router.back()}
+              className="hover:text-navy transition-colors flex items-center gap-1"
+            >
               <ArrowLeft size={13} />
               Ventas
-            </Link>
+            </button>
             <span>/</span>
             <span className="font-mono font-semibold text-navy">{orden.folio}</span>
           </div>
