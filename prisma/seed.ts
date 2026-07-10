@@ -247,24 +247,31 @@ async function main() {
   // 3.6 CATÁLOGOS DEL MODELO DE ACTIVIDAD (SOL-04) — config production-safe
   if ((await prisma.tipoAccion.count()) === 0) {
     await prisma.tipoAccion.createMany({
+      // peso = importancia relativa en el score (se normaliza al computar); 0 = sin señal
       data: [
-        { nombre: "Llamada", color: "#1D9E75", agendable: true, con_resultado: true, orden: 0 },
-        { nombre: "Reunión", color: "#2A5298", agendable: true, con_resultado: true, orden: 1 },
-        { nombre: "Email", color: "#3B82F6", agendable: true, con_resultado: true, orden: 2 },
-        { nombre: "WhatsApp", color: "#22C55E", agendable: true, con_resultado: true, orden: 3 },
-        { nombre: "Pendiente", color: "#F5A623", agendable: true, con_resultado: false, orden: 4 },
-        { nombre: "Nota", color: "#6B7A99", agendable: false, con_resultado: false, orden: 5 },
+        { nombre: "Reunión", color: "#2A5298", peso: 15, agendable: true, con_resultado: true, orden: 1 },
+        { nombre: "Visita", color: "#7C3AED", peso: 14, agendable: true, con_resultado: true, orden: 2 },
+        { nombre: "Demo / Presentación", color: "#A855F7", peso: 14, agendable: true, con_resultado: true, orden: 3 },
+        { nombre: "Propuesta / Cotización enviada", color: "#E8751A", peso: 12, agendable: true, con_resultado: true, orden: 4 },
+        { nombre: "Llamada", color: "#1D9E75", peso: 8, agendable: true, con_resultado: true, orden: 5 },
+        { nombre: "Email", color: "#3B82F6", peso: 5, agendable: true, con_resultado: true, orden: 6 },
+        { nombre: "WhatsApp", color: "#22C55E", peso: 4, agendable: true, con_resultado: true, orden: 7 },
+        { nombre: "Nota", color: "#6B7A99", peso: 0, agendable: false, con_resultado: false, orden: 8 },
+        { nombre: "Pendiente / Tarea", color: "#F5A623", peso: 0, agendable: true, con_resultado: false, orden: 9 },
       ],
     });
   }
   if ((await prisma.resultadoAccion.count()) === 0) {
     await prisma.resultadoAccion.createMany({
+      // factor = calidad del desenlace [-1..+1]; efecto = etiqueta derivada del signo
       data: [
-        { nombre: "Se concretó / avanzó", efecto: "POSITIVO", sugiere_reagendar: false, orden: 0 },
-        { nombre: "Contestó, sin avance", efecto: "NEUTRO", sugiere_reagendar: false, orden: 1 },
-        { nombre: "No contestó", efecto: "NEUTRO", sugiere_reagendar: true, orden: 2 },
-        { nombre: "Reagendó", efecto: "NEUTRO", sugiere_reagendar: true, orden: 3 },
-        { nombre: "No le interesó / canceló", efecto: "NEGATIVO", sugiere_reagendar: false, orden: 4 },
+        { nombre: "Se concretó / avanzó", factor: 1.0, efecto: "POSITIVO", sugiere_reagendar: false, orden: 1 },
+        { nombre: "Muy interesado", factor: 0.8, efecto: "POSITIVO", sugiere_reagendar: false, orden: 2 },
+        { nombre: "Contestó, sin avance", factor: 0.3, efecto: "POSITIVO", sugiere_reagendar: false, orden: 3 },
+        { nombre: "Reagendó", factor: 0.0, efecto: "NEUTRO", sugiere_reagendar: true, orden: 4 },
+        { nombre: "No contestó", factor: -0.3, efecto: "NEGATIVO", sugiere_reagendar: true, orden: 5 },
+        { nombre: "Sin interés por ahora", factor: -0.6, efecto: "NEGATIVO", sugiere_reagendar: false, orden: 6 },
+        { nombre: "No le interesó / canceló", factor: -1.0, efecto: "NEGATIVO", sugiere_reagendar: false, orden: 7 },
       ],
     });
   }
