@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { canWrite, requireAuth } from "@/lib/session";
 import { scopeDealWhere } from "@/lib/access-control";
 import { getScoringContext, dealScoreView } from "@/lib/deal-score";
+import { MAX_CONTENIDO, MSG_CONTENIDO_LARGO } from "@/lib/actividad";
 
 export const dynamic = "force-dynamic";
 
@@ -56,8 +57,8 @@ export async function POST(
   if (!contenido || !contenido.trim()) {
     return NextResponse.json({ error: "El contenido es obligatorio", campo: "contenido" }, { status: 422 });
   }
-  if (contenido.length > 5000) {
-    return NextResponse.json({ error: "El contenido es demasiado largo (máx. 5000)", campo: "contenido" }, { status: 422 });
+  if (contenido.length > MAX_CONTENIDO) {
+    return NextResponse.json({ error: MSG_CONTENIDO_LARGO, campo: "contenido" }, { status: 422 });
   }
 
   // Enlace externo: solo http/https. Bloquea javascript:/data: (XSS almacenado vía href).
