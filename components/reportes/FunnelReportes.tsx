@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { ArrowUp, ArrowDown } from "lucide-react";
+import { formatCompacto } from "@/lib/utils";
 
 interface Vendedor {
   id: string;
@@ -9,9 +10,10 @@ interface Vendedor {
 }
 interface FunnelData {
   total: number;
-  etapas: { stage_id: string; nombre: string; count: number; conversion: number }[];
+  etapas: { stage_id: string; nombre: string; count: number; conversion: number; color: string }[];
   ganados: number;
   perdidos: number;
+  valor_total: number;
   tasa_cierre: number;
 }
 interface ResultadosData {
@@ -41,6 +43,7 @@ const PERIODOS: { value: string; label: string }[] = [
   { value: "semana", label: "Semana" },
   { value: "mes", label: "Mes" },
   { value: "semestre", label: "Semestre" },
+  { value: "año", label: "Año" },
   { value: "custom", label: "Personalizado…" },
 ];
 
@@ -89,6 +92,16 @@ function rangos(preset: string, desde: string, hasta: string) {
     return {
       actual: { desde: iso(menosMeses(hoy, 6)), hasta: iso(hoy) },
       anterior: { desde: iso(menosMeses(hoy, 12)), hasta: iso(menosMeses(hoy, 6)) },
+    };
+  }
+  if (preset === "año") {
+    // Año calendario actual (1-ene → hoy); anterior = mismo tramo del año pasado.
+    const inicio = new Date(hoy.getFullYear(), 0, 1);
+    const inicioPrev = new Date(hoy.getFullYear() - 1, 0, 1);
+    const hoyPrev = new Date(hoy.getFullYear() - 1, hoy.getMonth(), hoy.getDate());
+    return {
+      actual: { desde: iso(inicio), hasta: iso(hoy) },
+      anterior: { desde: iso(inicioPrev), hasta: iso(hoyPrev) },
     };
   }
   return {
@@ -217,15 +230,21 @@ export default function FunnelReportes({
                 ))}
               </select>
             )}
-            <select
-              value={preset}
-              onChange={(e) => setPreset(e.target.value)}
-              className="rounded-lg border border-surface-border bg-white px-3 py-1.5 text-sm text-navy outline-none focus:border-orange"
-            >
+            {/* Cada rango como botón visible (sin desplegar), incluido Personalizado */}
+            <div className="flex flex-wrap items-center gap-0.5 rounded-lg bg-gray-100 p-0.5">
               {PERIODOS.map((p) => (
-                <option key={p.value} value={p.value}>{p.label}</option>
+                <button
+                  key={p.value}
+                  type="button"
+                  onClick={() => setPreset(p.value)}
+                  className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
+                    preset === p.value ? "bg-white text-navy shadow-sm" : "text-gray-500 hover:text-navy"
+                  }`}
+                >
+                  {p.label}
+                </button>
               ))}
-            </select>
+            </div>
             {preset === "custom" && (
               <div className="flex items-center gap-1.5">
                 <input type="date" value={desde} max={hasta || undefined} onChange={(e) => setDesde(e.target.value)} className="rounded-lg border border-surface-border bg-white px-2 py-1.5 text-sm text-navy outline-none focus:border-orange" />
@@ -246,7 +265,8 @@ export default function FunnelReportes({
           {/* NIVEL 1 — ¿cómo venimos? (KPIs con ancla) */}
           <div>
             <p className="mb-2 text-xs font-medium uppercase tracking-wider text-gray-400">¿Cómo venimos?</p>
-            <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+            <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
+              <Scorecard label="Valor del pipeline" value={formatCompacto(f.valor_total)} delta={prev ? deltaPct(f.valor_total, prev.funnel.valor_total) : null} />
               <Scorecard label="Tasa de cierre" value={f.tasa_cierre} suffix="%" delta={prev ? deltaPts(f.tasa_cierre, prev.funnel.tasa_cierre) : null} />
               <Scorecard label="Ganados" value={rz.ganados} delta={prev ? deltaPct(rz.ganados, prev.resultados.ganados) : null} />
               <Scorecard label="Perdidos" value={rz.perdidos} delta={prev ? deltaPct(rz.perdidos, prev.resultados.perdidos) : null} mejorSiSube={false} />
@@ -276,7 +296,7 @@ export default function FunnelReportes({
                         <div key={e.stage_id} className="flex items-center gap-3">
                           <span className="w-28 shrink-0 truncate text-xs text-gray-500">{e.nombre}</span>
                           <div className="h-6 flex-1 rounded bg-gray-100">
-                            <div className="flex h-full items-center rounded bg-navy px-2 text-xs font-semibold text-white" style={{ width: `${w}%` }}>
+                            <div className="flex h-full items-center rounded px-2 text-xs font-semibold text-white" style={{ width: `${w}%`, backgroundColor: e.color }}>
                               {e.count}
                             </div>
                           </div>

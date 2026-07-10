@@ -24,7 +24,7 @@ export async function GET(req: NextRequest) {
       prisma.pipelineStage.findMany({
         where: { activo: true },
         orderBy: { orden: "asc" },
-        select: { id: true, nombre: true, orden: true },
+        select: { id: true, nombre: true, orden: true, color: true },
       }),
       prisma.deal.findMany({
         where: where as Prisma.DealWhereInput,
@@ -32,6 +32,7 @@ export async function GET(req: NextRequest) {
           id: true,
           stage_id: true,
           resultado: true,
+          valor: true,
           stage_events: { select: { to_stage_id: true } },
         },
       }),
@@ -56,6 +57,7 @@ export async function GET(req: NextRequest) {
     const total = deals.length;
     const ganados = deals.filter((d) => d.resultado === "GANADO").length;
     const perdidos = deals.filter((d) => d.resultado === "PERDIDO").length;
+    const valor_total = deals.reduce((s, d) => s + Number(d.valor), 0);
 
     const etapas = stages.map((s, i) => {
       const count = alcanzo[i];
@@ -64,6 +66,7 @@ export async function GET(req: NextRequest) {
         stage_id: s.id,
         nombre: s.nombre,
         orden: s.orden,
+        color: s.color,
         count,
         // % que pasó desde la etapa anterior (desde el total en la primera)
         conversion: prev > 0 ? Math.round((count / prev) * 100) : 0,
@@ -75,6 +78,7 @@ export async function GET(req: NextRequest) {
       etapas,
       ganados,
       perdidos,
+      valor_total,
       tasa_cierre: total > 0 ? Math.round((ganados / total) * 100) : 0,
     });
   } catch (error) {
