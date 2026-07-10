@@ -6,11 +6,11 @@ export const maxDuration = 60;
 import { NextRequest, NextResponse } from "next/server";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import puppeteer from "puppeteer-core";
 import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/session";
 import { canAccessOrden } from "@/lib/access-control";
 import { logger } from "@/lib/logger";
+import { renderHtmlToPdf } from "@/lib/pdf/render";
 
 function money(value: number, currency: string) {
   return new Intl.NumberFormat("es-MX", {
@@ -224,12 +224,14 @@ function htmlDocument({
     .brand { display: flex; gap: 18px; align-items: flex-start; }
     .logo-wrap { width: 120px; min-width: 120px; border-radius: 8px; background: white; display: flex; align-items: flex-start; padding-top: 2px; }
     .logo { width: 120px; height: auto; display: block; }
-    .mark { width: 42px; height: 42px; border-radius: 10px; background: #E8751A; color: white; display: grid; place-items: center; font-weight: 700; font-size: 16px; }
+    .mark { width: 42px; height: 42px; border-radius: 10px; background: #f47b20; color: white;
+      display: grid; place-items: center; font-weight: 700; font-size: 16px; }
     h1 { margin: 0 0 3px; color: #1B2A4A; font-size: 13px; line-height: 1.15; }
-    .tagline { color: #E8751A; font-weight: 700; font-size: 10px; margin-bottom: 7px; }
+    .tagline { color: #f47b20; font-weight: 700; font-size: 10px; margin-bottom: 7px; }
     .muted { color: #667085; }
     .right { text-align: right; }
-    .badge { display: inline-block; background: #E8751A; color: white; border-radius: 5px; padding: 6px 12px; font-weight: 700; letter-spacing: .08em; margin-bottom: 8px; }
+    .badge { display: inline-block; background: #f47b20; color: white; border-radius: 5px;
+      padding: 6px 12px; font-weight: 700; letter-spacing: .08em; margin-bottom: 8px; }
     .folio { color: #1B2A4A; font-size: 22px; font-weight: 700; }
     .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 16px; }
     .box { background: #F5F7FA; border: 1px solid #D0D5DD; border-radius: 8px; padding: 12px; }
@@ -237,8 +239,9 @@ function htmlDocument({
     .field { display: grid; grid-template-columns: 92px 1fr; gap: 8px; margin-bottom: 4px; }
     .label { color: #667085; }
     .value { font-weight: 600; }
-    .desc { border-left: 4px solid #E8751A; background: #FDF0E6; border-radius: 6px; padding: 10px 12px; margin-bottom: 14px; }
-    .desc-title { color: #E8751A; text-transform: uppercase; font-weight: 700; font-size: 10px; margin-bottom: 4px; }
+    .desc { border-left: 4px solid #f47b20; background: #FDF0E6; border-radius: 6px;
+      padding: 10px 12px; margin-bottom: 14px; }
+    .desc-title { color: #f47b20; text-transform: uppercase; font-weight: 700; font-size: 10px; margin-bottom: 4px; }
     table { width: 100%; border-collapse: collapse; margin-bottom: 16px; border: 1px solid #D0D5DD; }
     th { background: #1B2A4A; color: white; text-align: left; font-size: 10px; padding: 8px; }
     td { padding: 8px; border-top: 1px solid #D0D5DD; vertical-align: top; }
@@ -348,56 +351,6 @@ function htmlDocument({
 </html>`;
 }
 
-// En Docker/Lightsail hay un Chromium del sistema instalado (apt) y basta con
-// apuntar a su ruta. En Vercel (o cualquier entorno serverless) no existe ese
-// binario, así que ahí usamos @sparticuz/chromium, que empaqueta un Chromium
-// compilado para funciones serverless. process.env.VERCEL lo define Vercel
-// automáticamente en runtime; CHROMIUM_PATH sigue permitiendo forzar una ruta
-// manual si algún día se necesita.
-async function resolveChromium() {
-  if (process.env.CHROMIUM_PATH) {
-    return {
-      executablePath: process.env.CHROMIUM_PATH,
-      args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"],
-    };
-  }
-
-  if (process.env.VERCEL) {
-    const chromium = (await import("@sparticuz/chromium")).default;
-    return {
-      executablePath: await chromium.executablePath(),
-      args: chromium.args,
-    };
-  }
-
-  return {
-    executablePath: "/usr/bin/chromium",
-    args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"],
-  };
-}
-
-async function renderPdf(html: string) {
-  const { executablePath, args } = await resolveChromium();
-  const browser = await puppeteer.launch({
-    executablePath,
-    userDataDir: "/tmp/chromium",
-    args,
-    headless: true,
-  });
-
-  try {
-    const page = await browser.newPage();
-    await page.setContent(html, { waitUntil: "networkidle0" });
-    return await page.pdf({
-      format: "A4",
-      printBackground: true,
-      preferCSSPageSize: true,
-    });
-  } finally {
-    await browser.close();
-  }
-}
-
 // ── GET /api/pdf/:id ──────────────────────────────────────────
 export async function GET(
   req: NextRequest,
@@ -433,7 +386,7 @@ export async function GET(
       );
     }
 
-    const pdfBuffer = await renderPdf(htmlDocument({ empresa, orden }));
+    const pdfBuffer = await renderHtmlToPdf(htmlDocument({ empresa, orden }));
     const nombreArchivo = `${orden.folio}_${orden.cliente.nombre
       .replace(/\s+/g, "_")
       .replace(/[^a-zA-Z0-9_]/g, "")
