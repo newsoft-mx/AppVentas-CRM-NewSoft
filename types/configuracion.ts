@@ -69,5 +69,5 @@ export interface PipelineStageConfig {
   color: string;
   activo: boolean;
   probabilidad_base: number;
-  umbral_avance: string | null;
+  umbral_avance_score: number | null; // score 0-100 que dispara avance; null = sin avance
 }

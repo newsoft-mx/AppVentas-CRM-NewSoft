@@ -42,7 +42,7 @@ export default async function ConfiguracionPage() {
     prisma.pipelineStage.findMany({
       select: {
         id: true, nombre: true, orden: true, color: true,
-        activo: true, probabilidad_base: true, umbral_avance: true,
+        activo: true, probabilidad_base: true, umbral_avance_score: true,
       },
       orderBy: [{ activo: "desc" }, { orden: "asc" }],
     }),
@@ -63,7 +63,7 @@ export default async function ConfiguracionPage() {
       initialStages={stages}
       initialMotivos={motivos}
       initialTiposAccion={tiposAccion}
-      initialResultados={resultados}
+      initialResultados={resultados.map((r) => ({ ...r, factor: Number(r.factor) }))}
     />
   );
 }

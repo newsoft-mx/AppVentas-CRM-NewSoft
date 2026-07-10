@@ -12,14 +12,19 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const { id } = await params;
   let body: unknown;
   try { body = await req.json(); } catch { return NextResponse.json({ error: "JSON inválido" }, { status: 400 }); }
-  const b = (body ?? {}) as { nombre?: unknown; efecto?: unknown; sugiere_reagendar?: unknown; activo?: unknown };
-  const data: { nombre?: string; efecto?: (typeof EFECTOS)[number]; sugiere_reagendar?: boolean; activo?: boolean } = {};
+  const b = (body ?? {}) as { nombre?: unknown; factor?: unknown; sugiere_reagendar?: unknown; activo?: unknown };
+  const data: { nombre?: string; factor?: number; efecto?: (typeof EFECTOS)[number]; sugiere_reagendar?: boolean; activo?: boolean } = {};
   if (b.nombre !== undefined) {
     const n = typeof b.nombre === "string" ? b.nombre.trim() : "";
     if (!n) return NextResponse.json({ error: "El nombre no puede estar vacío" }, { status: 422 });
     data.nombre = n;
   }
-  if (EFECTOS.includes(b.efecto as (typeof EFECTOS)[number])) data.efecto = b.efecto as (typeof EFECTOS)[number];
+  // factor [-1..+1]; efecto se deriva del signo
+  if (b.factor !== undefined && Number.isFinite(Number(b.factor))) {
+    const f = Math.max(-1, Math.min(1, Math.round(Number(b.factor) * 100) / 100));
+    data.factor = f;
+    data.efecto = f > 0 ? "POSITIVO" : f < 0 ? "NEGATIVO" : "NEUTRO";
+  }
   if (typeof b.sugiere_reagendar === "boolean") data.sugiere_reagendar = b.sugiere_reagendar;
   if (typeof b.activo === "boolean") data.activo = b.activo;
   if (Object.keys(data).length === 0) return NextResponse.json({ error: "Nada para actualizar" }, { status: 422 });

@@ -26,12 +26,11 @@ export async function PUT(
     if (body.probabilidad_base !== undefined && Number.isFinite(Number(body.probabilidad_base))) {
       data.probabilidad_base = Math.min(100, Math.max(0, Math.round(Number(body.probabilidad_base))));
     }
-    // Umbral de avance por termómetro (REQ-06): temperatura válida o null para desactivar
-    const TEMPS = ["MUY_FRIO", "FRIO", "TIBIO", "CALIENTE", "MUY_CALIENTE"];
-    if (body.umbral_avance !== undefined) {
-      if (body.umbral_avance === null || TEMPS.includes(body.umbral_avance)) {
-        data.umbral_avance = body.umbral_avance;
-      }
+    // Umbral de avance por score: 0-100 dispara el avance; null = sin avance automático.
+    if (body.umbral_avance_score !== undefined) {
+      if (body.umbral_avance_score === null) data.umbral_avance_score = null;
+      else if (Number.isFinite(Number(body.umbral_avance_score)))
+        data.umbral_avance_score = Math.max(0, Math.min(100, Math.round(Number(body.umbral_avance_score))));
     }
     if (typeof body.activo === "boolean") data.activo = body.activo;
 
@@ -44,7 +43,7 @@ export async function PUT(
       data,
       select: {
         id: true, nombre: true, orden: true, color: true,
-        activo: true, probabilidad_base: true, umbral_avance: true,
+        activo: true, probabilidad_base: true, umbral_avance_score: true,
       },
     });
     return NextResponse.json(stage);

@@ -7,6 +7,7 @@ interface TipoAccion {
   id: string;
   nombre: string;
   color: string;
+  peso: number;
   agendable: boolean;
   con_resultado: boolean;
   activo: boolean;
@@ -14,11 +15,15 @@ interface TipoAccion {
 interface ResultadoAccion {
   id: string;
   nombre: string;
+  factor: number;
   efecto: "POSITIVO" | "NEUTRO" | "NEGATIVO";
   sugiere_reagendar: boolean;
   activo: boolean;
 }
 
+function efectoDeFactor(f: number): "POSITIVO" | "NEUTRO" | "NEGATIVO" {
+  return f > 0 ? "POSITIVO" : f < 0 ? "NEGATIVO" : "NEUTRO";
+}
 const EFECTO_META: Record<string, { label: string; clase: string }> = {
   POSITIVO: { label: "Positivo", clase: "text-emerald-700" },
   NEUTRO: { label: "Neutro", clase: "text-gray-500" },
@@ -87,18 +92,19 @@ export default function TabModeloActividad({
         <div>
           <h2 className="text-base font-semibold text-navy">Tipos de acción</h2>
           <p className="mt-1 text-sm text-gray-500">
-            Naturaleza de cada entrada de bitácora. <b>Agendable</b>: admite fecha futura y ciclo planeada→realizada.
-            <b> Con resultado</b>: produce un desenlace que mueve el termómetro.
+            Naturaleza de cada entrada de bitácora. <b>Peso</b>: importancia de la interacción en el score
+            (relativo; 0 = sin señal). <b>Agendable</b>: admite fecha futura. <b>Con resultado</b>: captura un desenlace.
           </p>
         </div>
         <div className="divide-y divide-surface-border rounded-lg border border-surface-border">
-          <div className="grid grid-cols-[auto_1fr_auto_auto_auto] items-center gap-3 bg-gray-50/60 px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-gray-400">
-            <span>Color</span><span>Nombre</span><span>¿Agendable?</span><span>¿Con resultado?</span><span></span>
+          <div className="grid grid-cols-[auto_1fr_auto_auto_auto_auto] items-center gap-3 bg-gray-50/60 px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-gray-400">
+            <span>Color</span><span>Nombre</span><span>Peso</span><span>¿Agendable?</span><span>¿Con result.?</span><span></span>
           </div>
           {tipos.map((t) => (
-            <div key={t.id} className={`grid grid-cols-[auto_1fr_auto_auto_auto] items-center gap-3 px-3 py-2 ${t.activo ? "" : "opacity-50"}`}>
+            <div key={t.id} className={`grid grid-cols-[auto_1fr_auto_auto_auto_auto] items-center gap-3 px-3 py-2 ${t.activo ? "" : "opacity-50"}`}>
               <input type="color" value={t.color} onChange={(e) => patchTipo(t.id, { color: e.target.value })} className="h-7 w-7 cursor-pointer rounded border border-surface-border" title="Color" />
               <input value={t.nombre} onChange={(e) => setTipos((ts) => ts.map((x) => x.id === t.id ? { ...x, nombre: e.target.value } : x))} onBlur={(e) => patchTipo(t.id, { nombre: e.target.value.trim() })} className="input py-1 text-sm" />
+              <input type="number" min={0} max={100} value={t.peso} onChange={(e) => setTipos((ts) => ts.map((x) => x.id === t.id ? { ...x, peso: Number(e.target.value) } : x))} onBlur={(e) => patchTipo(t.id, { peso: Math.max(0, Math.round(Number(e.target.value))) })} className="input w-16 py-1 text-center text-sm" title="Peso" />
               <input type="checkbox" checked={t.agendable} onChange={(e) => patchTipo(t.id, { agendable: e.target.checked })} className="mx-auto h-4 w-4" />
               <input type="checkbox" checked={t.con_resultado} onChange={(e) => patchTipo(t.id, { con_resultado: e.target.checked })} className="mx-auto h-4 w-4" />
               <button onClick={() => delTipo(t.id)} className="text-gray-300 hover:text-red-500" title="Eliminar"><Trash2 size={14} /></button>
@@ -116,21 +122,19 @@ export default function TabModeloActividad({
         <div>
           <h2 className="text-base font-semibold text-navy">Resultados de acción</h2>
           <p className="mt-1 text-sm text-gray-500">
-            Desenlaces posibles al marcar una acción como realizada. El <b>efecto</b> mueve el termómetro; <b>sugerir reagendar</b> ofrece crear el siguiente paso.
+            Desenlaces al marcar una acción como realizada. El <b>factor</b> [−1…+1] es la calidad del desenlace
+            (multiplica el peso del tipo); el <b>efecto</b> se deriva de su signo. <b>Sugerir reagendar</b> ofrece crear el siguiente paso.
           </p>
         </div>
         <div className="divide-y divide-surface-border rounded-lg border border-surface-border">
-          <div className="grid grid-cols-[1fr_auto_auto_auto] items-center gap-3 bg-gray-50/60 px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-gray-400">
-            <span>Nombre</span><span>Efecto termómetro</span><span>¿Sugiere reagendar?</span><span></span>
+          <div className="grid grid-cols-[1fr_auto_auto_auto_auto] items-center gap-3 bg-gray-50/60 px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-gray-400">
+            <span>Nombre</span><span>Factor</span><span>Efecto</span><span>¿Reagendar?</span><span></span>
           </div>
           {resultados.map((r) => (
-            <div key={r.id} className={`grid grid-cols-[1fr_auto_auto_auto] items-center gap-3 px-3 py-2 ${r.activo ? "" : "opacity-50"}`}>
+            <div key={r.id} className={`grid grid-cols-[1fr_auto_auto_auto_auto] items-center gap-3 px-3 py-2 ${r.activo ? "" : "opacity-50"}`}>
               <input value={r.nombre} onChange={(e) => setResultados((rs) => rs.map((x) => x.id === r.id ? { ...x, nombre: e.target.value } : x))} onBlur={(e) => patchRes(r.id, { nombre: e.target.value.trim() })} className="input py-1 text-sm" />
-              <select value={r.efecto} onChange={(e) => patchRes(r.id, { efecto: e.target.value as ResultadoAccion["efecto"] })} className={`input py-1 text-sm font-medium ${EFECTO_META[r.efecto].clase}`}>
-                <option value="POSITIVO">Positivo</option>
-                <option value="NEUTRO">Neutro</option>
-                <option value="NEGATIVO">Negativo</option>
-              </select>
+              <input type="number" min={-1} max={1} step={0.1} value={r.factor} onChange={(e) => setResultados((rs) => rs.map((x) => x.id === r.id ? { ...x, factor: Number(e.target.value), efecto: efectoDeFactor(Number(e.target.value)) } : x))} onBlur={(e) => { const f = Math.max(-1, Math.min(1, Number(e.target.value))); patchRes(r.id, { factor: f, efecto: efectoDeFactor(f) }); }} className="input w-16 py-1 text-center text-sm" title="Factor [-1..+1]" />
+              <span className={`text-xs font-semibold ${EFECTO_META[r.efecto].clase}`}>{EFECTO_META[r.efecto].label}</span>
               <input type="checkbox" checked={r.sugiere_reagendar} onChange={(e) => patchRes(r.id, { sugiere_reagendar: e.target.checked })} className="mx-auto h-4 w-4" />
               <button onClick={() => delRes(r.id)} className="text-gray-300 hover:text-red-500" title="Eliminar"><Trash2 size={14} /></button>
             </div>
