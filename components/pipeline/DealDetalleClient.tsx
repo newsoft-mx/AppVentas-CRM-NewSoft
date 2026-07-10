@@ -11,6 +11,7 @@ import {
 import Modal from "@/components/ui/Modal";
 import Toast, { ToastData } from "@/components/ui/Toast";
 import Termometro from "@/components/pipeline/Termometro";
+import NuevoDealModal from "@/components/pipeline/NuevoDealModal";
 import { cruzaUmbralAvance } from "@/lib/termometro";
 import { formatCompacto, formatFechaHora } from "@/lib/utils";
 import { ahoraLocal } from "@/lib/filter-utils";
@@ -27,6 +28,9 @@ interface Props {
   deal: DealDetalle;
   stages: StageResumen[];
   canWrite: boolean;
+  vendedores?: { id: string; nombre: string }[];
+  clientes?: { id: string; nombre: string }[];
+  tipos?: { id: string; nombre: string }[];
 }
 
 function fmtFull(n: number): string {
@@ -65,7 +69,7 @@ const PLACEHOLDER: Record<TipoActividad, string> = {
   SISTEMA: "",
 };
 
-export default function DealDetalleClient({ deal, stages, canWrite }: Props) {
+export default function DealDetalleClient({ deal, stages, canWrite, vendedores = [], clientes = [], tipos = [] }: Props) {
   const router = useRouter();
   const [temperatura, setTemperatura] = useState<Temperatura>(deal.temperatura);
   const temp = TEMPERATURA_META[temperatura];
@@ -89,6 +93,7 @@ export default function DealDetalleClient({ deal, stages, canWrite }: Props) {
   const composerAbierto = composerFocus || Boolean(texto.trim() || enlace.trim() || seguimiento);
   const [procesando, setProcesando] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
   const [modalPerdida, setModalPerdida] = useState(false);
   const [razon, setRazon] = useState("");
   const [comentarioP, setComentarioP] = useState("");
@@ -324,7 +329,17 @@ export default function DealDetalleClient({ deal, stages, canWrite }: Props) {
             <span className="h-1.5 w-1.5 rounded-full" style={{ background: temp.color }} />
             {temp.label} · {deal.stage.nombre}
           </span>
-          <h1 className="mt-2.5 text-lg font-bold leading-tight text-navy">{deal.nombre}</h1>
+          <div className="mt-2.5 flex items-start justify-between gap-2">
+            <h1 className="text-lg font-bold leading-tight text-navy">{deal.nombre}</h1>
+            {canWrite && (
+              <button
+                onClick={() => setEditOpen(true)}
+                className="mt-0.5 inline-flex shrink-0 items-center gap-1 rounded-lg border border-surface-border px-2 py-1 text-xs font-medium text-gray-600 transition-colors hover:border-orange hover:text-orange"
+              >
+                <Pencil size={12} /> Editar
+              </button>
+            )}
+          </div>
           <div className="mt-1.5 flex items-center gap-1.5 text-sm text-gray-500">
             <Building2 size={14} className="text-gray-400" />
             {deal.cliente?.nombre ?? "Sin cliente"}
@@ -696,6 +711,33 @@ export default function DealDetalleClient({ deal, stages, canWrite }: Props) {
             </div>
           </div>
         </Modal>
+      )}
+
+      {/* Editar ficha completa del deal (SOL-01) — reusa el modal de alta en modo edición */}
+      {editOpen && (
+        <NuevoDealModal
+          stages={stages}
+          vendedores={vendedores}
+          clientes={clientes}
+          tipos={tipos}
+          deal={{
+            id: deal.id,
+            nombre: deal.nombre,
+            cliente_id: deal.cliente?.id ?? "",
+            vendedor_id: deal.vendedor?.id ?? null,
+            stage_id: deal.stage.id,
+            tipo_cotizacion_id: deal.tipo?.id ?? null,
+            temperatura: deal.temperatura,
+            valor: deal.valor,
+            setup: deal.setup,
+            mensualidad: deal.mensualidad,
+            canal: deal.canal,
+            origen: deal.origen,
+            fecha_cierre_estimada: deal.fecha_cierre_estimada ? deal.fecha_cierre_estimada.slice(0, 10) : null,
+          }}
+          onClose={() => setEditOpen(false)}
+          onSaved={() => { setEditOpen(false); router.refresh(); }}
+        />
       )}
     </div>
   );
