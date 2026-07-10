@@ -32,7 +32,7 @@ export default defineConfig({
     // 3) el resto de la app, autenticada como ADMIN
     {
       name: "app",
-      testMatch: /(alta-lead|scoring|funnel|journey)\.spec\.ts/,
+      testMatch: /(alta-lead|scoring|funnel|journey|backlog-qa)\.spec\.ts/,
       dependencies: ["setup"],
       use: { ...devices["Desktop Chrome"], storageState: "e2e/.auth/admin.json" },
     },
