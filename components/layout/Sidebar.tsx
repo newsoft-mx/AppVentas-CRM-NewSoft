@@ -34,7 +34,7 @@ const navGroups: {
   {
     title: "Pipeline CRM",
     items: [
-      { href: "/pipeline", label: "Tablero", icon: Workflow },
+      { href: "/pipeline", label: "Pipeline", icon: Workflow },
       { href: "/acciones", label: "Próximas Acciones", icon: CalendarClock },
       { href: "/pipeline/reportes", label: "Reportes de Funnel", icon: TrendingUp },
     ],
@@ -76,7 +76,7 @@ export default function Sidebar({ role }: { role: UserRole }) {
 
   const isActive = (href: string) => {
     if (href === "/ventas") return pathname === "/ventas" || pathname.startsWith("/ventas/");
-    // "Tablero" (/pipeline) no debe activarse en /pipeline/reportes (submódulo aparte)
+    // "Pipeline" (/pipeline) no debe activarse en /pipeline/reportes (submódulo aparte)
     if (href === "/pipeline") {
       return pathname === "/pipeline" || (pathname.startsWith("/pipeline/") && !pathname.startsWith("/pipeline/reportes"));
     }
