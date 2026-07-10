@@ -32,6 +32,7 @@ export default async function DealDetallePage({
       tipo_cotizacion: { select: { id: true, nombre: true } },
       contactos: { orderBy: { created_at: "asc" } },
       actividades: {
+        where: { eliminada: false },
         orderBy: { created_at: "desc" },
         include: { contacto: { select: { nombre: true } } },
       },
@@ -111,6 +112,7 @@ export default async function DealDetallePage({
       completada: a.completada,
       estado_accion: a.estado_accion,
       destacada: a.destacada,
+      editada: a.editada,
       enlace_url: a.enlace_url,
       fecha_tarea: a.fecha_tarea ? a.fecha_tarea.toISOString() : null,
       created_at: a.created_at.toISOString(),

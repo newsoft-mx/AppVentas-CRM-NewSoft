@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import {
   ArrowLeft, Phone, Mail, MessageCircle, StickyNote,
   Building2, Trophy, Cog, ChevronDown, XCircle, PauseCircle, Play, CalendarClock,
-  Star, Link2, ArrowUpCircle, ChevronRight, UserPlus, Pencil,
+  Star, Link2, ArrowUpCircle, ChevronRight, UserPlus, Pencil, Trash2,
 } from "lucide-react";
 import Modal from "@/components/ui/Modal";
 import Toast, { ToastData } from "@/components/ui/Toast";
@@ -112,6 +112,9 @@ export default function DealDetalleClient({ deal, stages, canWrite, vendedores =
   const [notas, setNotas] = useState(deal.notas ?? "");
   const [editandoNotas, setEditandoNotas] = useState(false);
   const [toast, setToast] = useState<ToastData | null>(null);
+  // Edición/eliminación de entradas de bitácora (SOL-02)
+  const [editandoId, setEditandoId] = useState<string | null>(null);
+  const [textoEdit, setTextoEdit] = useState("");
   async function guardarNotas() {
     // No cerrar el editor hasta confirmar el guardado: si el PATCH falla, el texto
     // solo vive en memoria y se perdería al recargar (pérdida silenciosa de datos).
@@ -183,6 +186,40 @@ export default function DealDetalleClient({ deal, stages, canWrite, vendedores =
       // Revertir el pin optimista si el servidor no lo aceptó.
       setActividades((cur) => cur.map((x) => (x.id === a.id ? { ...x, destacada: !nuevo } : x)));
       setToast({ type: "error", message: "No se pudo actualizar la actividad." });
+    }
+  }
+
+  // Editar el contenido de una entrada (SOL-02) → marca "editado"
+  async function guardarEdicion(a: DealActividadItem) {
+    const nuevo = textoEdit.trim();
+    if (!nuevo || nuevo === a.contenido) { setEditandoId(null); return; }
+    const prev = actividades;
+    setActividades((cur) => cur.map((x) => (x.id === a.id ? { ...x, contenido: nuevo, editada: true } : x)));
+    setEditandoId(null);
+    try {
+      const res = await fetch(`/api/crm/actividades/${a.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ contenido: nuevo }),
+      });
+      if (!res.ok) throw new Error();
+    } catch {
+      setActividades(prev);
+      setToast({ type: "error", message: "No se pudo guardar la edición." });
+    }
+  }
+
+  // Eliminar (soft-delete) una entrada de la bitácora (SOL-02)
+  async function eliminarActividad(a: DealActividadItem) {
+    if (!window.confirm("¿Eliminar esta entrada de la bitácora? Podés registrar otra si hace falta.")) return;
+    const prev = actividades;
+    setActividades((cur) => cur.filter((x) => x.id !== a.id));
+    try {
+      const res = await fetch(`/api/crm/actividades/${a.id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error();
+    } catch {
+      setActividades(prev);
+      setToast({ type: "error", message: "No se pudo eliminar la entrada." });
     }
   }
 
@@ -639,13 +676,42 @@ export default function DealDetalleClient({ deal, stages, canWrite, vendedores =
                             />
                           </button>
                         )}
-                        <span className="ml-auto text-[11px] text-gray-400">{formatFechaHora(a.fecha_evento ?? a.created_at)}</span>
+                        {canWrite && a.tipo !== "SISTEMA" && editandoId !== a.id && (
+                          <>
+                            <button onClick={() => { setEditandoId(a.id); setTextoEdit(a.contenido); }} title="Editar" className="text-gray-300 hover:text-navy">
+                              <Pencil size={12} />
+                            </button>
+                            <button onClick={() => eliminarActividad(a)} title="Eliminar" className="text-gray-300 hover:text-red-500">
+                              <Trash2 size={12} />
+                            </button>
+                          </>
+                        )}
+                        <span className="ml-auto text-[11px] text-gray-400">
+                          {a.editada && <span className="mr-1 italic text-gray-300">editado ·</span>}
+                          {formatFechaHora(a.fecha_evento ?? a.created_at)}
+                        </span>
                       </div>
                       <div
                         className="mt-1 rounded-lg border border-surface-border bg-white px-3 py-2 text-sm leading-relaxed text-gray-700"
                         style={{ borderLeftWidth: 3, borderLeftColor: a.destacada ? "#F5A623" : meta.color }}
                       >
-                        {a.contenido}
+                        {editandoId === a.id ? (
+                          <div className="space-y-2">
+                            <textarea
+                              autoFocus
+                              value={textoEdit}
+                              onChange={(e) => setTextoEdit(e.target.value)}
+                              rows={3}
+                              className="w-full resize-none rounded border border-orange bg-white px-2 py-1 text-sm text-navy outline-none"
+                            />
+                            <div className="flex justify-end gap-2">
+                              <button onClick={() => setEditandoId(null)} className="rounded px-2 py-1 text-xs font-medium text-gray-500 hover:bg-gray-100">Cancelar</button>
+                              <button onClick={() => guardarEdicion(a)} className="rounded bg-orange px-2.5 py-1 text-xs font-semibold text-white hover:bg-orange/90">Guardar</button>
+                            </div>
+                          </div>
+                        ) : (
+                          a.contenido
+                        )}
                         {a.enlace_url && /^https?:\/\//i.test(a.enlace_url) && (
                           <a
                             href={a.enlace_url}
