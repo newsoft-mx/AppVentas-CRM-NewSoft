@@ -235,6 +235,13 @@ async function main() {
   ]);
 
   condiciones.forEach((c) => console.log(`   ✓ ${c.nombre}`));
+
+  // 3.5 CATÁLOGO DE MOTIVOS DE PÉRDIDA (SOL-10) — config production-safe
+  const MOTIVOS_PERDIDA = ["Precio", "Tiempo / urgencia", "Competencia", "Sin presupuesto", "Sin respuesta", "No era el momento", "Otro"];
+  if ((await prisma.motivoPerdida.count()) === 0) {
+    await prisma.motivoPerdida.createMany({ data: MOTIVOS_PERDIDA.map((nombre, orden) => ({ nombre, orden })) });
+  }
+  console.log(`   ✓ ${MOTIVOS_PERDIDA.length} motivos de pérdida`);
   console.log();
 
   // ──────────────────────────────────────────

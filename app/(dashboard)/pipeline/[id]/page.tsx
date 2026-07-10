@@ -41,7 +41,7 @@ export default async function DealDetallePage({
 
   if (!deal) notFound();
 
-  const [stages, historial, vendedores, clientes, tipos] = await Promise.all([
+  const [stages, historial, vendedores, clientes, tipos, motivos] = await Promise.all([
     prisma.pipelineStage.findMany({
       where: { activo: true },
       orderBy: { orden: "asc" },
@@ -56,6 +56,11 @@ export default async function DealDetallePage({
     prisma.vendedor.findMany({ where: { activo: true }, select: { id: true, nombre: true }, orderBy: { nombre: "asc" } }),
     prisma.cliente.findMany({ where: { activo: true }, select: { id: true, nombre: true }, orderBy: { nombre: "asc" } }),
     prisma.tipoCotizacion.findMany({ where: { activo: true }, select: { id: true, nombre: true }, orderBy: { nombre: "asc" } }),
+    prisma.motivoPerdida.findMany({
+      where: { activo: true },
+      orderBy: [{ orden: "asc" }, { nombre: "asc" }],
+      select: { nombre: true },
+    }),
   ]);
 
   const ganadas = historial.filter((o) => o.estatus === "VENTA");
@@ -127,6 +132,14 @@ export default async function DealDetallePage({
   const stagesSerialized: StageResumen[] = stages;
 
   return (
-    <DealDetalleClient deal={detalle} stages={stagesSerialized} canWrite={canWrite(session)} vendedores={vendedores} clientes={clientes} tipos={tipos} />
+    <DealDetalleClient
+      deal={detalle}
+      stages={stagesSerialized}
+      canWrite={canWrite(session)}
+      vendedores={vendedores}
+      clientes={clientes}
+      tipos={tipos}
+      motivos={motivos.map((m) => m.nombre)}
+    />
   );
 }

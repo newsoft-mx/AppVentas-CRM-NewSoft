@@ -72,7 +72,7 @@ export default async function PipelinePage() {
 
   // Última actividad por deal — acotada a los deals cargados; + config + conteos por período
   const dealIds = deals.map((d) => d.id);
-  const [ultimas, config, nuevosHoy, nuevosSemana, nuevosMes] = await Promise.all([
+  const [ultimas, config, nuevosHoy, nuevosSemana, nuevosMes, perdidosRaw] = await Promise.all([
     prisma.dealActividad.groupBy({
       by: ["deal_id"],
       where: { deal_id: { in: dealIds }, eliminada: false },
@@ -82,6 +82,18 @@ export default async function PipelinePage() {
     prisma.deal.count({ where: scopeDealWhere(session, { created_at: { gte: inicioDia } }) }),
     prisma.deal.count({ where: scopeDealWhere(session, { created_at: { gte: inicioSemana } }) }),
     prisma.deal.count({ where: scopeDealWhere(session, { created_at: { gte: inicioMes } }) }),
+    // Deals perdidos para la vista de análisis de pérdida (SOL-06, empezar chico)
+    prisma.deal.findMany({
+      where: scopeDealWhere(session, { resultado: "PERDIDO" }),
+      orderBy: { fecha_cierre_real: "desc" },
+      take: 100,
+      select: {
+        id: true, nombre: true, valor: true, moneda: true, razon_perdida: true,
+        fecha_cierre_real: true,
+        cliente: { select: { nombre: true } },
+        vendedor: { select: { nombre: true } },
+      },
+    }),
   ]);
   const ultimaPorDeal = new Map(ultimas.map((u) => [u.deal_id, u._max.created_at]));
   const params = toParametrosTermometro(config);
@@ -130,10 +142,22 @@ export default async function PipelinePage() {
     };
   });
 
+  const perdidos = perdidosRaw.map((d) => ({
+    id: d.id,
+    nombre: d.nombre,
+    valor: Number(d.valor),
+    moneda: d.moneda,
+    razon_perdida: d.razon_perdida,
+    fecha_cierre_real: d.fecha_cierre_real ? d.fecha_cierre_real.toISOString() : null,
+    cliente: d.cliente?.nombre ?? null,
+    vendedor: d.vendedor?.nombre ?? null,
+  }));
+
   return (
     <PipelineKanban
       stages={stagesSerialized}
       deals={dealsSerialized}
+      perdidos={perdidos}
       vendedores={vendedores}
       clientes={clientes}
       tipos={tipos}

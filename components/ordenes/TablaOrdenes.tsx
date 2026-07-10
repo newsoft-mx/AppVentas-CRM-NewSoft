@@ -19,6 +19,91 @@ interface TablaOrdenesProps {
   onEstatusChanged: (id: string, estatus: EstatusOrden, fechaVenta?: string) => void;
   onDeleteRequest: (orden: OrdenResumen) => void;
   onDuplicated: (nuevaOrden: OrdenResumen) => void;
+  onDescripcionChanged: (id: string, descripcion: string) => void;
+  onError?: (mensaje: string) => void;
+}
+
+// Descripción editable inline (SOL-12b): doble clic → textarea; Enter/blur
+// guarda vía PATCH; Escape cancela. Optimista: notifica al padre al guardar.
+function DescripcionEditable({
+  id,
+  valor,
+  canWrite,
+  className,
+  onSaved,
+  onError,
+}: {
+  id: string;
+  valor: string;
+  canWrite: boolean;
+  className: string;
+  onSaved: (id: string, nueva: string) => void;
+  onError?: (mensaje: string) => void;
+}) {
+  const [editando, setEditando] = useState(false);
+  const [texto, setTexto] = useState(valor);
+  const [guardando, setGuardando] = useState(false);
+  useEffect(() => setTexto(valor), [valor]);
+
+  if (!editando) {
+    return (
+      <span
+        className={`${className}${canWrite ? " cursor-text rounded hover:bg-navy/5" : ""}`}
+        title={canWrite ? "Doble clic para editar" : undefined}
+        onDoubleClick={canWrite ? () => setEditando(true) : undefined}
+      >
+        {valor}
+      </span>
+    );
+  }
+
+  const guardar = async () => {
+    const nueva = texto.trim();
+    if (!nueva || nueva === valor) {
+      setTexto(valor);
+      setEditando(false);
+      return;
+    }
+    setGuardando(true);
+    try {
+      const res = await fetch(`/api/ordenes/${id}/descripcion`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ descripcion: nueva }),
+      });
+      if (!res.ok) throw new Error();
+      onSaved(id, nueva);
+      setEditando(false);
+    } catch {
+      setTexto(valor);
+      setEditando(false);
+      onError?.("No se pudo guardar la descripción. Intentá de nuevo.");
+    } finally {
+      setGuardando(false);
+    }
+  };
+
+  return (
+    <textarea
+      autoFocus
+      value={texto}
+      disabled={guardando}
+      onChange={(e) => setTexto(e.target.value)}
+      onBlur={guardar}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" && !e.shiftKey) {
+          e.preventDefault();
+          guardar();
+        }
+        if (e.key === "Escape") {
+          setTexto(valor);
+          setEditando(false);
+        }
+      }}
+      rows={2}
+      className="w-full resize-none rounded border border-orange bg-white px-2 py-1 text-xs text-navy outline-none"
+    />
+  );
 }
 
 function groupByCliente(ordenes: OrdenResumen[]) {
@@ -105,6 +190,8 @@ export default function TablaOrdenes({
   onEstatusChanged,
   onDeleteRequest,
   onDuplicated,
+  onDescripcionChanged,
+  onError,
 }: TablaOrdenesProps) {
   const [duplicatingIds, setDuplicatingIds] = useState<Set<string>>(new Set());
   const [sort, setSort] = useState<{ key: SortKey | null; dir: SortDir }>({ key: null, dir: "asc" });
@@ -223,9 +310,14 @@ export default function TablaOrdenes({
                           <span className="rounded bg-navy/5 px-2 py-0.5 font-mono text-xs font-semibold text-navy">
                             {orden.folio}
                           </span>
-                          <p className="mt-2 line-clamp-2 text-sm font-medium text-gray-800">
-                            {orden.descripcion}
-                          </p>
+                          <DescripcionEditable
+                            id={orden.id}
+                            valor={orden.descripcion}
+                            canWrite={canWrite}
+                            className="mt-2 block line-clamp-2 text-sm font-medium text-gray-800"
+                            onSaved={onDescripcionChanged}
+                            onError={onError}
+                          />
                         </div>
                         <StatusBadge
                           ordenId={orden.id}
@@ -308,7 +400,14 @@ export default function TablaOrdenes({
                             </span>
                           </td>
                           <td className="max-w-[200px] px-3 py-3 text-gray-700">
-                            <span className="line-clamp-2 text-xs">{orden.descripcion}</span>
+                            <DescripcionEditable
+                              id={orden.id}
+                              valor={orden.descripcion}
+                              canWrite={canWrite}
+                              className="line-clamp-2 block text-xs"
+                              onSaved={onDescripcionChanged}
+                              onError={onError}
+                            />
                           </td>
                           <td className="px-3 py-3 text-xs text-gray-500">{orden.tipo_cotizacion.nombre}</td>
                           <td className="px-3 py-3 text-xs text-gray-500">{orden.condicion_pago.nombre}</td>

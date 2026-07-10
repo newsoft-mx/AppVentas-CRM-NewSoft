@@ -120,6 +120,12 @@ export default function VentasClient({
     []
   );
 
+  // Descripción editada inline desde la tabla (SOL-12b) — actualizar en el estado
+  const handleDescripcionChanged = useCallback((id: string, descripcion: string) => {
+    setOrdenes((prev) => prev.map((o) => (o.id === id ? { ...o, descripcion } : o)));
+    setToast({ type: "success", message: "Descripción actualizada." });
+  }, []);
+
   // Orden duplicada desde la tabla — agregar al inicio y mostrar toast
   const handleDuplicated = useCallback((nuevaOrden: OrdenResumen) => {
     setOrdenes((prev) => [nuevaOrden, ...prev]);
@@ -239,6 +245,8 @@ export default function VentasClient({
         onEstatusChanged={handleEstatusChanged}
         onDeleteRequest={setConfirmDelete}
         onDuplicated={handleDuplicated}
+        onDescripcionChanged={handleDescripcionChanged}
+        onError={(mensaje) => setToast({ type: "error", message: mensaje })}
       />
 
       {/* ── Modal: confirmar eliminar ── */}

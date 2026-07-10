@@ -103,6 +103,18 @@ model CondicionComercial {
   @@map("condicion_comercial")
 }
 
+// Catálogo table-driven de motivos de pérdida (SOL-10). Alimenta el modal de
+// "marcar perdido" y el análisis de pérdida del funnel. Editable sin código.
+model MotivoPerdida {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  nombre     String   @db.VarChar(150)
+  orden      Int      @default(0)
+  activo     Boolean  @default(true)
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+
+  @@map("motivo_perdida")
+}
+
 // ============================================================
 // VENDEDOR
 // Catálogo comercial independiente de usuarios del sistema.
