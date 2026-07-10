@@ -17,7 +17,9 @@
     "db:studio": "prisma studio",
     "db:reset": "prisma migrate reset",
     "test": "jest",
-    "test:watch": "jest --watch"
+    "test:watch": "jest --watch",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.104.2",
@@ -43,6 +45,7 @@
     "postcss": "^8.5.10"
   },
   "devDependencies": {
+    "@playwright/test": "^1.61.1",
     "@types/bcryptjs": "^2.4.6",
     "@types/jest": "^29.5.12",
     "@types/node": "^20.14.0",
@@ -73,7 +76,8 @@
     ],
     "testPathIgnorePatterns": [
       "/node_modules/",
-      "/.next/"
+      "/.next/",
+      "/e2e/"
     ],
     "modulePathIgnorePatterns": [
       "<rootDir>/.next/"

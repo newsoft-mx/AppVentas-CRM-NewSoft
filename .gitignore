@@ -59,3 +59,8 @@ next-env.d.ts
 
 # Config local de Claude Code (no versionar)
 .claude/
+e2e/.auth/
+test-results/
+playwright-report/
+blob-report/
+.playwright/
