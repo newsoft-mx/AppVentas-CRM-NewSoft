@@ -92,23 +92,24 @@ export default function Sidebar({ role }: { role: UserRole }) {
           <Image
             src="/newsoft-logo.png"
             alt="NewSoft"
-            width={150}
-            height={33}
+            width={876}
+            height={191}
             className="h-6 w-auto md:h-7"
             unoptimized
             priority
           />
         </div>
-        {/* Icono (favicon): solo desktop colapsado, centrado */}
+        {/* Icono (favicon): solo desktop colapsado, centrado. El PNG trae su
+            propio fondo oscuro → tile redondeado, sin recuadro blanco. */}
         {colapsado && (
           <div className="hidden justify-center md:flex">
-            <div className="rounded-lg bg-white p-1.5 shadow-sm">
+            <div className="overflow-hidden rounded-lg shadow-sm">
               <Image
-                src="/newsoft-favicon.png"
+                src="/newsoft-favicon.jpg"
                 alt="NewSoft"
-                width={28}
-                height={28}
-                className="h-7 w-7"
+                width={192}
+                height={192}
+                className="h-8 w-8 shrink-0 object-cover"
                 unoptimized
                 priority
               />
