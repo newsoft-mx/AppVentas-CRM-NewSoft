@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { Plus, Filter, Building2, Clock, LayoutGrid, List, ArrowDownUp, Flame, CalendarClock, Search } from "lucide-react";
 import {
   TEMPERATURA_META,
-  TEMPERATURAS_CALIENTES,
   TEMPERATURA_RANK,
   ATENCION_META,
   ESTADO_DEAL_META,
@@ -14,6 +13,7 @@ import {
   type StageResumen,
 } from "@/types/crm";
 import NuevoDealModal from "@/components/pipeline/NuevoDealModal";
+import { metricasPipeline } from "@/lib/pipeline-metrics";
 import { formatCompacto, formatFechaHora } from "@/lib/utils";
 import Toast, { ToastData } from "@/components/ui/Toast";
 
@@ -99,11 +99,10 @@ export default function PipelineKanban({ stages, deals, vendedores, clientes, ti
     return copy;
   }
 
-  // KPIs: siempre sobre el pipeline activo (ABIERTO), independiente de los chips de estado.
-  const activosKpi = preEstado.filter((d) => d.resultado === "ABIERTO");
-  const valorTotal = activosKpi.reduce((s, d) => s + d.valor, 0);
-  const calientes = activosKpi.filter((d) => TEMPERATURAS_CALIENTES.includes(d.temperatura)).length;
-  const promedio = activosKpi.length ? valorTotal / activosKpi.length : 0;
+  // KPIs de salud del pipeline (SOL-19): SIEMPRE sobre el pipeline activo,
+  // independiente de los chips de estado, y con el MISMO cálculo que el reporte
+  // de funnel (metricasPipeline, SSOT).
+  const kpis = metricasPipeline(preEstado);
 
   // Deals visibles según el filtro de estado.
   const activos = filtered.filter((d) => d.resultado === "ABIERTO");
@@ -236,11 +235,11 @@ export default function PipelineKanban({ stages, deals, vendedores, clientes, ti
 
       {/* Barra de KPIs */}
       <div className="flex flex-wrap items-center gap-6 border-b border-surface-border bg-white px-6 py-4">
-        <Kpi label="Valor del pipeline" value={`${formatCompacto(valorTotal)} MXN`} big />
+        <Kpi label="Valor del pipeline" value={`${formatCompacto(kpis.valor_pipeline)} MXN`} big />
         <div className="h-9 w-px bg-borde" />
-        <Kpi label="Deals activos" value={String(activos.length)} />
-        <Kpi label={<span className="inline-flex items-center gap-1"><Flame size={11} className="text-orange" /> Calientes</span>} value={String(calientes)} />
-        <Kpi label="Promedio deal" value={formatCompacto(promedio)} />
+        <Kpi label="Deals activos" value={String(kpis.deals_activos)} />
+        <Kpi label={<span className="inline-flex items-center gap-1"><Flame size={11} className="text-orange" /> Calientes</span>} value={String(kpis.calientes)} />
+        <Kpi label="Promedio deal" value={formatCompacto(kpis.promedio_deal)} />
         <div className="h-9 w-px bg-borde" />
         {/* Altas por período (REQ-04) */}
         <Kpi label="Nuevos hoy" value={String(altas.hoy)} />

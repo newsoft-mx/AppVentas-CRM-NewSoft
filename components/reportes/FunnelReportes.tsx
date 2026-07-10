@@ -32,10 +32,17 @@ interface AnatData {
   ganados: AnatItem;
   perdidos: AnatItem;
 }
+interface MetricasData {
+  valor_pipeline: number;
+  deals_activos: number;
+  calientes: number;
+  promedio_deal: number;
+}
 interface Datos {
   funnel: FunnelData;
   resultados: ResultadosData;
   anatomia: AnatData;
+  metricas: MetricasData;
 }
 
 const PERIODOS: { value: string; label: string }[] = [
@@ -113,12 +120,13 @@ function rangos(preset: string, desde: string, hasta: string) {
 async function traer(rango: { desde: string; hasta: string }, vendedor: string): Promise<Datos> {
   const qs = new URLSearchParams(rango);
   if (vendedor) qs.set("vendedor", vendedor);
-  const [funnel, resultados, anatomia] = await Promise.all([
+  const [funnel, resultados, anatomia, metricas] = await Promise.all([
     fetch(`/api/reportes/funnel?${qs}`).then((r) => (r.ok ? r.json() : Promise.reject())),
     fetch(`/api/reportes/resultados?${qs}`).then((r) => (r.ok ? r.json() : Promise.reject())),
     fetch(`/api/reportes/anatomia?${qs}`).then((r) => (r.ok ? r.json() : Promise.reject())),
+    fetch(`/api/reportes/metricas?${qs}`).then((r) => (r.ok ? r.json() : Promise.reject())),
   ]);
-  return { funnel, resultados, anatomia };
+  return { funnel, resultados, anatomia, metricas };
 }
 
 // ── Scorecard: número grande + ancla (delta vs período anterior) ──
@@ -204,6 +212,7 @@ export default function FunnelReportes({
   const f = act?.funnel;
   const rz = act?.resultados;
   const an = act?.anatomia;
+  const m = act?.metricas;
   const razonMax = rz?.por_razon[0]?.count ?? 1;
 
   return (
@@ -258,15 +267,26 @@ export default function FunnelReportes({
 
       {error && <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
 
-      {cargando || !f || !rz || !an ? (
+      {cargando || !f || !rz || !an || !m ? (
         <p className="py-16 text-center text-sm text-gray-400">Cargando reportes…</p>
       ) : (
         <>
-          {/* NIVEL 1 — ¿cómo venimos? (KPIs con ancla) */}
+          {/* NIVEL 0 — salud del pipeline (SOL-19): mismas métricas que el encabezado
+              del pipeline, calculadas en un solo lugar (metricasPipeline), filtrables. */}
+          <div>
+            <p className="mb-2 text-xs font-medium uppercase tracking-wider text-gray-400">Pipeline (activos en el período)</p>
+            <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+              <Scorecard label="Valor del pipeline" value={formatCompacto(m.valor_pipeline)} delta={prev ? deltaPct(m.valor_pipeline, prev.metricas.valor_pipeline) : null} />
+              <Scorecard label="Deals activos" value={m.deals_activos} delta={prev ? deltaPct(m.deals_activos, prev.metricas.deals_activos) : null} />
+              <Scorecard label="Calientes" value={m.calientes} delta={prev ? deltaPct(m.calientes, prev.metricas.calientes) : null} />
+              <Scorecard label="Promedio deal" value={formatCompacto(m.promedio_deal)} delta={prev ? deltaPct(m.promedio_deal, prev.metricas.promedio_deal) : null} />
+            </div>
+          </div>
+
+          {/* NIVEL 1 — ¿cómo venimos? (resultados del período con ancla) */}
           <div>
             <p className="mb-2 text-xs font-medium uppercase tracking-wider text-gray-400">¿Cómo venimos?</p>
-            <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
-              <Scorecard label="Valor del pipeline" value={formatCompacto(f.valor_total)} delta={prev ? deltaPct(f.valor_total, prev.funnel.valor_total) : null} />
+            <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
               <Scorecard label="Tasa de cierre" value={f.tasa_cierre} suffix="%" delta={prev ? deltaPts(f.tasa_cierre, prev.funnel.tasa_cierre) : null} />
               <Scorecard label="Ganados" value={rz.ganados} delta={prev ? deltaPct(rz.ganados, prev.resultados.ganados) : null} />
               <Scorecard label="Perdidos" value={rz.perdidos} delta={prev ? deltaPct(rz.perdidos, prev.resultados.perdidos) : null} mejorSiSube={false} />
