@@ -4,7 +4,6 @@ import { useState, useCallback } from "react";
 import { Pencil, Plus, ChevronUp, ChevronDown } from "lucide-react";
 import Modal from "@/components/ui/Modal";
 import Toast, { ToastData } from "@/components/ui/Toast";
-import CrmConfigPanel from "@/components/configuracion/CrmConfigPanel";
 import type { PipelineStageConfig } from "@/types/configuracion";
 
 interface FormState {
@@ -123,8 +122,6 @@ export default function TabPipelineStages({ initialStages }: { initialStages: Pi
   return (
     <>
       {toast && <Toast {...toast} onClose={closeToast} />}
-
-      <CrmConfigPanel />
 
       <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-sm text-gray-500">
