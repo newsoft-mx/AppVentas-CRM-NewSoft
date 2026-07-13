@@ -90,6 +90,8 @@ test.describe("QA lote SOL-14..20", () => {
     await db.deal.update({ where: { id: perdido.id }, data: { resultado: "PERDIDO", razon_perdida: "Precio" } });
 
     await page.goto("/pipeline");
+    // Los filtros de estado viven en el popover "Filtros" (rediseño): abrirlo primero.
+    await page.getByRole("button", { name: /^Filtros/ }).click();
     // Los 4 chips existen con conteo
     for (const est of ["Activo", "Pausado", "Ganado", "Perdido"]) {
       await expect(page.getByRole("button", { name: new RegExp(`^${est} \\(\\d+\\)`) })).toBeVisible();
@@ -107,13 +109,11 @@ test.describe("QA lote SOL-14..20", () => {
     const m = await metricas(request, rango);
     expect(m.deals_activos).toBeGreaterThan(0);
 
-    // El encabezado del pipeline muestra los mismos números
+    // El encabezado del pipeline muestra los mismos números (KPI condensado: valor + "activos")
     await page.goto("/pipeline");
-    await expect(page.getByText("Deals activos")).toBeVisible();
-    const dealsActivosTxt = await page
-      .getByText("Deals activos")
-      .locator("xpath=following-sibling::*[1]")
-      .textContent();
+    const etiquetaActivos = page.getByText("activos", { exact: true });
+    await expect(etiquetaActivos).toBeVisible();
+    const dealsActivosTxt = await etiquetaActivos.locator("xpath=preceding-sibling::*[1]").textContent();
     expect(Number(dealsActivosTxt)).toBe(m.deals_activos);
 
     // El reporte de funnel (Año) muestra la fila de métricas del pipeline

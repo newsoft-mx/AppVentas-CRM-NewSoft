@@ -1,8 +1,11 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Filter, Building2, Clock, LayoutGrid, List, ArrowDownUp, Flame, CalendarClock, Search } from "lucide-react";
+import {
+  Plus, Filter, Building2, Clock, LayoutGrid, List, Flame, CalendarClock, Search,
+  SlidersHorizontal, ChevronDown, X,
+} from "lucide-react";
 import {
   TEMPERATURA_META,
   TEMPERATURA_RANK,
@@ -81,6 +84,34 @@ export default function PipelineKanban({ stages, deals, vendedores, clientes, ti
     });
   }
 
+  // Popover de Filtros consolidado (rediseño): estado + tipo + vendedor + orden
+  // viven en un solo contenedor plegable; solo el buscador queda afuera.
+  const [filtrosOpen, setFiltrosOpen] = useState(false);
+  const popRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!filtrosOpen) return;
+    const onDoc = (e: MouseEvent) => {
+      if (popRef.current && !popRef.current.contains(e.target as Node)) setFiltrosOpen(false);
+    };
+    document.addEventListener("mousedown", onDoc);
+    return () => document.removeEventListener("mousedown", onDoc);
+  }, [filtrosOpen]);
+
+  const estadoModificado =
+    estadosSel.size !== ESTADOS_DEFAULT.length || !ESTADOS_DEFAULT.every((e) => estadosSel.has(e));
+  const filtrosActivos =
+    (tipoFiltro !== "todos" ? 1 : 0) +
+    (vendedorFiltro !== "todos" ? 1 : 0) +
+    (orden !== "none" ? 1 : 0) +
+    (estadoModificado ? 1 : 0);
+
+  function limpiarFiltros() {
+    setTipoFiltro("todos");
+    setVendedorFiltro("todos");
+    setOrden("none");
+    setEstadosSel(new Set(ESTADOS_DEFAULT));
+  }
+
   function sortDeals(arr: DealResumen[]): DealResumen[] {
     if (orden === "none") return arr;
     const copy = [...arr];
@@ -152,137 +183,166 @@ export default function PipelineKanban({ stages, deals, vendedores, clientes, ti
   return (
     <div className="flex h-full flex-col">
       {toast && <Toast {...toast} onClose={() => setToast(null)} />}
-      {/* Topbar */}
-      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-surface-border bg-white px-6 py-4">
-        <div>
+      {/* ── Franja 1 · ACCIÓN (buscar / crear / cambiar vista) ── */}
+      <header className="flex flex-wrap items-center gap-3 border-b border-surface-border bg-white px-6 py-3.5">
+        <div className="mr-1">
           <h1 className="text-xl font-bold tracking-tight text-navy">Pipeline CRM</h1>
           <p className="text-xs text-gray-400">Prospectos activos</p>
         </div>
-        <div className="flex items-center gap-3">
-          {/* Leyenda de temperatura */}
-          <div className="hidden items-center gap-3 lg:flex">
-            {(["MUY_CALIENTE", "CALIENTE", "TIBIO", "FRIO", "MUY_FRIO"] as const).map(
-              (t) => (
-                <span key={t} className="flex items-center gap-1.5 text-[11px] text-gray-400">
-                  <span
-                    className="h-2 w-2 rounded-full"
-                    style={{ background: TEMPERATURA_META[t].color }}
-                  />
-                  {TEMPERATURA_META[t].label}
-                </span>
-              )
-            )}
-          </div>
-          <select
-            value={tipoFiltro}
-            onChange={(e) => setTipoFiltro(e.target.value)}
-            className="rounded-lg border border-surface-border bg-white px-3 py-1.5 text-sm font-medium text-navy outline-none"
-          >
-            <option value="todos">Todos los tipos</option>
-            {tipos.map((t) => (
-              <option key={t.id} value={t.id}>{t.nombre}</option>
-            ))}
-          </select>
-          <select
-            value={vendedorFiltro}
-            onChange={(e) => setVendedorFiltro(e.target.value)}
-            className="rounded-lg border border-surface-border bg-white px-3 py-1.5 text-sm font-medium text-navy outline-none"
-          >
-            <option value="todos">Todos los vendedores</option>
-            {vendedores.map((v) => (
-              <option key={v.id} value={v.id}>
-                {v.nombre}
-              </option>
-            ))}
-          </select>
-          {/* Buscador (SOL-17): deal, cliente o contacto; se combina con los filtros */}
-          <div className="flex items-center gap-1.5 rounded-lg border border-surface-border bg-white px-2.5 py-1.5 focus-within:border-orange">
-            <Search size={14} className="shrink-0 text-gray-400" />
-            <input
-              value={busqueda}
-              onChange={(e) => setBusqueda(e.target.value)}
-              placeholder="Buscar deal, cliente o contacto…"
-              className="w-48 bg-transparent text-sm text-navy outline-none placeholder:text-gray-400"
-            />
-          </div>
-          {/* Toggle tablero / lista */}
-          <div className="flex overflow-hidden rounded-lg border border-surface-border">
-            <button
-              onClick={() => setVista("tablero")}
-              className={`flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold ${vista === "tablero" ? "bg-navy text-white" : "text-gray-500 hover:bg-surface"}`}
-              title="Vista tablero"
-            >
-              <LayoutGrid size={14} />
-            </button>
-            <button
-              onClick={() => setVista("lista")}
-              className={`flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold ${vista === "lista" ? "bg-navy text-white" : "text-gray-500 hover:bg-surface"}`}
-              title="Vista lista"
-            >
-              <List size={14} />
-            </button>
-          </div>
-          {canWrite && (
-            <button
-              onClick={() => setModalOpen(true)}
-              className="flex items-center gap-1.5 rounded-lg bg-orange px-3.5 py-2 text-sm font-semibold text-white transition-colors hover:bg-orange/90"
-            >
-              <Plus size={16} /> Nuevo Deal
+        {/* Buscador protagónico (SOL-17): con su propio espacio, sin filtros pegados */}
+        <div className="flex min-w-[220px] flex-1 items-center gap-2 rounded-lg border border-surface-border bg-white px-3 py-2 focus-within:border-orange">
+          <Search size={15} className="shrink-0 text-gray-400" />
+          <input
+            value={busqueda}
+            onChange={(e) => setBusqueda(e.target.value)}
+            placeholder="Buscar deal, cliente o contacto…"
+            className="w-full bg-transparent text-sm text-navy outline-none placeholder:text-gray-400"
+          />
+          {busqueda && (
+            <button onClick={() => setBusqueda("")} className="shrink-0 text-gray-300 hover:text-navy" title="Limpiar búsqueda">
+              <X size={14} />
             </button>
           )}
         </div>
+        {/* Toggle tablero / lista */}
+        <div className="flex overflow-hidden rounded-lg border border-surface-border">
+          <button
+            onClick={() => setVista("tablero")}
+            className={`flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold ${vista === "tablero" ? "bg-navy text-white" : "text-gray-500 hover:bg-surface"}`}
+            title="Vista tablero"
+          >
+            <LayoutGrid size={14} />
+          </button>
+          <button
+            onClick={() => setVista("lista")}
+            className={`flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold ${vista === "lista" ? "bg-navy text-white" : "text-gray-500 hover:bg-surface"}`}
+            title="Vista lista"
+          >
+            <List size={14} />
+          </button>
+        </div>
+        {canWrite && (
+          <button
+            onClick={() => setModalOpen(true)}
+            className="flex items-center gap-1.5 rounded-lg bg-orange px-3.5 py-2 text-sm font-semibold text-white transition-colors hover:bg-orange/90"
+          >
+            <Plus size={16} /> Nuevo Deal
+          </button>
+        )}
       </header>
 
-      {/* Barra de KPIs */}
-      <div className="flex flex-wrap items-center gap-6 border-b border-surface-border bg-white px-6 py-4">
-        <Kpi label="Valor del pipeline" value={`${formatCompacto(kpis.valor_pipeline)} MXN`} big />
-        <div className="h-9 w-px bg-borde" />
-        <Kpi label="Deals activos" value={String(kpis.deals_activos)} />
-        <Kpi label={<span className="inline-flex items-center gap-1"><Flame size={11} className="text-orange" /> Calientes</span>} value={String(kpis.calientes)} />
-        <Kpi label="Promedio deal" value={formatCompacto(kpis.promedio_deal)} />
-        <div className="h-9 w-px bg-borde" />
-        {/* Altas por período (REQ-04) */}
-        <Kpi label="Nuevos hoy" value={String(altas.hoy)} />
-        <Kpi label="Esta semana" value={String(altas.semana)} />
-        <Kpi label="Este mes" value={String(altas.mes)} />
-        <div className="ml-auto flex items-center gap-2">
-          {/* Filtro multi-estado (SOL-18): chips unión activo/pausado/ganado/perdido */}
-          <div className="flex items-center gap-1">
-            {ESTADOS_ORDEN.map((est) => {
-              const meta = ESTADO_DEAL_META[est];
-              const on = estadosSel.has(est);
-              return (
-                <button
-                  key={est}
-                  onClick={() => toggleEstado(est)}
-                  className="flex items-center gap-1 rounded-lg border px-2 py-1.5 text-xs font-semibold transition-colors"
-                  style={
-                    on
-                      ? { borderColor: meta.color, color: meta.color, background: `${meta.color}14` }
-                      : { borderColor: "var(--surface-border, #E5E7EB)", color: "#9CA3AF" }
-                  }
-                  title={`${on ? "Ocultar" : "Mostrar"} ${meta.label.toLowerCase()}s`}
-                >
-                  <span className="h-1.5 w-1.5 rounded-full" style={{ background: meta.color }} />
-                  {meta.label} ({countPorEstado[est]})
-                </button>
-              );
-            })}
-          </div>
-          <ArrowDownUp size={14} className="text-gray-400" />
-          <select
-            value={orden}
-            onChange={(e) => setOrden(e.target.value as typeof orden)}
-            className="rounded-lg border border-surface-border bg-white px-2.5 py-1.5 text-xs font-medium text-navy outline-none"
+      {/* ── Franja 2 · CONTEXTO (métricas + filtros consolidados) ── */}
+      <div className="flex flex-wrap items-center gap-x-5 gap-y-2 border-b border-surface-border bg-white px-6 py-3">
+        {/* KPIs de salud, condensados en una línea */}
+        <div className="flex items-baseline gap-1.5">
+          <span className="text-xl font-bold tracking-tight text-green-600">{formatCompacto(kpis.valor_pipeline)}</span>
+          <span className="text-[11px] font-medium text-gray-400">MXN en pipeline</span>
+        </div>
+        <MiniKpi value={String(kpis.deals_activos)} label="activos" />
+        <MiniKpi value={String(kpis.calientes)} label="calientes" icon={<Flame size={11} className="text-orange" />} />
+        <MiniKpi value={formatCompacto(kpis.promedio_deal)} label="promedio" />
+        <span className="h-6 w-px bg-borde" />
+        {/* Altas por período — secundario (REQ-04) */}
+        <span className="text-xs text-gray-400">
+          Nuevos: <b className="text-gray-600">{altas.hoy}</b> hoy · <b className="text-gray-600">{altas.semana}</b> sem ·{" "}
+          <b className="text-gray-600">{altas.mes}</b> mes
+        </span>
+
+        {/* Filtros consolidados (SOL-17/18 rediseño): un solo popable */}
+        <div className="relative ml-auto" ref={popRef}>
+          <button
+            onClick={() => setFiltrosOpen((o) => !o)}
+            className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors ${
+              filtrosOpen || filtrosActivos ? "border-orange text-navy" : "border-surface-border text-gray-500 hover:bg-surface"
+            }`}
           >
-            <option value="none">Orden por defecto</option>
-            <option value="valor">Mayor valor</option>
-            <option value="temperatura">Más calientes</option>
-            <option value="probabilidad">Mayor probabilidad</option>
-            <option value="actividad">Más actividad</option>
-            <option value="seguimiento">Próximo seguimiento</option>
-          </select>
-          <span className="flex items-center gap-1.5 text-xs text-gray-400"><Filter size={14} /> {stages.length} etapas</span>
+            <SlidersHorizontal size={14} /> Filtros
+            {filtrosActivos > 0 && (
+              <span className="rounded-full bg-orange px-1.5 text-[10px] font-bold text-white">{filtrosActivos}</span>
+            )}
+            <ChevronDown size={13} className={`transition-transform ${filtrosOpen ? "rotate-180" : ""}`} />
+          </button>
+          {filtrosOpen && (
+            <div className="absolute right-0 z-20 mt-1.5 w-72 rounded-xl border border-surface-border bg-white p-3 shadow-lg">
+              {/* Estado (multi-selección, unión — SOL-18) */}
+              <div className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-gray-400">Estado</div>
+              <div className="mb-3 flex flex-wrap gap-1.5">
+                {ESTADOS_ORDEN.map((est) => {
+                  const meta = ESTADO_DEAL_META[est];
+                  const on = estadosSel.has(est);
+                  return (
+                    <button
+                      key={est}
+                      onClick={() => toggleEstado(est)}
+                      className="flex items-center gap-1 rounded-lg border px-2 py-1 text-xs font-semibold transition-colors"
+                      style={
+                        on
+                          ? { borderColor: meta.color, color: meta.color, background: `${meta.color}14` }
+                          : { borderColor: "var(--surface-border, #E5E7EB)", color: "#9CA3AF" }
+                      }
+                    >
+                      <span className="h-1.5 w-1.5 rounded-full" style={{ background: meta.color }} />
+                      {meta.label} ({countPorEstado[est]})
+                    </button>
+                  );
+                })}
+              </div>
+              {/* Tipo */}
+              <label className="mb-2 block">
+                <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">Tipo de proyecto</span>
+                <select
+                  value={tipoFiltro}
+                  onChange={(e) => setTipoFiltro(e.target.value)}
+                  className="mt-1 w-full rounded-lg border border-surface-border bg-white px-2.5 py-1.5 text-sm text-navy outline-none focus:border-orange"
+                >
+                  <option value="todos">Todos los tipos</option>
+                  {tipos.map((t) => (
+                    <option key={t.id} value={t.id}>{t.nombre}</option>
+                  ))}
+                </select>
+              </label>
+              {/* Vendedor */}
+              <label className="mb-2 block">
+                <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">Vendedor</span>
+                <select
+                  value={vendedorFiltro}
+                  onChange={(e) => setVendedorFiltro(e.target.value)}
+                  className="mt-1 w-full rounded-lg border border-surface-border bg-white px-2.5 py-1.5 text-sm text-navy outline-none focus:border-orange"
+                >
+                  <option value="todos">Todos los vendedores</option>
+                  {vendedores.map((v) => (
+                    <option key={v.id} value={v.id}>{v.nombre}</option>
+                  ))}
+                </select>
+              </label>
+              {/* Orden */}
+              <label className="mb-3 block">
+                <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">Ordenar por</span>
+                <select
+                  value={orden}
+                  onChange={(e) => setOrden(e.target.value as typeof orden)}
+                  className="mt-1 w-full rounded-lg border border-surface-border bg-white px-2.5 py-1.5 text-sm text-navy outline-none focus:border-orange"
+                >
+                  <option value="none">Por defecto</option>
+                  <option value="valor">Mayor valor</option>
+                  <option value="temperatura">Más calientes</option>
+                  <option value="probabilidad">Mayor probabilidad</option>
+                  <option value="actividad">Más actividad</option>
+                  <option value="seguimiento">Próximo seguimiento</option>
+                </select>
+              </label>
+              <div className="flex items-center justify-between border-t border-surface-border pt-2">
+                <span className="flex items-center gap-1 text-[11px] text-gray-400"><Filter size={12} /> {stages.length} etapas</span>
+                <button
+                  onClick={limpiarFiltros}
+                  disabled={filtrosActivos === 0}
+                  className="text-xs font-semibold text-gray-500 hover:text-navy disabled:opacity-40"
+                >
+                  Limpiar
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -485,13 +545,15 @@ export default function PipelineKanban({ stages, deals, vendedores, clientes, ti
   );
 }
 
-function Kpi({ label, value, big }: { label: React.ReactNode; value: string; big?: boolean }) {
+// KPI condensado en línea: número + etiqueta, con ícono opcional (rediseño top).
+function MiniKpi({ value, label, icon }: { value: string; label: string; icon?: React.ReactNode }) {
   return (
-    <div>
-      <div className="text-[11px] uppercase tracking-wide text-gray-400">{label}</div>
-      <div className={`font-bold tracking-tight text-navy ${big ? "text-2xl text-green-600" : "text-base"}`}>
+    <div className="flex items-baseline gap-1.5">
+      <span className="inline-flex items-center gap-1 text-lg font-bold tracking-tight text-navy">
+        {icon}
         {value}
-      </div>
+      </span>
+      <span className="text-[11px] font-medium text-gray-400">{label}</span>
     </div>
   );
 }
