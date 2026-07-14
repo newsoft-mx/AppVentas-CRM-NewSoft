@@ -33,6 +33,8 @@ model User {
   created_at    DateTime  @default(now()) @db.Timestamptz(6)
   updated_at    DateTime  @updatedAt @db.Timestamptz(6)
 
+  simulador_casos SimuladorCaso[]
+
   @@map("user")
 }
 
@@ -573,6 +575,7 @@ model Deal {
   adjuntos     DealAdjunto[]
   analisis     DealAnalisisIA[]
   stage_events DealStageEvent[]
+  simulador_casos SimuladorCaso[]
 
   @@index([stage_id])
   @@index([vendedor_id])
@@ -715,4 +718,25 @@ model DealAnalisisIA {
 
   @@index([deal_id])
   @@map("deal_analisis_ia")
+}
+
+// Simulador de casos de negocio (feature aparte): la calculadora es su propio dueño.
+// El caso guarda su estado completo en `datos` (JSON). Se puede vincular a un Deal de
+// forma OPCIONAL (deal_id nullable) — el modelo de Deal NO cambia su lógica; el FK vive
+// acá y si se borra el deal, el caso queda (SetNull).
+model SimuladorCaso {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  nombre     String   @db.VarChar(150)
+  datos      Json     // estado completo del caso (inputs, modo, periodicidad, notas)
+  user_id    String   @db.Uuid
+  user       User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  deal_id    String?  @db.Uuid
+  deal       Deal?    @relation(fields: [deal_id], references: [id], onDelete: SetNull)
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  updated_at DateTime @updatedAt @db.Timestamptz(6)
+
+  @@unique([user_id, nombre]) // guardar por nombre sobrescribe (como el HTML original)
+  @@index([user_id])
+  @@index([deal_id])
+  @@map("simulador_caso")
 }
