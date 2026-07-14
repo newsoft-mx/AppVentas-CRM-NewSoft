@@ -21,7 +21,7 @@ import {
   TEMPERATURA_META, ROL_CONTACTO_LABEL, ESTADO_ACCION_META, ESTADO_ACCION_CICLO,
   EFECTO_META, ESTADO_PLAN_META,
   type DealDetalle, type DealActividadItem, type StageResumen, type TipoActividad,
-  type Temperatura, type EstadoAccion,
+  type Temperatura,
 } from "@/types/crm";
 // El panel de IA (DealAIPanel) está construido pero se libera en Fase 2.
 
