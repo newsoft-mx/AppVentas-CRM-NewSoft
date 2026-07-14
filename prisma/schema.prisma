@@ -596,15 +596,10 @@ model DealContacto {
   rol         RolContacto @default(OTRO)
   created_at  DateTime    @default(now()) @db.Timestamptz(6)
 
-  // DEPRECADAS (fase EXPAND del Bloque C): los datos del contacto ahora viven en
-  // "contacto" (vía contacto_id). Estas columnas quedan como red de seguridad tras
-  // el backfill y NO se leen en código. Se eliminan en la migración de CONTRACT
-  // (ver prisma/pending-migrations/), una vez verificado en datos reales.
-  nombre   String? @db.VarChar(150)
-  email    String? @db.VarChar(100)
-  telefono String? @db.VarChar(20)
-  whatsapp String? @db.VarChar(20)
-
+  // Nota: las columnas embebidas (nombre/email/telefono/whatsapp) de la fase EXPAND
+  // del Bloque C se retiran del modelo para que el cliente NO las seleccione (rompía
+  // el detalle en entornos donde ya no existen — P2022). Su DROP físico va en la
+  // migración de CONTRACT (prisma/pending-migrations/), pendiente de verificar datos.
   actividades DealActividad[]
 
   @@unique([deal_id, contacto_id])
