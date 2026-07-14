@@ -1,6 +1,6 @@
 import { test, expect, type APIRequestContext } from "@playwright/test";
 import { db, catalogo, stageDeOrden, limpiarDatosDeTest, type Catalogo } from "./helpers/db";
-import { crearDealAPI, getFunnel, rangoHoy } from "./helpers/api";
+import { crearDealAPI } from "./helpers/api";
 
 // QA del lote 2026-07-10 (SOL-14 a SOL-20). Verifica que cada cambio quedó
 // aplicado, contra el server local. Se auto-limpia (deals con prefijo E2E).

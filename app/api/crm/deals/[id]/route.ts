@@ -7,8 +7,6 @@ import { logger } from "@/lib/logger";
 
 export const dynamic = "force-dynamic";
 
-const TEMPS = ["MUY_FRIO", "FRIO", "TIBIO", "CALIENTE", "MUY_CALIENTE"];
-
 // ── PATCH /api/crm/deals/:id ────────────────────────────────────
 // Edición completa de la ficha del deal (SOL-01): acepta cualquier subconjunto
 // de los campos capturados en el alta. Sigue soportando { notas } solo.

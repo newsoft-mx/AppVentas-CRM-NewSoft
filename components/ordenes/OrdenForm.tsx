@@ -5,7 +5,6 @@ import { Save, Plus, Trash2, Calculator } from "lucide-react";
 import SearchableSelect from "@/components/ui/SearchableSelect";
 import { formatMoneda, formatMXN } from "@/lib/utils";
 import type { OrdenDetalle } from "@/types/ordenes";
-import Decimal from "decimal.js";
 
 // ── Tipos locales ─────────────────────────────────────────────
 
