@@ -84,6 +84,10 @@ export const TEMPERATURA_RANK: Record<Temperatura, number> = {
   MUY_FRIO: 1,
 };
 
+// SSOT del conjunto de valores de temperatura (frío → caliente). Única fuente para
+// validar/ofrecer temperaturas; no re-hardcodear la lista en handlers ni formularios.
+export const TEMPERATURAS: Temperatura[] = ["MUY_FRIO", "FRIO", "TIBIO", "CALIENTE", "MUY_CALIENTE"];
+
 // ── Detalle del deal ──
 
 export type TipoActividad = "NOTA" | "LLAMADA" | "EMAIL" | "WHATSAPP" | "SISTEMA";
@@ -91,6 +95,10 @@ export type RolContacto = "DECISOR" | "INFLUENCIADOR" | "USUARIO" | "OTRO";
 export type EstadoAccion = "PENDIENTE" | "EN_PROCESO" | "TERMINADO";
 export type DealResultado = "ABIERTO" | "GANADO" | "PERDIDO" | "SUSPENDIDO";
 export type EstatusCliente = "PROSPECTO" | "ACTIVO" | "INACTIVO";
+
+// SSOT del conjunto de resultados válidos del deal. Los handlers validan contra
+// esta lista (no re-hardcodean el enum).
+export const RESULTADOS_DEAL: DealResultado[] = ["ABIERTO", "GANADO", "PERDIDO", "SUSPENDIDO"];
 
 // Metadata del estado de la acción (toggle de color liviano, REQ-01)
 export const ESTADO_ACCION_META: Record<

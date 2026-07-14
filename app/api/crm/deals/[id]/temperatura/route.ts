@@ -3,11 +3,10 @@ import { prisma } from "@/lib/prisma";
 import { canWrite, requireAuth } from "@/lib/session";
 import { scopeDealWhere } from "@/lib/access-control";
 import { getScoringContext, dealScoreView } from "@/lib/deal-score";
-import type { Temperatura } from "@/types/crm";
+import { TEMPERATURAS, type Temperatura } from "@/types/crm";
 
 export const dynamic = "force-dynamic";
 
-const TEMPS: Temperatura[] = ["MUY_FRIO", "FRIO", "TIBIO", "CALIENTE", "MUY_CALIENTE"];
 
 // Score objetivo = punto medio del rango del nivel elegido (cortes configurables).
 function scoreObjetivoParaNivel(nivel: Temperatura, cortes: number[]): number {
@@ -55,7 +54,7 @@ export async function PATCH(
     let objetivo: number;
     if (typeof score === "number") {
       objetivo = Math.max(0, Math.min(100, Math.round(score)));
-    } else if (TEMPS.includes(temperatura as Temperatura)) {
+    } else if (TEMPERATURAS.includes(temperatura as Temperatura)) {
       objetivo = scoreObjetivoParaNivel(temperatura as Temperatura, ctx.config.niveles_umbral);
     } else {
       return NextResponse.json({ error: "Enviá 'temperatura' (nivel) o 'score' (0-100)" }, { status: 422 });
