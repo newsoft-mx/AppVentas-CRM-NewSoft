@@ -4,6 +4,7 @@
  */
 
 import Decimal from "decimal.js";
+import { TZ_NEGOCIO } from "@/lib/tz";
 
 // ── Configuración de Decimal.js ──────────────────────────────
 Decimal.set({ precision: 20, rounding: Decimal.ROUND_HALF_UP });
@@ -64,11 +65,14 @@ export function formatCompacto(n: number): string {
 
 // Fecha + hora corta es-MX: "29 jun, 03:00 p.m." (usado en bitácora, Kanban y acciones)
 export function formatFechaHora(iso: string | Date): string {
+  // TZ del negocio fija (CDMX): mismo resultado en server y cliente → sin mismatch
+  // de hidratación, y hora consistente para todos los usuarios (negocio en México).
   return new Date(iso).toLocaleString("es-MX", {
     day: "2-digit",
     month: "short",
     hour: "2-digit",
     minute: "2-digit",
+    timeZone: TZ_NEGOCIO,
   });
 }
 

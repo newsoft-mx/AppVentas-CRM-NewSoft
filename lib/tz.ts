@@ -13,6 +13,35 @@
 
 export const TZ_NEGOCIO = process.env.REPORTE_TZ || "America/Mexico_City";
 
+// Partes de fecha/hora de un instante, en la TZ del negocio (para display/prefill).
+function partesEnTZ(fecha: Date, tz: string): Record<string, string> {
+  const p: Record<string, string> = {};
+  for (const part of new Intl.DateTimeFormat("en-CA", {
+    timeZone: tz,
+    hour12: false,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).formatToParts(fecha)) {
+    if (part.type !== "literal") p[part.type] = part.value;
+  }
+  if (p.hour === "24") p.hour = "00"; // algunas plataformas dan "24" a medianoche
+  return p;
+}
+
+/**
+ * "Ahora" como string de <input type="datetime-local"> (YYYY-MM-DDTHH:mm) en la TZ
+ * del negocio. Reemplaza el uso de la hora del navegador para precargar inputs.
+ */
+export function ahoraInput(tz: string = TZ_NEGOCIO): string {
+  const p = partesEnTZ(new Date(), tz);
+  // Alinear al slot de 30 min (piso): 00 o 30, para que el prefill sea un slot válido.
+  const min = Number(p.minute) < 30 ? "00" : "30";
+  return `${p.year}-${p.month}-${p.day}T${p.hour}:${min}`;
+}
+
 // Milisegundos que la TZ está adelante de UTC, para el instante utcMs dado.
 function offsetMs(tz: string, utcMs: number): number {
   const dtf = new Intl.DateTimeFormat("en-US", {

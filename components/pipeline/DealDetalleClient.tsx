@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import {
   ArrowLeft, Phone, Mail, MessageCircle, StickyNote,
   Building2, Trophy, Cog, ChevronDown, XCircle, PauseCircle, Play, CalendarClock,
-  Star, Link2, ArrowUpCircle, ChevronRight, UserPlus, Pencil, Trash2,
+  Star, Link2, ArrowUpCircle, ChevronRight, UserPlus, Pencil, Trash2, Plus, X,
 } from "lucide-react";
 import Modal from "@/components/ui/Modal";
 import Toast, { ToastData } from "@/components/ui/Toast";
@@ -17,7 +17,8 @@ import Markdown from "@/components/ui/Markdown";
 import MarkdownEditor from "@/components/ui/MarkdownEditor";
 import { formatCompacto, formatFechaHora } from "@/lib/utils";
 import { MAX_CONTENIDO } from "@/lib/actividad";
-import { ahoraLocal } from "@/lib/filter-utils";
+import { ahoraInput } from "@/lib/tz";
+import InputFechaHora from "@/components/ui/InputFechaHora";
 import {
   TEMPERATURA_META, ESTADO_ACCION_META, ESTADO_ACCION_CICLO,
   EFECTO_META, ESTADO_PLAN_META,
@@ -71,7 +72,12 @@ function fmtFull(n: number): string {
 }
 function fmtFecha(iso: string | null): string {
   if (!iso) return "—";
-  return new Date(iso + "T00:00:00").toLocaleDateString("es-MX", { day: "2-digit", month: "short" });
+  // Fecha-solo (YYYY-MM-DD): anclar a UTC → misma fecha en server y cliente (sin corrimiento).
+  return new Date(iso + "T00:00:00Z").toLocaleDateString("es-MX", {
+    day: "2-digit",
+    month: "short",
+    timeZone: "UTC",
+  });
 }
 const FILTROS_VER: { key: "TODAS" | "NOTA" | "LLAMADA" | "EMAIL" | "WHATSAPP"; label: string }[] = [
   { key: "TODAS", label: "Todas" },
@@ -120,9 +126,9 @@ export default function DealDetalleClient({
   // Contacto precargado por defecto: el primer contacto del deal (REQ-03)
   const [contactoSel, setContactoSel] = useState(deal.contactos[0]?.id ?? "");
   const [fechaEvento, setFechaEvento] = useState("");
-  // Precargar "Cuándo ocurrió" con ahora (editable). En useEffect para evitar
-  // mismatch de hidratación (new Date() difiere entre server y cliente). (SOL-03)
-  useEffect(() => setFechaEvento(ahoraLocal()), []);
+  // Precargar "Cuándo ocurrió" con ahora en CDMX (editable). En useEffect para evitar
+  // mismatch de hidratación (la hora difiere entre server y cliente). (SOL-03)
+  useEffect(() => setFechaEvento(ahoraInput()), []);
   const [exitosa, setExitosa] = useState(true);
   const [seguimiento, setSeguimiento] = useState("");
   const [resultadoSel, setResultadoSel] = useState("");
@@ -132,6 +138,9 @@ export default function DealDetalleClient({
   // tener contenido (progressive disclosure — evita saturar la vista con opcionales).
   const [composerFocus, setComposerFocus] = useState(false);
   const composerAbierto = composerFocus || Boolean(texto.trim() || enlace.trim() || seguimiento);
+  // El compositor está colapsado por defecto (la bitácora ocupa toda la altura); se
+  // abre al tocar "Registrar actividad" y se cierra al guardar o con Cancelar/✕.
+  const [registrando, setRegistrando] = useState(false);
   const [procesando, setProcesando] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
@@ -311,6 +320,25 @@ export default function DealDetalleClient({
     ? new Date(proximoSeguimiento).getTime() < Date.now()
     : false;
 
+  // Limpia el borrador del compositor a su estado inicial (un solo lugar; lo usan el
+  // guardado exitoso y el cierre con Cancelar/✕).
+  function resetCompositor() {
+    setTexto("");
+    setContactoSel(deal.contactos[0]?.id ?? "");
+    setFechaEvento(ahoraInput());
+    setExitosa(true);
+    setSeguimiento("");
+    setResultadoSel("");
+    setEnlace("");
+    setTipoAccionSel(null);
+    setTipoNueva("NOTA");
+    setComposerFocus(false);
+  }
+  function cerrarCompositor() {
+    resetCompositor();
+    setRegistrando(false);
+  }
+
   async function guardarActividad() {
     if (!texto.trim() || guardando) return;
     setGuardando(true);
@@ -343,13 +371,7 @@ export default function DealDetalleClient({
       // En modo AUTOMÁTICO el servidor ya avanzó de etapa y registró el evento SISTEMA:
       // refrescar para reflejar la nueva etapa y la entrada en la bitácora.
       if (data.avanzo_etapa) router.refresh();
-      setTexto("");
-      setContactoSel(deal.contactos[0]?.id ?? "");
-      setFechaEvento(ahoraLocal());
-      setExitosa(true);
-      setSeguimiento("");
-      setResultadoSel("");
-      setEnlace("");
+      cerrarCompositor(); // guardado OK → limpia y colapsa el compositor
     } catch (e) {
       setToast({ type: "error", message: e instanceof Error ? e.message : "No se pudo guardar la actividad." });
     } finally {
@@ -563,8 +585,21 @@ export default function DealDetalleClient({
             )}
           </div>
 
-          {/* Compositor: arriba el TIPO de entrada → cambian los campos */}
-          {canWrite && (
+          {/* Colapsado: solo un trigger; la bitácora ocupa toda la altura (pedido de UX). */}
+          {canWrite && !registrando && (
+            <div className="border-b border-surface-border bg-white px-5 py-3">
+              <button
+                onClick={() => setRegistrando(true)}
+                className="flex w-full items-center gap-2 rounded-lg border border-dashed border-surface-border
+                  px-3 py-2 text-sm font-semibold text-gray-500 hover:border-orange hover:text-navy"
+              >
+                <Plus size={15} /> Registrar actividad
+              </button>
+            </div>
+          )}
+
+          {/* Compositor: visible solo al registrar; arriba el TIPO de entrada → cambian los campos */}
+          {canWrite && registrando && (
             <div
               className="border-b border-surface-border bg-white px-5 py-4"
               onFocus={() => setComposerFocus(true)}
@@ -572,6 +607,16 @@ export default function DealDetalleClient({
                 if (!e.currentTarget.contains(e.relatedTarget as Node)) setComposerFocus(false);
               }}
             >
+              <div className="mb-3 flex items-center justify-between">
+                <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">Nueva actividad</span>
+                <button
+                  onClick={cerrarCompositor}
+                  title="Cerrar"
+                  className="rounded p-1 text-gray-400 hover:bg-surface hover:text-navy"
+                >
+                  <X size={16} />
+                </button>
+              </div>
               <div className="mb-3 flex flex-wrap items-center gap-2">
                 {catalogoTipos
                   ? tiposAccion.map((t) => {
@@ -623,12 +668,7 @@ export default function DealDetalleClient({
                   </label>
                   <label className="flex flex-col gap-1 text-[11px] font-medium text-gray-500">
                     Cuándo ocurrió
-                    <input
-                      type="datetime-local"
-                      value={fechaEvento}
-                      onChange={(e) => setFechaEvento(e.target.value)}
-                      className="rounded-lg border border-surface-border bg-white px-3 py-2 text-sm text-navy outline-none focus:border-orange"
-                    />
+                    <InputFechaHora value={fechaEvento} onChange={setFechaEvento} />
                   </label>
                   {tipoNueva === "LLAMADA" && (
                     <label className="flex items-center gap-2 text-sm text-gray-600 sm:col-span-2">
@@ -676,18 +716,19 @@ export default function DealDetalleClient({
                   {/* Agendar próximo paso (opcional) — alimenta el inbox de Próximas Acciones */}
                   <label className="flex flex-col gap-1 text-[11px] font-medium text-gray-500">
                     <span className="flex items-center gap-1"><CalendarClock size={12} /> Agendar seguimiento (opcional)</span>
-                    <input
-                      type="datetime-local"
-                      value={seguimiento}
-                      onChange={(e) => setSeguimiento(e.target.value)}
-                      className="w-fit rounded-lg border border-surface-border bg-white px-3 py-2 text-sm text-navy outline-none focus:border-orange"
-                    />
+                    <InputFechaHora value={seguimiento} onChange={setSeguimiento} />
                   </label>
                 </div>
               )}
 
-              {/* CTA — siempre visible */}
-              <div className="mt-3 flex justify-end">
+              {/* CTA — cancelar (colapsa) + registrar */}
+              <div className="mt-3 flex items-center justify-end gap-2">
+                <button
+                  onClick={cerrarCompositor}
+                  className="rounded-lg px-4 py-2 text-sm font-semibold text-gray-500 hover:bg-surface hover:text-navy"
+                >
+                  Cancelar
+                </button>
                 <button
                   onClick={guardarActividad}
                   disabled={!texto.trim() || texto.length > MAX_CONTENIDO || guardando}

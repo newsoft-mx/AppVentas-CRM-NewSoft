@@ -12,6 +12,7 @@ import {
   type AccionItem, type TipoActividad, type EstadoAccion, type GrupoUrgencia,
 } from "@/types/crm";
 import CalendarioAcciones from "@/components/pipeline/CalendarioAcciones";
+import InputFechaHora from "@/components/ui/InputFechaHora";
 import { formatCompacto, formatFechaHora } from "@/lib/utils";
 import { useUrlFilters } from "@/hooks/useUrlFilters";
 import { serializeAccionesFiltros, type AccionesFiltros } from "@/lib/acciones-filtros";
@@ -67,6 +68,7 @@ export default function AccionesInbox({
   const setEstadoFiltro = (v: "todos" | EstadoAccion) => setFiltros((f) => ({ ...f, estado: v }));
 
   const [reprogramando, setReprogramando] = useState<string | null>(null);
+  const [reprogValue, setReprogValue] = useState(""); // "YYYY-MM-DDTHH:mm" del reprogramar
   const [toast, setToast] = useState<ToastData | null>(null);
   // "Ahora" debe avanzar: si el inbox queda abierto (o cruza medianoche), el
   // agrupamiento Vencidas/Hoy/Semana se recalcula en vez de quedar congelado al montar.
@@ -287,16 +289,23 @@ export default function AccionesInbox({
                           {a.fecha_tarea ? formatFechaHora(a.fecha_tarea) : "Sin fecha"}
                         </span>
                         {reprogramando === a.id ? (
-                          <input
-                            type="datetime-local"
-                            autoFocus
-                            defaultValue={a.fecha_tarea ? toLocalInput(a.fecha_tarea) : ""}
-                            onBlur={(e) => reprogramar(a, e.target.value)}
-                            className="rounded border border-surface-border px-1.5 py-0.5 text-[11px] text-navy outline-none focus:border-orange"
-                          />
+                          <span className="flex items-center gap-1.5">
+                            <InputFechaHora autoFocus value={reprogValue} onChange={setReprogValue} />
+                            <button
+                              onClick={() => reprogramar(a, reprogValue)}
+                              disabled={!reprogValue.includes("T") || !reprogValue.split("T")[1]}
+                              className="rounded bg-navy px-2 py-1 text-[11px] font-semibold
+                                text-white disabled:opacity-40"
+                            >
+                              Guardar
+                            </button>
+                          </span>
                         ) : (
                           <button
-                            onClick={() => setReprogramando(a.id)}
+                            onClick={() => {
+                              setReprogValue(a.fecha_tarea ? toLocalInput(a.fecha_tarea) : "");
+                              setReprogramando(a.id);
+                            }}
                             className="flex items-center gap-1 text-[10px] font-semibold text-gray-400 hover:text-orange"
                           >
                             <CalendarClock size={11} /> Reprogramar
