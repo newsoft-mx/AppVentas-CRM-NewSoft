@@ -161,16 +161,26 @@ export async function POST(
     let avanzoEtapa = false;
     if (cruzoAlAlza && view.siguienteStageId) {
       if (ctx.avance_modo === "AUTOMATICO") {
-        await prisma.deal.update({
-          where: { id },
-          data: { stage_id: view.siguienteStageId, fecha_entrada_stage: new Date() },
-        });
-        await prisma.dealActividad.create({
-          data: { deal_id: id, tipo: "SISTEMA", autor: "Sistema", contenido: `Avance automático (score ${view.score}/100).` },
-        });
-        await prisma.dealStageEvent.create({
-          data: { deal_id: id, from_stage_id: deal.stage_id, to_stage_id: view.siguienteStageId },
-        });
+        // Bloque E: los 3 writes van en UNA transacción. Si no, una falla parcial
+        // dejaba el stage avanzado sin su DealStageEvent → el funnel (que reconstruye
+        // la etapa alcanzada desde ese historial) divergía del pipeline real.
+        await prisma.$transaction([
+          prisma.deal.update({
+            where: { id },
+            data: { stage_id: view.siguienteStageId, fecha_entrada_stage: new Date() },
+          }),
+          prisma.dealActividad.create({
+            data: {
+              deal_id: id,
+              tipo: "SISTEMA",
+              autor: "Sistema",
+              contenido: `Avance automático (score ${view.score}/100).`,
+            },
+          }),
+          prisma.dealStageEvent.create({
+            data: { deal_id: id, from_stage_id: deal.stage_id, to_stage_id: view.siguienteStageId },
+          }),
+        ]);
         avanzoEtapa = true;
       } else {
         sugerirAvance = true; // modo SUGERIR → el front muestra el banner

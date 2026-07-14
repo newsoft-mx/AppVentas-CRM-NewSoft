@@ -16,6 +16,7 @@ import {
   Workflow,
   CalendarClock,
   TrendingUp,
+  ShieldCheck,
 } from "lucide-react";
 import type { UserRole } from "@/lib/session";
 
@@ -44,6 +45,7 @@ const navGroups: {
     items: [
       { href: "/clientes", label: "Clientes", icon: Users },
       { href: "/configuracion", label: "Configuración", icon: Settings, adminOnly: true },
+      { href: "/salud", label: "Salud del sistema", icon: ShieldCheck, adminOnly: true },
     ],
   },
 ];

@@ -5,7 +5,6 @@ import { Save, Plus, Trash2, Calculator } from "lucide-react";
 import SearchableSelect from "@/components/ui/SearchableSelect";
 import { formatMoneda, formatMXN } from "@/lib/utils";
 import type { OrdenDetalle } from "@/types/ordenes";
-import Decimal from "decimal.js";
 
 // ── Tipos locales ─────────────────────────────────────────────
 
@@ -41,7 +40,7 @@ interface OrdenFormProps {
   aplicarIvaDefault?: boolean;
   vigenciaDiasDefault?: number;
   /** Precarga (hand-off desde un deal GANADO): valores iniciales solo en modo creación */
-  precarga?: { cliente_id?: string; vendedor_id?: string; descripcion?: string; valor?: number };
+  precarga?: { cliente_id?: string; vendedor_id?: string; descripcion?: string; valor?: number; deal_id?: string };
   onSuccess: (orden: OrdenDetalle) => void;
   onCancel?: () => void;
 }
@@ -274,6 +273,8 @@ export default function OrdenForm({
         descuento_porcentaje: descuento ? parseFloat(descuento) : null,
         descuento_descripcion: descuentoDesc.trim() || null,
         notas: notas.trim() || null,
+        // Vínculo al deal ganado (Bloque T): solo al crear desde el hand-off.
+        ...(!isEditing && precarga?.deal_id ? { deal_id: precarga.deal_id } : {}),
         partidas: partidas.map((p, i) => ({
           descripcion: p.descripcion.trim(),
           cantidad: parseFloat(p.cantidad),

@@ -1,7 +1,7 @@
 export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { calcularOrden } from "@/lib/utils";
+import { calcularOrden, transicionOrdenPermitida } from "@/lib/utils";
 import { serializeOrden } from "@/lib/serializers";
 import { OrdenUpdateSchema } from "@/lib/validations/ordenes";
 import type { ZodIssue } from "zod";
@@ -86,6 +86,24 @@ export async function PUT(
     }
     if (!canMutateOrden(session, ordenExistente)) {
       return NextResponse.json({ error: "Sin permisos" }, { status: 403 });
+    }
+
+    // Máquina de estados (Bloque F): el PUT general también valida la transición,
+    // para que no haya una puerta paralela que evite la de /estatus.
+    if (data.estatus && data.estatus !== ordenExistente.estatus) {
+      if (!transicionOrdenPermitida(ordenExistente.estatus, data.estatus)) {
+        return NextResponse.json(
+          { error: `Transición no permitida: ${ordenExistente.estatus} → ${data.estatus}`, campo: "estatus" },
+          { status: 409 }
+        );
+      }
+      const fechaVentaFinal = data.fecha_venta ?? ordenExistente.fecha_venta;
+      if (data.estatus === "VENTA" && !fechaVentaFinal) {
+        return NextResponse.json(
+          { error: "Se requiere la fecha de venta al confirmar como VENTA", campo: "fecha_venta" },
+          { status: 422 }
+        );
+      }
     }
 
     if (session.rol === "VENDEDOR") {
@@ -217,12 +235,26 @@ export async function DELETE(
     if (!canMutateOrden(session, orden)) {
       return NextResponse.json({ error: "Sin permisos" }, { status: 403 });
     }
+    // Invariante financiero (Bloque F): una orden VENTA/COTIZADO es un registro
+    // auditable; NO se borra en duro. Solo los BORRADOR se eliminan; el resto se
+    // "archiva" cambiando su estatus por la máquina de estados.
+    if (orden.estatus !== "BORRADOR") {
+      return NextResponse.json(
+        {
+          error:
+            `Solo se pueden eliminar órdenes en BORRADOR. ` +
+            `Una orden ${orden.estatus} no se borra: cambiá su estatus.`,
+        },
+        { status: 409 }
+      );
+    }
 
     // Cascade delete (partidas se eliminan por FK constraint)
     await prisma.ordenVenta.delete({ where: { id } });
 
     return NextResponse.json({ ok: true, folio: orden.folio });
-  } catch {
+  } catch (err) {
+    logger.error("Error al eliminar la orden", "DELETE /api/ordenes/:id", err);
     return NextResponse.json({ error: "Error al eliminar la orden" }, { status: 500 });
   }
 }

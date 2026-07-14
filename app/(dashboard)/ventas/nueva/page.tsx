@@ -28,6 +28,8 @@ export default async function NuevaOrdenPage({
     vendedor_id: asStr(sp.vendedor_id),
     descripcion: asStr(sp.descripcion),
     valor: Number.isFinite(valorNum) && valorNum > 0 ? valorNum : undefined,
+    // deal_id (Bloque T): al crear la orden se vincula al deal ganado (orden_id).
+    deal_id: asStr(sp.deal_id),
   };
 
   const [clientes, tipos, condiciones, vendedores, empresa] = await Promise.all([

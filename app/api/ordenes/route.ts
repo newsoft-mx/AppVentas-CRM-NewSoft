@@ -111,6 +111,10 @@ export async function POST(req: NextRequest) {
   }
 
   const data = parsed.data;
+  // deal_id opcional (Bloque T): hint del hand-off, no es campo de la orden.
+  const dealId = typeof (body as { deal_id?: unknown }).deal_id === "string"
+    ? (body as { deal_id: string }).deal_id
+    : null;
   const vendedorId = assignedVendedorId(session, data.vendedor_id);
   if (!vendedorId) {
     return NextResponse.json({ error: "Usuario sin vendedor asignado" }, { status: 403 });
@@ -204,6 +208,17 @@ export async function POST(req: NextRequest) {
           orden_display: p.orden_display,
         })),
       });
+
+      // Vínculo deal↔orden (Bloque T): si la orden nace de un hand-off, dejar la
+      // trazabilidad en el mismo commit. Guardas: mismo cliente, GANADO y sin
+      // orden previa → best-effort (0 filas si no aplica; nunca rompe la creación
+      // ni el @unique de orden_id).
+      if (dealId) {
+        await tx.deal.updateMany({
+          where: { id: dealId, cliente_id: data.cliente_id, resultado: "GANADO", orden_id: null },
+          data: { orden_id: nuevaOrden.id },
+        });
+      }
 
       // Recuperar con partidas para devolver completo
       const partidas = await tx.partida.findMany({

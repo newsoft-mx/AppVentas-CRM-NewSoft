@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { canWrite, requireAuth } from "@/lib/session";
 import { scopeDealWhere } from "@/lib/access-control";
+import { transicionResultadoPermitida } from "@/lib/utils";
+import { logger } from "@/lib/logger";
 
 export const dynamic = "force-dynamic";
 
@@ -27,6 +29,14 @@ export async function POST(
     if (deal.resultado === "GANADO") {
       return NextResponse.json({ ok: true, ya_ganado: true, deal });
     }
+    // Máquina de estados (Bloque E): solo ABIERTO/SUSPENDIDO pueden ganarse; un
+    // deal PERDIDO no se gana por esta vía (es terminal).
+    if (!transicionResultadoPermitida(deal.resultado, "GANADO")) {
+      return NextResponse.json(
+        { error: `Transición no permitida: ${deal.resultado} → GANADO` },
+        { status: 409 }
+      );
+    }
 
     await prisma.$transaction([
       prisma.deal.update({
@@ -43,17 +53,20 @@ export async function POST(
       }),
     ]);
 
-    // Datos para precargar la orden en el módulo Ventas
+    // Datos para precargar la orden en el módulo Ventas. deal_id viaja para que
+    // la orden, al crearse, quede vinculada al deal (Bloque T: trazabilidad).
     return NextResponse.json({
       ok: true,
       handoff: {
+        deal_id: deal.id,
         cliente_id: deal.cliente_id,
         vendedor_id: deal.vendedor_id,
         descripcion: deal.nombre,
         valor: Number(deal.valor),
       },
     });
-  } catch {
+  } catch (err) {
+    logger.error("Error al marcar el deal como ganado", "POST /api/crm/deals/:id/ganar", err);
     return NextResponse.json({ error: "Error al marcar el deal como ganado" }, { status: 500 });
   }
 }

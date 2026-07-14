@@ -3,10 +3,9 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { canWrite, requireAuth } from "@/lib/session";
 import { scopeDealWhere } from "@/lib/access-control";
+import { logger } from "@/lib/logger";
 
 export const dynamic = "force-dynamic";
-
-const TEMPS = ["MUY_FRIO", "FRIO", "TIBIO", "CALIENTE", "MUY_CALIENTE"];
 
 // ── PATCH /api/crm/deals/:id ────────────────────────────────────
 // Edición completa de la ficha del deal (SOL-01): acepta cualquier subconjunto
@@ -95,13 +94,33 @@ export async function PATCH(
 
   try {
     // Scoping por vendedor (evita IDOR): un VENDEDOR solo edita sus propios deals.
-    const r = await prisma.deal.updateMany({
+    const deal = await prisma.deal.findFirst({
       where: scopeDealWhere(session, { id }),
-      data: data as Prisma.DealUpdateManyMutationInput,
+      select: { id: true, stage_id: true },
     });
-    if (r.count === 0) return NextResponse.json({ error: "Deal no encontrado" }, { status: 404 });
+    if (!deal) return NextResponse.json({ error: "Deal no encontrado" }, { status: 404 });
+
+    // Bloque E: si esta edición mueve el deal de etapa, hay que registrar el
+    // DealStageEvent igual que /stage. El funnel reconstruye la etapa alcanzada
+    // desde ese historial; un cambio de stage_id sin evento lo hace divergir del
+    // pipeline real. Se hace en UNA transacción con el update y se reinicia
+    // fecha_entrada_stage (tiempo en etapa).
+    const cambiaStage =
+      typeof data.stage_id === "string" && data.stage_id !== deal.stage_id;
+    if (cambiaStage) {
+      data.fecha_entrada_stage = new Date();
+      await prisma.$transaction([
+        prisma.deal.update({ where: { id }, data: data as Prisma.DealUpdateInput }),
+        prisma.dealStageEvent.create({
+          data: { deal_id: id, from_stage_id: deal.stage_id, to_stage_id: data.stage_id as string },
+        }),
+      ]);
+    } else {
+      await prisma.deal.update({ where: { id }, data: data as Prisma.DealUpdateInput });
+    }
     return NextResponse.json({ ok: true });
-  } catch {
+  } catch (err) {
+    logger.error("Error al actualizar el deal", "PATCH /api/crm/deals/:id", err);
     return NextResponse.json({ error: "Error al actualizar el deal" }, { status: 500 });
   }
 }

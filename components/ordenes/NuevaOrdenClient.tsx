@@ -24,7 +24,7 @@ interface NuevaOrdenClientProps {
   tasaIvaDefault: number;
   aplicarIvaDefault: boolean;
   vigenciaDiasDefault: number;
-  precarga?: { cliente_id?: string; vendedor_id?: string; descripcion?: string; valor?: number };
+  precarga?: { cliente_id?: string; vendedor_id?: string; descripcion?: string; valor?: number; deal_id?: string };
 }
 
 export default function NuevaOrdenClient({
