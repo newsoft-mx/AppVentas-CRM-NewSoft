@@ -86,8 +86,9 @@ En vez de criterios caso-por-caso, cada bloque es un **enunciado universal** + c
 
 ### Bloque F — Integridad financiera (P0)
 - **Invariante:** *"Una orden VENTA es inmutable salvo por su máquina de estados, nunca se borra en duro, siempre tiene `fecha_venta`, y siempre aparece en financieros."*
-- Enforce: bloquear `DELETE` si `estatus≠BORRADOR`; **una sola puerta** para `estatus` (quitar el bypass del PATCH general → todo pasa por la máquina); `fecha_venta` NOT NULL a nivel garantía cuando VENTA; decidir y **documentar** la política de `cliente.activo` en financieros (excluir o no) y aplicarla en TODOS los reads.
-- Observa: health-check "toda orden VENTA tiene fecha_venta y cliente resoluble; no hay VENTA borrada".
+- Enforce: bloquear `DELETE` si `estatus≠BORRADOR`; **una sola puerta** para `estatus` (quitar el bypass del PATCH general → todo pasa por la máquina); `fecha_venta` NOT NULL a nivel garantía cuando VENTA.
+- **DECISIÓN CERRADA (Lisandro):** las ventas de un cliente **desactivado SIGUEN contando** en los reportes financieros (no perder histórico). → El comportamiento actual (nadie filtra por `cliente.activo`) es **correcto e intencional**, no una fuga. No requiere cambio de código; queda **documentado como política** y el health-check lo reporta como *informativo* (visibilidad del monto), no como violación.
+- Observa: health-check "toda orden VENTA tiene fecha_venta; no hay VENTA borrada" (`/api/admin/health`, vista `/salud`).
 
 ### Bloque T — Traducción deal↔orden (P0)
 - **Invariante:** *"Un deal GANADO tiene exactamente una orden vinculada (`orden_id`), y ganar⇒crear-orden es atómico o reconciliable."*
