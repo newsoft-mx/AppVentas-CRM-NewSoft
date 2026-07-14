@@ -131,4 +131,16 @@ test.describe("QA lote SOL-14..20", () => {
     const buf = await res.body();
     expect(buf.subarray(0, 5).toString()).toBe("%PDF-");
   });
+
+  test("O · health-check de invariantes responde estructurado (admin)", async ({ request }) => {
+    const res = await request.get("/api/admin/health");
+    expect(res.status()).toBe(200);
+    const body = await res.json();
+    expect(Array.isArray(body.checks)).toBeTruthy();
+    expect(typeof body.sano).toBe("boolean");
+    for (const c of body.checks) {
+      expect(c).toHaveProperty("count");
+      expect(["violacion", "informativo"]).toContain(c.tipo);
+    }
+  });
 });
