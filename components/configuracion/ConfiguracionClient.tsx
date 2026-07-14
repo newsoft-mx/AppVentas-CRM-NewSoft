@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Building2, Tag, CreditCard, UserRound, Users, Workflow, XCircle, Activity } from "lucide-react";
+import { Building2, Tag, CreditCard, UserRound, Users, Workflow, XCircle, Gauge } from "lucide-react";
 import TabEmpresa from "./TabEmpresa";
 import TabTipos from "./TabTipos";
 import TabCondiciones from "./TabCondiciones";
@@ -9,7 +9,7 @@ import TabVendedores from "./TabVendedores";
 import TabUsuarios from "./TabUsuarios";
 import TabPipelineStages from "./TabPipelineStages";
 import TabMotivosPerdida from "./TabMotivosPerdida";
-import TabModeloActividad from "./TabModeloActividad";
+import TabScoring from "./TabScoring";
 import type { Empresa, TipoCotizacion, CondicionComercial, Vendedor, Usuario, PipelineStageConfig } from "@/types/configuracion";
 
 interface MotivoPerdida { id: string; nombre: string; orden: number; activo: boolean; }
@@ -36,7 +36,7 @@ const TABS = [
   { id: "usuarios", label: "Usuarios", icon: Users },
   { id: "pipeline", label: "Etapas del Pipeline", icon: Workflow },
   { id: "motivos", label: "Motivos de pérdida", icon: XCircle },
-  { id: "actividad", label: "Modelo de actividad", icon: Activity },
+  { id: "scoring", label: "Scoring", icon: Gauge },
 ] as const;
 
 type TabId = (typeof TABS)[number]["id"];
@@ -130,8 +130,8 @@ export default function ConfiguracionClient({
             <TabMotivosPerdida initialMotivos={initialMotivos} />
           )}
 
-          {activeTab === "actividad" && (
-            <TabModeloActividad initialTipos={initialTiposAccion} initialResultados={initialResultados} />
+          {activeTab === "scoring" && (
+            <TabScoring initialTipos={initialTiposAccion} initialResultados={initialResultados} stages={initialStages} />
           )}
         </div>
       </div>
