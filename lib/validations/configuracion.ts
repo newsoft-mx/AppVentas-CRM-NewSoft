@@ -149,6 +149,26 @@ export const usuarioUpdateSchema = z.object({
   vendedor_id: z.string().uuid("Vendedor inválido").nullable().optional(),
 });
 
+// ── Perfil propio (self-service) ────────────────────────────
+// El usuario logueado edita SU perfil: nombre y/o contraseña. NO puede tocar
+// rol/activo/email (eso es solo del admin). Para cambiar la contraseña debe
+// probar la actual (se verifica en el endpoint).
+export const perfilUpdateSchema = z
+  .object({
+    nombre: z.string().trim().min(1, "Nombre requerido").max(150).optional(),
+    password_actual: z.string().max(100).optional(),
+    password_nueva: z
+      .string()
+      .max(100)
+      .optional()
+      .transform((v) => v?.trim() || undefined)
+      .refine((v) => !v || v.length >= 8, "La nueva contraseña debe tener al menos 8 caracteres"),
+  })
+  .refine((d) => !d.password_nueva || !!d.password_actual?.trim(), {
+    message: "Ingresá tu contraseña actual",
+    path: ["password_actual"],
+  });
+
 // Tipos inferidos para usar en el frontend si se necesitan
 export type EmpresaUpdateInput = z.infer<typeof empresaUpdateSchema>;
 export type TipoCotizacionCreateInput = z.infer<typeof tipoCotizacionCreateSchema>;
