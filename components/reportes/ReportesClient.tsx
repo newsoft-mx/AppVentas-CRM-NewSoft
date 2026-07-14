@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect, useTransition, useCallback, useRef } from "react";
-import { useRouter, usePathname } from "next/navigation";
+import { useState, useEffect, useCallback, useRef } from "react";
+import { useUrlFilters } from "@/hooks/useUrlFilters";
 import { BarChart3 } from "lucide-react";
 import FiltrosReportes from "./FiltrosReportes";
 import GraficoVentasMensuales from "./GraficoVentasMensuales";
@@ -43,11 +43,8 @@ async function fetchJSON<T>(url: string): Promise<T> {
 }
 
 export default function ReportesClient({ initialData, initialFiltros }: Props) {
-  const router = useRouter();
-  const pathname = usePathname();
-  const [isPending, startTransition] = useTransition();
-
-  const [filtros, setFiltros] = useState<FiltroReportes>(initialFiltros);
+  // Filtros persistentes en la URL (mecanismo compartido — pilar 3)
+  const [filtros, setFiltros, isPending] = useUrlFilters(initialFiltros, buildQS);
   const [ventasMensuales, setVentasMensuales] = useState<VentasMensualesData>(initialData.ventasMensuales);
   const [pipeline, setPipeline] = useState<PipelineData>(initialData.pipeline);
   const [topClientes, setTopClientes] = useState<TopClienteItem[]>(initialData.topClientes);
@@ -55,14 +52,6 @@ export default function ReportesClient({ initialData, initialFiltros }: Props) {
   const [ventasPorTipo, setVentasPorTipo] = useState<VentasTipoItem[]>(initialData.ventasPorTipo);
   const [stats, setStats] = useState<ReporteStats>(initialData.stats);
   const [loading, setLoading] = useState(false);
-
-  // ── URL sync ──────────────────────────────────────────────────
-  useEffect(() => {
-    const qs = buildQS(filtros);
-    const url = qs ? `${pathname}?${qs}` : pathname;
-    startTransition(() => router.replace(url));
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filtros]);
 
   // ── Re-fetch on filter change ─────────────────────────────────
   const refetch = useCallback(async (f: FiltroReportes) => {
