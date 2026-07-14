@@ -19,6 +19,7 @@ import { formatCompacto, formatFechaHora } from "@/lib/utils";
 import { MAX_CONTENIDO } from "@/lib/actividad";
 import { ahoraInput } from "@/lib/tz";
 import InputFechaHora from "@/components/ui/InputFechaHora";
+import { esTareaPendiente, estaVencida } from "@/lib/tareas";
 import {
   TEMPERATURA_META, ESTADO_ACCION_META, ESTADO_ACCION_CICLO,
   EFECTO_META, ESTADO_PLAN_META,
@@ -126,9 +127,15 @@ export default function DealDetalleClient({
   // Contacto precargado por defecto: el primer contacto del deal (REQ-03)
   const [contactoSel, setContactoSel] = useState(deal.contactos[0]?.id ?? "");
   const [fechaEvento, setFechaEvento] = useState("");
-  // Precargar "Cuándo ocurrió" con ahora en CDMX (editable). En useEffect para evitar
+  // "Ahora" en ms, seteado tras el montaje: evita llamar Date.now() en el render
+  // (mismatch de hidratación). Alimenta cuandoFutura y seguimientoVencido.
+  const [nowTs, setNowTs] = useState<number | null>(null);
+  // Precargar "¿Cuándo?" con ahora en CDMX (editable). En useEffect para evitar
   // mismatch de hidratación (la hora difiere entre server y cliente). (SOL-03)
-  useEffect(() => setFechaEvento(ahoraInput()), []);
+  useEffect(() => {
+    setFechaEvento(ahoraInput());
+    setNowTs(Date.now());
+  }, []);
   const [exitosa, setExitosa] = useState(true);
   // Un solo campo de fecha ("¿Cuándo?" = fechaEvento). Si la fecha es futura y se pide
   // recordatorio, se guarda como tarea (fecha_tarea); si no, como registro (fecha_evento).
@@ -140,8 +147,10 @@ export default function DealDetalleClient({
   // contenido (progressive disclosure — evita saturar la vista con opcionales).
   const [composerFocus, setComposerFocus] = useState(false);
   const composerAbierto = composerFocus || Boolean(texto.trim() || enlace.trim());
-  // ¿La fecha elegida es futura? (el compositor solo se renderiza en cliente → seguro)
-  const cuandoFutura = fechaEvento ? new Date(fechaEvento).getTime() > Date.now() : false;
+  // ¿La fecha elegida es futura? Se compara contra nowTs (montado) para no llamar
+  // Date.now() en render. Antes de montar → false (no hay fecha elegida aún).
+  const cuandoFutura =
+    fechaEvento && nowTs != null ? new Date(fechaEvento).getTime() > nowTs : false;
   // El compositor está colapsado por defecto (la bitácora ocupa toda la altura); se
   // abre al tocar "Registrar actividad" y se cierra al guardar o con Cancelar/✕.
   const [registrando, setRegistrando] = useState(false);
@@ -314,15 +323,14 @@ export default function DealDetalleClient({
     // Destacadas primero (pin), el resto en su orden cronológico
     .sort((x, y) => Number(y.destacada) - Number(x.destacada));
 
-  // Próximo seguimiento pendiente (tarea agendada más cercana)
+  // Próximo seguimiento pendiente (tarea agendada más cercana) — predicado SSOT.
   const proximoSeguimiento =
     actividades
-      .filter((a) => a.es_tarea && !a.completada && a.fecha_tarea)
+      .filter(esTareaPendiente)
       .map((a) => a.fecha_tarea as string)
       .sort()[0] ?? null;
-  const seguimientoVencido = proximoSeguimiento
-    ? new Date(proximoSeguimiento).getTime() < Date.now()
-    : false;
+  const seguimientoVencido =
+    proximoSeguimiento && nowTs != null ? estaVencida(proximoSeguimiento, nowTs) : false;
 
   // Limpia el borrador del compositor a su estado inicial (un solo lugar; lo usan el
   // guardado exitoso y el cierre con Cancelar/✕).

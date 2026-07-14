@@ -4,6 +4,8 @@
 // actividad. Resuelve el reclamo de Roldán: un deal con seguimiento agendado a futuro
 // deja de aparecer en rojo y pasa a "en seguimiento" (stand-by), mostrando la fecha.
 
+import { esTareaPendiente, estaVencida } from "@/lib/tareas";
+
 export type EstadoAtencion = "EN_SEGUIMIENTO" | "VENCIDO" | "SIN_PROXIMA";
 
 export const UMBRAL_INACTIVIDAD_DIAS = 7;
@@ -49,16 +51,16 @@ export function estadoAtencion(
 ): ResultadoAtencion {
   const ahoraMs = ahora.getTime();
 
-  // Seguimientos pendientes (tareas no terminadas con fecha)
+  // Seguimientos pendientes (tareas no terminadas con fecha) — predicado SSOT.
   const pendientes = actividades
-    .filter((a) => a.es_tarea && !a.completada && a.fecha_tarea != null)
+    .filter(esTareaPendiente)
     .map((a) => ms(a.fecha_tarea as string | Date))
     .sort((x, y) => x - y);
 
   const proximoMs = pendientes[0] ?? null;
 
   if (proximoMs != null) {
-    const vencido = proximoMs < ahoraMs;
+    const vencido = estaVencida(new Date(proximoMs), ahoraMs);
     return {
       estado: vencido ? "VENCIDO" : "EN_SEGUIMIENTO",
       proximo_seguimiento: new Date(proximoMs).toISOString(),
