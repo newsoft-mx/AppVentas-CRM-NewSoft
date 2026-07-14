@@ -101,21 +101,19 @@ export default function Sidebar({ role }: { role: UserRole }) {
             priority
           />
         </div>
-        {/* Icono (favicon): solo desktop colapsado, centrado. El PNG trae su
-            propio fondo oscuro → tile redondeado, sin recuadro blanco. */}
+        {/* Icono: solo desktop colapsado, centrado. Logo transparente (sin fondo)
+            → el hexágono se ve directo sobre el navy, sin recuadro. */}
         {colapsado && (
           <div className="hidden justify-center md:flex">
-            <div className="overflow-hidden rounded-lg shadow-sm">
-              <Image
-                src="/newsoft-favicon.jpg"
-                alt="NewSoft"
-                width={192}
-                height={192}
-                className="h-8 w-8 shrink-0 object-cover"
-                unoptimized
-                priority
-              />
-            </div>
+            <Image
+              src="/newsoft-favicon.png"
+              alt="NewSoft"
+              width={192}
+              height={192}
+              className="h-8 w-8 shrink-0 object-contain"
+              unoptimized
+              priority
+            />
           </div>
         )}
         {/* Mobile: logout (colapsar es solo desktop y vive en el footer) */}

@@ -1,12 +1,12 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
-  ArrowLeft, Phone, Mail, MessageCircle, StickyNote,
-  Building2, Trophy, Cog, ChevronDown, XCircle, PauseCircle, Play, CalendarClock,
+  ArrowLeft, Building2, Trophy, ChevronDown, XCircle, PauseCircle, Play, CalendarClock,
   Star, Link2, ArrowUpCircle, ChevronRight, UserPlus, Pencil, Trash2, Plus, X,
+  type LucideIcon,
 } from "lucide-react";
 import Modal from "@/components/ui/Modal";
 import Toast, { ToastData } from "@/components/ui/Toast";
@@ -17,7 +17,8 @@ import Markdown from "@/components/ui/Markdown";
 import MarkdownEditor from "@/components/ui/MarkdownEditor";
 import { formatCompacto, formatFechaHora } from "@/lib/utils";
 import { MAX_CONTENIDO } from "@/lib/actividad";
-import { ahoraInput } from "@/lib/tz";
+import { fechaInput } from "@/lib/tz";
+import { TIPO_ACTIVIDAD_META, TIPOS_CREABLES } from "@/lib/actividad-tipos";
 import InputFechaHora from "@/components/ui/InputFechaHora";
 import { esTareaPendiente, estaVencida } from "@/lib/tareas";
 import {
@@ -80,33 +81,21 @@ function fmtFecha(iso: string | null): string {
     timeZone: "UTC",
   });
 }
-const FILTROS_VER: { key: "TODAS" | "NOTA" | "LLAMADA" | "EMAIL" | "WHATSAPP"; label: string }[] = [
-  { key: "TODAS", label: "Todas" },
-  { key: "NOTA", label: "Notas" },
-  { key: "LLAMADA", label: "Llamadas" },
-  { key: "EMAIL", label: "Emails" },
-  { key: "WHATSAPP", label: "WhatsApp" },
-];
-const TIPO_PILLS: { tipo: TipoActividad; label: string; icon: typeof StickyNote }[] = [
-  { tipo: "NOTA", label: "Nota", icon: StickyNote },
-  { tipo: "LLAMADA", label: "Llamada", icon: Phone },
-  { tipo: "EMAIL", label: "Email", icon: Mail },
-  { tipo: "WHATSAPP", label: "WhatsApp", icon: MessageCircle },
-];
-const ACT_ICON: Record<TipoActividad, { icon: typeof StickyNote; color: string; bg: string }> = {
-  NOTA: { icon: StickyNote, color: "#F5A623", bg: "#FFF8EB" },
-  LLAMADA: { icon: Phone, color: "#1D9E75", bg: "#E8F8F2" },
-  EMAIL: { icon: Mail, color: "#2A5298", bg: "#EAF0FA" },
-  WHATSAPP: { icon: MessageCircle, color: "#1D9E75", bg: "#E8F8F2" },
-  SISTEMA: { icon: Cog, color: "#6B7A99", bg: "#F3F5F9" },
-};
-const PLACEHOLDER: Record<TipoActividad, string> = {
-  NOTA: "Escribe una nota interna…",
-  LLAMADA: "¿Qué pasó en la llamada?",
-  EMAIL: "Pega o resume el correo…",
-  WHATSAPP: "¿Qué se conversó por WhatsApp?",
-  SISTEMA: "",
-};
+// Una vista de la bitácora ("Ver"): un botón que empareja actividades por un criterio.
+// Dos ejes ortogonales: por tipo de movimiento (derivado del contenido — catálogo
+// tipo_accion, o el tipo legado si no hay catálogo) y facetas transversales
+// (Favoritas / Pendientes / Con enlace). Se arma desde las actividades presentes, con
+// contador, así cubre exactamente los movimientos que existen y no puede divergir.
+interface FiltroBitacora {
+  key: string;
+  label: string;
+  count: number;
+  /** Punto de color (entradas por tipo) */
+  color?: string;
+  /** Ícono (entradas de faceta) */
+  icon?: LucideIcon;
+  match: (a: DealActividadItem) => boolean;
+}
 
 export default function DealDetalleClient({
   deal, stages, canWrite,
@@ -120,7 +109,7 @@ export default function DealDetalleClient({
   const [temperatura, setTemperatura] = useState<Temperatura>(deal.temperatura);
   const temp = TEMPERATURA_META[temperatura];
   const [actividades, setActividades] = useState<DealActividadItem[]>(deal.actividades);
-  const [filtroVer, setFiltroVer] = useState<"TODAS" | "NOTA" | "LLAMADA" | "EMAIL" | "WHATSAPP">("TODAS");
+  const [filtroVer, setFiltroVer] = useState<string>("TODAS");
   const [tipoNueva, setTipoNueva] = useState<TipoActividad>("NOTA");
   const [tipoAccionSel, setTipoAccionSel] = useState<TipoAccionOpcion | null>(null);
   const [texto, setTexto] = useState("");
@@ -128,14 +117,10 @@ export default function DealDetalleClient({
   const [contactoSel, setContactoSel] = useState(deal.contactos[0]?.id ?? "");
   const [fechaEvento, setFechaEvento] = useState("");
   // "Ahora" en ms, seteado tras el montaje: evita llamar Date.now() en el render
-  // (mismatch de hidratación). Alimenta cuandoFutura y seguimientoVencido.
+  // (mismatch de hidratación). Alimenta cuandoFutura, seguimientoVencido y el sello
+  // "se registra ahora" del compositor.
   const [nowTs, setNowTs] = useState<number | null>(null);
-  // Precargar "¿Cuándo?" con ahora en CDMX (editable). En useEffect para evitar
-  // mismatch de hidratación (la hora difiere entre server y cliente). (SOL-03)
-  useEffect(() => {
-    setFechaEvento(ahoraInput());
-    setNowTs(Date.now());
-  }, []);
+  useEffect(() => setNowTs(Date.now()), []);
   const [exitosa, setExitosa] = useState(true);
   // Un solo campo de fecha ("¿Cuándo?" = fechaEvento). Si la fecha es futura y se pide
   // recordatorio, se guarda como tarea (fecha_tarea); si no, como registro (fecha_evento).
@@ -147,10 +132,13 @@ export default function DealDetalleClient({
   // contenido (progressive disclosure — evita saturar la vista con opcionales).
   const [composerFocus, setComposerFocus] = useState(false);
   const composerAbierto = composerFocus || Boolean(texto.trim() || enlace.trim());
+  // "Registrar fecha" es opcional: solo cuenta si está completa (fecha + hora). Un valor
+  // parcial (al limpiar un lado) se trata como vacío para no guardar una fecha inválida.
+  const fechaValida = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(fechaEvento);
   // ¿La fecha elegida es futura? Se compara contra nowTs (montado) para no llamar
   // Date.now() en render. Antes de montar → false (no hay fecha elegida aún).
   const cuandoFutura =
-    fechaEvento && nowTs != null ? new Date(fechaEvento).getTime() > nowTs : false;
+    fechaValida && nowTs != null ? new Date(fechaEvento).getTime() > nowTs : false;
   // El compositor está colapsado por defecto (la bitácora ocupa toda la altura); se
   // abre al tocar "Registrar actividad" y se cierra al guardar o con Cancelar/✕.
   const [registrando, setRegistrando] = useState(false);
@@ -172,9 +160,10 @@ export default function DealDetalleClient({
   const [notas, setNotas] = useState(deal.notas ?? "");
   const [editandoNotas, setEditandoNotas] = useState(false);
   const [toast, setToast] = useState<ToastData | null>(null);
-  // Edición/eliminación de entradas de bitácora (SOL-02)
+  // Edición de una entrada: se reusa el MISMO compositor precargado (editandoId != null).
   const [editandoId, setEditandoId] = useState<string | null>(null);
-  const [textoEdit, setTextoEdit] = useState("");
+  // Ref al compositor para desplazarlo a la vista al iniciar una edición.
+  const composerRef = useRef<HTMLDivElement>(null);
   async function guardarNotas() {
     // No cerrar el editor hasta confirmar el guardado: si el PATCH falla, el texto
     // solo vive en memoria y se perdería al recargar (pérdida silenciosa de datos).
@@ -249,29 +238,6 @@ export default function DealDetalleClient({
     }
   }
 
-  // Editar el contenido de una entrada (SOL-02) → marca "editado"
-  async function guardarEdicion(a: DealActividadItem) {
-    const nuevo = textoEdit.trim();
-    if (!nuevo || nuevo === a.contenido) { setEditandoId(null); return; }
-    const prev = actividades;
-    setActividades((cur) => cur.map((x) => (x.id === a.id ? { ...x, contenido: nuevo, editada: true } : x)));
-    setEditandoId(null);
-    try {
-      const res = await fetch(`/api/crm/actividades/${a.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ contenido: nuevo }),
-      });
-      if (!res.ok) {
-        const data = await res.json().catch(() => null);
-        throw new Error(data?.error ?? "No se pudo guardar la edición.");
-      }
-    } catch (e) {
-      setActividades(prev);
-      setToast({ type: "error", message: e instanceof Error ? e.message : "No se pudo guardar la edición." });
-    }
-  }
-
   // Eliminar (soft-delete) una entrada de la bitácora (SOL-02)
   async function eliminarActividad(a: DealActividadItem) {
     if (!window.confirm("¿Eliminar esta entrada de la bitácora? Podés registrar otra si hace falta.")) return;
@@ -318,8 +284,47 @@ export default function DealDetalleClient({
     }
   }
 
+  // Filtros "Ver" derivados del contenido: Todas + tipos de movimiento presentes +
+  // facetas con resultados. Con contador; se auto-mantienen con lo que hay en la bitácora.
+  const filtrosBitacora = useMemo<FiltroBitacora[]>(() => {
+    const tipos = new Map<string, FiltroBitacora>();
+    for (const a of actividades) {
+      if (a.tipo_accion) {
+        const key = `acc:${a.tipo_accion.id}`;
+        const found = tipos.get(key);
+        if (found) { found.count++; continue; }
+        const accId = a.tipo_accion.id;
+        tipos.set(key, {
+          key, label: a.tipo_accion.nombre, color: a.tipo_accion.color, count: 1,
+          match: (x) => x.tipo_accion?.id === accId,
+        });
+      } else {
+        const key = `leg:${a.tipo}`;
+        const found = tipos.get(key);
+        if (found) { found.count++; continue; }
+        const leg = a.tipo;
+        tipos.set(key, {
+          key, label: TIPO_ACTIVIDAD_META[leg].labelPlural, color: TIPO_ACTIVIDAD_META[leg].color, count: 1,
+          match: (x) => !x.tipo_accion && x.tipo === leg,
+        });
+      }
+    }
+    const facetas: FiltroBitacora[] = [
+      { key: "fav", label: "Favoritas", icon: Star, count: actividades.filter((a) => a.destacada).length, match: (a) => a.destacada },
+      { key: "pend", label: "Pendientes", icon: CalendarClock, count: actividades.filter(esTareaPendiente).length, match: esTareaPendiente },
+      { key: "link", label: "Con enlace", icon: Link2, count: actividades.filter((a) => Boolean(a.enlace_url)).length, match: (a) => Boolean(a.enlace_url) },
+    ];
+    return [
+      { key: "TODAS", label: "Todas", count: actividades.length, match: () => true },
+      ...tipos.values(),
+      ...facetas.filter((f) => f.count > 0),
+    ];
+  }, [actividades]);
+  // Si el filtro elegido dejó de existir (p.ej. se borró la última de ese tipo), cae a "Todas".
+  const filtroActivo = filtrosBitacora.find((f) => f.key === filtroVer) ?? filtrosBitacora[0];
+
   const actividadesFiltradas = actividades
-    .filter((a) => (filtroVer === "TODAS" ? true : a.tipo === filtroVer))
+    .filter((a) => (filtroActivo ? filtroActivo.match(a) : true))
     // Destacadas primero (pin), el resto en su orden cronológico
     .sort((x, y) => Number(y.destacada) - Number(x.destacada));
 
@@ -337,7 +342,7 @@ export default function DealDetalleClient({
   function resetCompositor() {
     setTexto("");
     setContactoSel(deal.contactos[0]?.id ?? "");
-    setFechaEvento(ahoraInput());
+    setFechaEvento(""); // "Registrar fecha" es opcional → nace vacío
     setExitosa(true);
     setRecordatorio(false);
     setResultadoSel("");
@@ -345,6 +350,28 @@ export default function DealDetalleClient({
     setTipoAccionSel(null);
     setTipoNueva("NOTA");
     setComposerFocus(false);
+    setEditandoId(null);
+  }
+
+  // Editar una entrada: precarga el MISMO compositor con todos sus campos y lo abre.
+  // Guardar hace PATCH (edición completa); la validación/serialización la comparte con el alta.
+  function iniciarEdicion(a: DealActividadItem) {
+    setEditandoId(a.id);
+    setTexto(a.contenido);
+    setEnlace(a.enlace_url ?? "");
+    setContactoSel(a.contacto_id ?? "");
+    setTipoAccionSel(tiposAccion.find((t) => t.id === a.tipo_accion?.id) ?? null);
+    setTipoNueva(a.tipo);
+    setResultadoSel(a.resultado?.id ?? "");
+    setExitosa(a.exitosa ?? true);
+    // Registrar fecha: si es tarea agendada refleja fecha_tarea (+recordatorio); si es
+    // registro, fecha_evento. Si la entrada no tenía fecha, el campo queda vacío (opcional).
+    setRecordatorio(a.es_tarea);
+    const cuando = a.fecha_tarea ?? a.fecha_evento;
+    setFechaEvento(cuando ? fechaInput(cuando) : "");
+    setComposerFocus(true);
+    setRegistrando(true);
+    requestAnimationFrame(() => composerRef.current?.scrollIntoView({ behavior: "smooth", block: "center" }));
   }
   function cerrarCompositor() {
     resetCompositor();
@@ -354,33 +381,38 @@ export default function DealDetalleClient({
   async function guardarActividad() {
     if (!texto.trim() || guardando) return;
     setGuardando(true);
+    // Alta (POST) o edición completa (PATCH) — mismo payload; el server comparte validación.
+    const editar = editandoId != null;
+    // Fecha futura + recordatorio → tarea agendada (fecha_tarea → Próximas Acciones y
+    // alertas). Pasada/ahora, o futura sin recordatorio → registro (fecha_evento).
+    const payload = {
+      tipo: tipoNueva,
+      contenido: texto.trim(),
+      contacto_id: contactoSel || undefined,
+      fecha_evento: cuandoFutura && recordatorio ? undefined : fechaValida ? fechaEvento : undefined,
+      exitosa: tipoNueva === "LLAMADA" ? exitosa : undefined,
+      fecha_tarea: cuandoFutura && recordatorio ? fechaEvento : undefined,
+      tipo_accion_id: tipoAccionSel?.id || undefined,
+      resultado_id: mostrarResultado ? resultadoSel || undefined : undefined,
+      enlace_url: enlace.trim() || undefined,
+    };
     try {
-      const res = await fetch(`/api/crm/deals/${deal.id}/actividades`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        // Fecha futura + recordatorio → tarea agendada (fecha_tarea → Próximas Acciones
-        // y alertas). Pasada/ahora, o futura sin recordatorio → registro (fecha_evento).
-        body: JSON.stringify({
-          tipo: tipoNueva,
-          contenido: texto.trim(),
-          contacto_id: contactoSel || undefined,
-          fecha_evento: cuandoFutura && recordatorio ? undefined : fechaEvento || undefined,
-          exitosa: tipoNueva === "LLAMADA" ? exitosa : undefined,
-          fecha_tarea: cuandoFutura && recordatorio ? fechaEvento : undefined,
-          tipo_accion_id: tipoAccionSel?.id || undefined,
-          resultado_id: mostrarResultado ? resultadoSel || undefined : undefined,
-          enlace_url: enlace.trim() || undefined,
-        }),
-      });
+      const res = await fetch(
+        editar ? `/api/crm/actividades/${editandoId}` : `/api/crm/deals/${deal.id}/actividades`,
+        { method: editar ? "PATCH" : "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) }
+      );
       const data = await res.json().catch(() => null);
       if (!res.ok) throw new Error(data?.error ?? "No se pudo guardar la actividad.");
-      setActividades((cur) => [data.actividad as DealActividadItem, ...cur]);
-      // Termómetro y sugerencia de avance devueltos por el servidor (REQ-06)
+      const guardada = data.actividad as DealActividadItem;
+      setActividades((cur) =>
+        editar ? cur.map((x) => (x.id === guardada.id ? guardada : x)) : [guardada, ...cur]
+      );
+      // Termómetro devuelto por el servidor (REQ-06) — el alta y la edición lo recalculan.
       if (data.temperatura) setTemperatura(data.temperatura as Temperatura);
       if (data.sugerir_avance) setSugerirAvance(true);
       // Cierre de ciclo (SOL-04): el resultado sugiere agendar la próxima acción
       if (data.sugerir_reagendar) {
-        setToast({ type: "success", message: "Registrado. El resultado sugiere agendar la próxima acción." });
+        setToast({ type: "success", message: "Guardado. El resultado sugiere agendar la próxima acción." });
       }
       // En modo AUTOMÁTICO el servidor ya avanzó de etapa y registró el evento SISTEMA:
       // refrescar para reflejar la nueva etapa y la entrada en la bitácora.
@@ -615,6 +647,7 @@ export default function DealDetalleClient({
           {/* Compositor: visible solo al registrar; arriba el TIPO de entrada → cambian los campos */}
           {canWrite && registrando && (
             <div
+              ref={composerRef}
               className="border-b border-surface-border bg-white px-5 py-4"
               onFocus={() => setComposerFocus(true)}
               onBlur={(e) => {
@@ -622,7 +655,9 @@ export default function DealDetalleClient({
               }}
             >
               <div className="mb-3 flex items-center justify-between">
-                <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">Nueva actividad</span>
+                <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">
+                  {editandoId ? "Editar actividad" : "Nueva actividad"}
+                </span>
                 <button
                   onClick={cerrarCompositor}
                   title="Cerrar"
@@ -653,17 +688,20 @@ export default function DealDetalleClient({
                         </button>
                       );
                     })
-                  : TIPO_PILLS.map(({ tipo, label, icon: Icon }) => (
-                      <button
-                        key={tipo}
-                        onClick={() => setTipoNueva(tipo)}
-                        className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold transition-colors ${
-                          tipoNueva === tipo ? "border-navy bg-navy text-white" : "border-surface-border text-gray-500 hover:bg-surface"
-                        }`}
-                      >
-                        <Icon size={13} /> {label}
-                      </button>
-                    ))}
+                  : TIPOS_CREABLES.map((tipo) => {
+                      const { label, icon: Icon } = TIPO_ACTIVIDAD_META[tipo];
+                      return (
+                        <button
+                          key={tipo}
+                          onClick={() => setTipoNueva(tipo)}
+                          className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold transition-colors ${
+                            tipoNueva === tipo ? "border-navy bg-navy text-white" : "border-surface-border text-gray-500 hover:bg-surface"
+                          }`}
+                        >
+                          <Icon size={13} /> {label}
+                        </button>
+                      );
+                    })}
               </div>
 
               {/* Campos según el tipo (catálogo: cuando el tipo captura resultado) */}
@@ -706,13 +744,22 @@ export default function DealDetalleClient({
                 </div>
               )}
 
-              {/* ¿Cuándo? — un solo campo para todos los tipos. Si es futura y se pide
-                  recordatorio, se agenda como pendiente (fecha_tarea); si no, es registro. */}
+              {/* Registrar fecha (opcional) — para fechar el evento en el pasado o agendar
+                  a futuro. Vacío = solo se registra ahora. Si es futura y se pide
+                  recordatorio, se agenda como pendiente (fecha_tarea). */}
               <div className="mb-3">
                 <label className="flex flex-col gap-1 text-[11px] font-medium text-gray-500">
-                  ¿Cuándo?
+                  <span>
+                    Registrar fecha <span className="font-normal text-gray-400">(opcional)</span>
+                  </span>
                   <InputFechaHora value={fechaEvento} onChange={setFechaEvento} className="w-fit" />
                 </label>
+                {/* Sello de creación: cuándo se está registrando. No editable, solo informativo. */}
+                {!editandoId && nowTs != null && (
+                  <p className="mt-1.5 flex items-center gap-1 text-[11px] text-gray-400">
+                    <CalendarClock size={12} /> Se registra ahora · {formatFechaHora(new Date(nowTs).toISOString())}
+                  </p>
+                )}
                 {cuandoFutura && (
                   <label className="mt-2 flex w-fit items-center gap-2 text-xs font-medium text-navy">
                     <input
@@ -728,7 +775,7 @@ export default function DealDetalleClient({
                 )}
               </div>
 
-              <MarkdownEditor value={texto} onChange={setTexto} placeholder={PLACEHOLDER[tipoNueva]} />
+              <MarkdownEditor value={texto} onChange={setTexto} placeholder={TIPO_ACTIVIDAD_META[tipoNueva].placeholder} />
 
               {/* Opcional (enlace): se revela al componer para no saturar la vista */}
               {composerAbierto && (
@@ -760,27 +807,33 @@ export default function DealDetalleClient({
                   disabled={!texto.trim() || texto.length > MAX_CONTENIDO || guardando}
                   className="rounded-lg bg-navy px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-navy-700 disabled:opacity-50"
                 >
-                  {guardando ? "Guardando…" : "Registrar"}
+                  {guardando ? "Guardando…" : editandoId ? "Guardar cambios" : "Registrar"}
                 </button>
               </div>
             </div>
           )}
 
-          {/* Filtros (ver bitácora por tipo) */}
+          {/* Filtros "Ver": tipos de movimiento presentes + facetas, con contador (derivados del contenido) */}
           <div className="flex flex-wrap items-center gap-2 border-b border-surface-border bg-gray-50 px-5 py-2.5">
             <span className="mr-1 text-[11px] font-semibold uppercase tracking-wide text-gray-400">Ver:</span>
-            {FILTROS_VER.map((f) => (
-              <button
-                key={f.key}
-                onClick={() => setFiltroVer(f.key)}
-                className={`rounded-full px-3 py-1 text-[11px] font-semibold transition-colors ${
-                  filtroVer === f.key ? "bg-navy text-white" : "text-gray-500 hover:bg-gray-200"
-                }`}
-              >
-                {f.label}
-              </button>
-            ))}
-            <span className="rounded-full px-3 py-1 text-[11px] font-semibold text-gray-300" title="Próximamente (adjuntos)">Archivos</span>
+            {filtrosBitacora.map((f) => {
+              const activo = filtroActivo?.key === f.key;
+              const Icon = f.icon;
+              return (
+                <button
+                  key={f.key}
+                  onClick={() => setFiltroVer(f.key)}
+                  className={`flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-semibold transition-colors ${
+                    activo ? "bg-navy text-white" : "text-gray-500 hover:bg-gray-200"
+                  }`}
+                >
+                  {f.color && <span className="h-1.5 w-1.5 rounded-full" style={{ background: f.color }} />}
+                  {Icon && <Icon size={12} />}
+                  {f.label}
+                  <span className={activo ? "text-white/60" : "text-gray-400"}>{f.count}</span>
+                </button>
+              );
+            })}
           </div>
 
           {/* Timeline */}
@@ -790,7 +843,7 @@ export default function DealDetalleClient({
             )}
             <div className="space-y-4">
               {actividadesFiltradas.map((a) => {
-                const meta = ACT_ICON[a.tipo];
+                const meta = TIPO_ACTIVIDAD_META[a.tipo];
                 const Icon = meta.icon;
                 const estado = ESTADO_ACCION_META[a.estado_accion];
                 return (
@@ -844,9 +897,9 @@ export default function DealDetalleClient({
                             />
                           </button>
                         )}
-                        {canWrite && a.tipo !== "SISTEMA" && editandoId !== a.id && (
+                        {canWrite && a.tipo !== "SISTEMA" && (
                           <>
-                            <button onClick={() => { setEditandoId(a.id); setTextoEdit(a.contenido); }} title="Editar" className="text-gray-300 hover:text-navy">
+                            <button onClick={() => iniciarEdicion(a)} title="Editar" className="text-gray-300 hover:text-navy">
                               <Pencil size={12} />
                             </button>
                             <button onClick={() => eliminarActividad(a)} title="Eliminar" className="text-gray-300 hover:text-red-500">
@@ -860,26 +913,12 @@ export default function DealDetalleClient({
                         </span>
                       </div>
                       <div
-                        className="mt-1 rounded-lg border border-surface-border bg-white px-3 py-2 text-sm leading-relaxed text-gray-700"
+                        className={`mt-1 rounded-lg border border-surface-border bg-white px-3 py-2 text-sm leading-relaxed text-gray-700 ${
+                          editandoId === a.id ? "ring-2 ring-orange/40" : ""
+                        }`}
                         style={{ borderLeftWidth: 3, borderLeftColor: a.destacada ? "#F5A623" : meta.color }}
                       >
-                        {editandoId === a.id ? (
-                          <div className="space-y-2">
-                            <MarkdownEditor value={textoEdit} onChange={setTextoEdit} autoFocus />
-                            <div className="flex justify-end gap-2">
-                              <button onClick={() => setEditandoId(null)} className="rounded px-2 py-1 text-xs font-medium text-gray-500 hover:bg-gray-100">Cancelar</button>
-                              <button
-                                onClick={() => guardarEdicion(a)}
-                                disabled={textoEdit.length > MAX_CONTENIDO}
-                                className="rounded bg-orange px-2.5 py-1 text-xs font-semibold text-white hover:bg-orange/90 disabled:opacity-50"
-                              >
-                                Guardar
-                              </button>
-                            </div>
-                          </div>
-                        ) : (
-                          <Markdown>{a.contenido}</Markdown>
-                        )}
+                        <Markdown>{a.contenido}</Markdown>
                         {a.enlace_url && /^https?:\/\//i.test(a.enlace_url) && (
                           <a
                             href={a.enlace_url}

@@ -3,11 +3,9 @@ import { prisma } from "@/lib/prisma";
 import { canWrite, requireAuth } from "@/lib/session";
 import { scopeDealWhere } from "@/lib/access-control";
 import { getScoringContext, dealScoreView } from "@/lib/deal-score";
-import { MAX_CONTENIDO, MSG_CONTENIDO_LARGO } from "@/lib/actividad";
+import { resolveActividadInput, serializeActividad, ACTIVIDAD_INCLUDE } from "@/lib/actividad-input";
 
 export const dynamic = "force-dynamic";
-
-const TIPOS = ["NOTA", "LLAMADA", "EMAIL", "WHATSAPP"] as const;
 
 // ── POST /api/crm/deals/:id/actividades ─────────────────────────
 // Registra una entrada en la bitácora del deal (nota/llamada/email/whatsapp),
@@ -28,50 +26,6 @@ export async function POST(
     return NextResponse.json({ error: "JSON inválido" }, { status: 400 });
   }
 
-  const {
-    tipo,
-    contenido,
-    contacto_id,
-    fecha_evento,
-    exitosa,
-    fecha_tarea,
-    enlace_url,
-    tipo_accion_id,
-    resultado_id,
-  } = (body ?? {}) as {
-    tipo?: string;
-    contenido?: string;
-    contacto_id?: string;
-    fecha_evento?: string;
-    exitosa?: boolean;
-    fecha_tarea?: string;
-    enlace_url?: string;
-    // Modelo de actividad (SOL-04): tipo del catálogo + resultado (mueve el termómetro)
-    tipo_accion_id?: string;
-    resultado_id?: string;
-  };
-
-  if (!tipo || !TIPOS.includes(tipo as (typeof TIPOS)[number])) {
-    return NextResponse.json({ error: "Tipo inválido", campo: "tipo" }, { status: 422 });
-  }
-  if (!contenido || !contenido.trim()) {
-    return NextResponse.json({ error: "El contenido es obligatorio", campo: "contenido" }, { status: 422 });
-  }
-  if (contenido.length > MAX_CONTENIDO) {
-    return NextResponse.json({ error: MSG_CONTENIDO_LARGO, campo: "contenido" }, { status: 422 });
-  }
-
-  // Enlace externo: solo http/https. Bloquea javascript:/data: (XSS almacenado vía href).
-  const enlaceLimpio = typeof enlace_url === "string" ? enlace_url.trim() : "";
-  if (enlaceLimpio && !/^https?:\/\//i.test(enlaceLimpio)) {
-    return NextResponse.json({ error: "El enlace debe empezar con http:// o https://", campo: "enlace_url" }, { status: 422 });
-  }
-  if (enlaceLimpio.length > 500) {
-    return NextResponse.json({ error: "El enlace es demasiado largo (máx. 500)", campo: "enlace_url" }, { status: 422 });
-  }
-
-  const tipoActividad = tipo as (typeof TIPOS)[number];
-
   try {
     const deal = await prisma.deal.findFirst({
       where: scopeDealWhere(session, { id }),
@@ -79,65 +33,15 @@ export async function POST(
     });
     if (!deal) return NextResponse.json({ error: "Deal no encontrado" }, { status: 404 });
 
-    // Validar que el contacto (si viene) pertenece al deal
-    let contactoId: string | null = null;
-    if (contacto_id) {
-      const c = await prisma.dealContacto.findFirst({ where: { id: contacto_id, deal_id: id }, select: { id: true } });
-      contactoId = c?.id ?? null;
+    // Validación + resolución de campos (SSOT compartido con la edición — PATCH)
+    const resuelto = await resolveActividadInput(body, id);
+    if (!resuelto.ok) {
+      return NextResponse.json({ error: resuelto.error, campo: resuelto.campo }, { status: resuelto.status });
     }
-
-    const exitosaVal = tipoActividad === "LLAMADA" ? (typeof exitosa === "boolean" ? exitosa : null) : null;
-
-    // ── Modelo de actividad (SOL-04): valida tipo/resultado del catálogo y captura su efecto.
-    let tipoAccionId: string | null = null;
-    if (tipo_accion_id) {
-      const ta = await prisma.tipoAccion.findFirst({
-        where: { id: tipo_accion_id, activo: true },
-        select: { id: true },
-      });
-      tipoAccionId = ta?.id ?? null;
-    }
-    let resultadoId: string | null = null;
-    let sugiereReagendar = false;
-    if (resultado_id) {
-      const r = await prisma.resultadoAccion.findFirst({
-        where: { id: resultado_id, activo: true },
-        select: { id: true, sugiere_reagendar: true },
-      });
-      if (r) {
-        resultadoId = r.id;
-        sugiereReagendar = r.sugiere_reagendar;
-      }
-    }
-    // Estado de planeación: si capturó resultado, la acción está REALIZADA; si agenda a futuro, PLANEADA.
-    const estadoPlan = resultadoId ? "REALIZADA" : fecha_tarea ? "PLANEADA" : null;
 
     const actividad = await prisma.dealActividad.create({
-      data: {
-        deal_id: id,
-        tipo: tipoActividad,
-        contenido: contenido.trim(),
-        autor: session.email,
-        contacto_id: contactoId,
-        enlace_url: enlaceLimpio || null,
-        // "¿Cuándo?" (fecha_evento): si viene, se respeta para cualquier tipo (incluida
-        // NOTA). Si no viene: NOTA queda sin fecha (usa created_at en el timeline); el
-        // resto asume "ahora".
-        fecha_evento: fecha_evento ? new Date(fecha_evento) : tipoActividad === "NOTA" ? null : new Date(),
-        exitosa: exitosaVal,
-        // Seguimiento opcional: agenda el próximo paso (con fecha y hora)
-        es_tarea: Boolean(fecha_tarea),
-        fecha_tarea: fecha_tarea ? new Date(fecha_tarea) : null,
-        // Modelo de actividad (SOL-04)
-        tipo_accion_id: tipoAccionId,
-        resultado_id: resultadoId,
-        estado_plan: estadoPlan,
-      },
-      include: {
-        contacto: { select: { contacto: { select: { nombre: true } } } },
-        tipo_accion: { select: { id: true, nombre: true, color: true } },
-        resultado: { select: { id: true, nombre: true, efecto: true } },
-      },
+      data: { deal_id: id, autor: session.email, ...resuelto.data },
+      include: ACTIVIDAD_INCLUDE,
     });
 
     // ── Scoring: se RECALCULA on-read desde todo el historial (SSOT). Nada de temperatura persistida.
@@ -190,29 +94,7 @@ export async function POST(
 
     return NextResponse.json(
       {
-        actividad: {
-          id: actividad.id,
-          tipo: actividad.tipo,
-          contenido: actividad.contenido,
-          autor: actividad.autor,
-          contacto_nombre: actividad.contacto?.contacto?.nombre ?? null,
-          fecha_evento: actividad.fecha_evento ? actividad.fecha_evento.toISOString() : null,
-          exitosa: actividad.exitosa,
-          es_tarea: actividad.es_tarea,
-          completada: actividad.completada,
-          estado_accion: actividad.estado_accion,
-          destacada: actividad.destacada,
-          enlace_url: actividad.enlace_url,
-          fecha_tarea: actividad.fecha_tarea ? actividad.fecha_tarea.toISOString() : null,
-          created_at: actividad.created_at.toISOString(),
-          estado_plan: actividad.estado_plan,
-          tipo_accion: actividad.tipo_accion
-            ? { id: actividad.tipo_accion.id, nombre: actividad.tipo_accion.nombre, color: actividad.tipo_accion.color }
-            : null,
-          resultado: actividad.resultado
-            ? { id: actividad.resultado.id, nombre: actividad.resultado.nombre, efecto: actividad.resultado.efecto }
-            : null,
-        },
+        actividad: serializeActividad(actividad),
         // Score y derivaciones recalculadas (SSOT). Si avanzó de etapa, el front refresca.
         score: view.score,
         temperatura: view.temperatura,
@@ -220,7 +102,7 @@ export async function POST(
         sugerir_avance: sugerirAvance,
         avanzo_etapa: avanzoEtapa,
         // Cierre de ciclo (SOL-04): el resultado sugiere agendar la próxima acción
-        sugerir_reagendar: sugiereReagendar,
+        sugerir_reagendar: resuelto.sugiereReagendar,
       },
       { status: 201 }
     );

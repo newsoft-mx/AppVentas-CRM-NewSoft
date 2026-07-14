@@ -36,7 +36,15 @@ function partesEnTZ(fecha: Date, tz: string): Record<string, string> {
  * del negocio. Reemplaza el uso de la hora del navegador para precargar inputs.
  */
 export function ahoraInput(tz: string = TZ_NEGOCIO): string {
-  const p = partesEnTZ(new Date(), tz);
+  return fechaInput(new Date(), tz);
+}
+
+/**
+ * Una fecha (ISO o Date) como string de <input type="datetime-local"> en la TZ del
+ * negocio, alineada al slot de 30 min. Para precargar el compositor al editar una entrada.
+ */
+export function fechaInput(fecha: string | Date, tz: string = TZ_NEGOCIO): string {
+  const p = partesEnTZ(fecha instanceof Date ? fecha : new Date(fecha), tz);
   // Alinear al slot de 30 min (piso): 00 o 30, para que el prefill sea un slot válido.
   const min = Number(p.minute) < 30 ? "00" : "30";
   return `${p.year}-${p.month}-${p.day}T${p.hour}:${min}`;
@@ -76,6 +84,22 @@ function wallEnTZaUtc(
   const off2 = offsetMs(tz, utc);
   if (off2 !== off) utc = guess - off2;
   return new Date(utc + ms);
+}
+
+// Regex de <input type="datetime-local">: YYYY-MM-DDTHH:mm.
+const INPUT_RE = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/;
+
+/**
+ * Convierte un valor de <input type="datetime-local"> ("YYYY-MM-DDTHH:mm"), que el
+ * usuario ve/edita como hora de pared en la TZ del negocio, al instante UTC correcto.
+ * Sin esto, `new Date(valor)` lo interpreta como hora local del server → corrimiento
+ * de TZ al guardar (y drift en cada edición que reenvía la fecha). Devuelve null si el
+ * formato no es válido.
+ */
+export function inputAUtc(valor: string, tz: string = TZ_NEGOCIO): Date | null {
+  const m = INPUT_RE.exec(valor);
+  if (!m) return null;
+  return wallEnTZaUtc(Number(m[1]), Number(m[2]), Number(m[3]), Number(m[4]), Number(m[5]), 0, 0, tz);
 }
 
 // Regex de fecha-solo YYYY-MM-DD.

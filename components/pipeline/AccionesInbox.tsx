@@ -4,8 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Toast, { ToastData } from "@/components/ui/Toast";
 import {
-  Phone, Mail, MessageCircle, StickyNote, ListChecks, CalendarClock, ChevronRight,
-  LayoutList, CalendarDays,
+  ListChecks, CalendarClock, ChevronRight, LayoutList, CalendarDays,
 } from "lucide-react";
 import {
   TEMPERATURA_META, ESTADO_ACCION_META, ESTADO_ACCION_CICLO, GRUPO_URGENCIA_META,
@@ -17,14 +16,7 @@ import { formatCompacto, formatFechaHora } from "@/lib/utils";
 import { useUrlFilters } from "@/hooks/useUrlFilters";
 import { serializeAccionesFiltros, type AccionesFiltros } from "@/lib/acciones-filtros";
 import { grupoUrgencia } from "@/lib/tareas";
-
-const TIPO_ICON: Record<TipoActividad, typeof Phone> = {
-  NOTA: StickyNote,
-  LLAMADA: Phone,
-  EMAIL: Mail,
-  WHATSAPP: MessageCircle,
-  SISTEMA: StickyNote,
-};
+import { TIPO_ACTIVIDAD_META } from "@/lib/actividad-tipos";
 
 const ORDEN_GRUPOS: GrupoUrgencia[] = ["VENCIDAS", "HOY", "SEMANA", "DESPUES"];
 
@@ -244,7 +236,7 @@ export default function AccionesInbox({
               <div className="space-y-1.5">
                 {grupo.map((a) => {
                   const temp = TEMPERATURA_META[a.deal.temperatura];
-                  const Icon = TIPO_ICON[a.tipo];
+                  const Icon = TIPO_ACTIVIDAD_META[a.tipo].icon;
                   const estado = ESTADO_ACCION_META[a.estado_accion];
                   return (
                     <div

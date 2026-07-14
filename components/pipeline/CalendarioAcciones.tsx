@@ -1,16 +1,9 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { ChevronLeft, ChevronRight, Phone, Mail, MessageCircle, StickyNote } from "lucide-react";
-import { TEMPERATURA_META, type AccionItem, type TipoActividad } from "@/types/crm";
-
-const TIPO_ICON: Record<TipoActividad, typeof Phone> = {
-  NOTA: StickyNote,
-  LLAMADA: Phone,
-  EMAIL: Mail,
-  WHATSAPP: MessageCircle,
-  SISTEMA: StickyNote,
-};
+import { ChevronLeft, ChevronRight } from "lucide-react";
+import { TEMPERATURA_META, type AccionItem } from "@/types/crm";
+import { TIPO_ACTIVIDAD_META } from "@/lib/actividad-tipos";
 
 const DIAS = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
 const MESES = [
@@ -145,7 +138,7 @@ export default function CalendarioAcciones({
               </div>
               <div className="space-y-0.5">
                 {items.slice(0, MAX_CHIPS).map((a) => {
-                  const Icon = TIPO_ICON[a.tipo];
+                  const Icon = TIPO_ACTIVIDAD_META[a.tipo].icon;
                   const temp = TEMPERATURA_META[a.deal.temperatura];
                   return (
                     <button

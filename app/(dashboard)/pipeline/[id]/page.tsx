@@ -142,6 +142,7 @@ export default async function DealDetallePage({
       contenido: a.contenido,
       autor: a.autor,
       contacto_nombre: a.contacto?.contacto?.nombre ?? null,
+      contacto_id: a.contacto_id,
       fecha_evento: a.fecha_evento ? a.fecha_evento.toISOString() : null,
       exitosa: a.exitosa,
       es_tarea: a.es_tarea,

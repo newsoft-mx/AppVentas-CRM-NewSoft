@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
+import { X } from "lucide-react";
 
 /**
  * Input de fecha/hora compartido (SSOT del comportamiento de datetime en la app).
@@ -55,6 +56,18 @@ export default function InputFechaHora({ value, onChange, className = "", autoFo
           <option key={h} value={h}>{h}</option>
         ))}
       </select>
+      {/* Limpiar: deja el campo libre (fecha opcional). Solo visible si hay algo cargado. */}
+      {value && (
+        <button
+          type="button"
+          onClick={() => onChange("")}
+          title="Quitar fecha"
+          aria-label="Quitar fecha"
+          className="rounded-lg px-2 text-gray-400 hover:bg-surface hover:text-navy"
+        >
+          <X size={15} />
+        </button>
+      )}
     </div>
   );
 }
