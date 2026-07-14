@@ -668,7 +668,7 @@ export default function DealDetalleClient({
                   </label>
                   <label className="flex flex-col gap-1 text-[11px] font-medium text-gray-500">
                     Cuándo ocurrió
-                    <InputFechaHora value={fechaEvento} onChange={(e) => setFechaEvento(e.target.value)} />
+                    <InputFechaHora value={fechaEvento} onChange={setFechaEvento} />
                   </label>
                   {tipoNueva === "LLAMADA" && (
                     <label className="flex items-center gap-2 text-sm text-gray-600 sm:col-span-2">
@@ -716,11 +716,7 @@ export default function DealDetalleClient({
                   {/* Agendar próximo paso (opcional) — alimenta el inbox de Próximas Acciones */}
                   <label className="flex flex-col gap-1 text-[11px] font-medium text-gray-500">
                     <span className="flex items-center gap-1"><CalendarClock size={12} /> Agendar seguimiento (opcional)</span>
-                    <InputFechaHora
-                      value={seguimiento}
-                      onChange={(e) => setSeguimiento(e.target.value)}
-                      className="w-fit"
-                    />
+                    <InputFechaHora value={seguimiento} onChange={setSeguimiento} />
                   </label>
                 </div>
               )}

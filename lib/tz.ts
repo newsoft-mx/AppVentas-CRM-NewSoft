@@ -37,7 +37,9 @@ function partesEnTZ(fecha: Date, tz: string): Record<string, string> {
  */
 export function ahoraInput(tz: string = TZ_NEGOCIO): string {
   const p = partesEnTZ(new Date(), tz);
-  return `${p.year}-${p.month}-${p.day}T${p.hour}:${p.minute}`;
+  // Alinear al slot de 30 min (piso): 00 o 30, para que el prefill sea un slot válido.
+  const min = Number(p.minute) < 30 ? "00" : "30";
+  return `${p.year}-${p.month}-${p.day}T${p.hour}:${min}`;
 }
 
 // Milisegundos que la TZ está adelante de UTC, para el instante utcMs dado.
