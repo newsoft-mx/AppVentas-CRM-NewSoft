@@ -15,6 +15,14 @@ export interface SessionPayload {
 
 const ROLES = new Set<UserRole>(["ADMIN", "GERENTE_COMERCIAL", "VENDEDOR", "ADMINISTRATIVO"]);
 
+// Etiqueta legible del rol (SSOT — la usan el sidebar y el perfil).
+export const ROLE_LABEL: Record<UserRole, string> = {
+  ADMIN: "Administrador",
+  GERENTE_COMERCIAL: "Gerente comercial",
+  VENDEDOR: "Vendedor",
+  ADMINISTRATIVO: "Administrativo",
+};
+
 // Fail-closed: un valor de rol desconocido devuelve null (sin sesión válida),
 // NUNCA ADMIN. Solo se mapean los alias legacy conocidos.
 export function normalizeRole(value: unknown): UserRole | null {

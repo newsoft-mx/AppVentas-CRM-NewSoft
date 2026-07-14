@@ -17,8 +17,9 @@ import {
   CalendarClock,
   TrendingUp,
   ShieldCheck,
+  UserCircle,
 } from "lucide-react";
-import type { UserRole } from "@/lib/session";
+import { ROLE_LABEL, type UserRole } from "@/lib/session";
 
 // Navegación por módulos temáticos; los reportes viven anidados en su módulo.
 const navGroups: {
@@ -69,13 +70,6 @@ export default function Sidebar({ role }: { role: UserRole }) {
   const grupos = navGroups
     .map((g) => ({ ...g, items: g.items.filter((it) => !it.adminOnly || role === "ADMIN") }))
     .filter((g) => g.items.length > 0);
-  const roleLabel: Record<UserRole, string> = {
-    ADMIN: "Administrador",
-    GERENTE_COMERCIAL: "Gerente comercial",
-    VENDEDOR: "Vendedor",
-    ADMINISTRATIVO: "Administrativo",
-  };
-
   const isActive = (href: string) => {
     if (href === "/ventas") return pathname === "/ventas" || pathname.startsWith("/ventas/");
     // "Pipeline" (/pipeline) no debe activarse en /pipeline/reportes (submódulo aparte)
@@ -202,9 +196,25 @@ export default function Sidebar({ role }: { role: UserRole }) {
 
         {!colapsado && (
           <p className="mb-1 mt-2 px-3 text-[11px] font-medium uppercase tracking-wide text-navy-300">
-            {roleLabel[role]}
+            {ROLE_LABEL[role]}
           </p>
         )}
+        <Link
+          href="/perfil"
+          title="Mi perfil"
+          className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium transition-colors hover:bg-navy-700 hover:text-white ${
+            isActive("/perfil") ? "bg-navy-700 text-white" : "text-navy-300"
+          } ${colapsado ? "md:justify-center" : ""}`}
+        >
+          <UserCircle size={16} className="shrink-0" />
+          <span
+            className={`overflow-hidden whitespace-nowrap transition-all duration-200 ease-in-out ${
+              colapsado ? "w-0 opacity-0" : "opacity-100"
+            }`}
+          >
+            Mi perfil
+          </span>
+        </Link>
         <button
           onClick={() =>
             fetch("/api/auth/logout", { method: "POST" }).then(() =>
