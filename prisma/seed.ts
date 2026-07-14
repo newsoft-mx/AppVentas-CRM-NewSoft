@@ -671,17 +671,40 @@ async function main() {
     data: { resultado: "SUSPENDIDO", stage_id: stages[4].id },
   }).catch(() => {});
 
-  // 6.4 Contactos + bitácora demo en el deal "Suite Operativa"
+  // 6.4 Contactos (Bloque C: dueño = Cliente) + bitácora demo en "Suite Operativa"
+  // Un Contacto principal por cliente (espejo de Cliente.contacto/email/telefono).
+  const clientesAll = await prisma.cliente.findMany({ select: { id: true, contacto: true, email: true, telefono: true } });
+  for (const cl of clientesAll) {
+    const existe = await prisma.contacto.findFirst({ where: { cliente_id: cl.id, es_principal: true }, select: { id: true } });
+    if (!existe) {
+      await prisma.contacto.create({
+        data: { cliente_id: cl.id, nombre: cl.contacto, email: cl.email, telefono: cl.telefono, es_principal: true, activo: true },
+      });
+    }
+  }
+
   const dealDemo = "60000000-0000-0000-0000-000000000002";
+  const clienteDemo = "30000000-0000-0000-0000-000000000002";
+  // Contactos del cliente demo (no principales) — el deal los referencia vía link.
+  await prisma.contacto.upsert({
+    where: { id: "6a000000-0000-0000-0000-000000000001" },
+    update: {},
+    create: { id: "6a000000-0000-0000-0000-000000000001", cliente_id: clienteDemo, nombre: "Irvin Álvarez", email: "irvin@cliente.mx", telefono: "+52 81 1111 2222", whatsapp: "+52 81 1111 2222", cargo: "Director de Operaciones" },
+  });
+  await prisma.contacto.upsert({
+    where: { id: "6a000000-0000-0000-0000-000000000002" },
+    update: {},
+    create: { id: "6a000000-0000-0000-0000-000000000002", cliente_id: clienteDemo, nombre: "Marcela Robles", email: "marcela@cliente.mx" },
+  });
   await prisma.dealContacto.upsert({
     where: { id: "61000000-0000-0000-0000-000000000001" },
     update: {},
-    create: { id: "61000000-0000-0000-0000-000000000001", deal_id: dealDemo, nombre: "Irvin Álvarez", rol: "DECISOR", email: "irvin@cliente.mx", telefono: "+52 81 1111 2222", whatsapp: "+52 81 1111 2222" },
+    create: { id: "61000000-0000-0000-0000-000000000001", deal_id: dealDemo, contacto_id: "6a000000-0000-0000-0000-000000000001", rol: "DECISOR" },
   });
   await prisma.dealContacto.upsert({
     where: { id: "61000000-0000-0000-0000-000000000002" },
     update: {},
-    create: { id: "61000000-0000-0000-0000-000000000002", deal_id: dealDemo, nombre: "Marcela Robles", rol: "INFLUENCIADOR", email: "marcela@cliente.mx" },
+    create: { id: "61000000-0000-0000-0000-000000000002", deal_id: dealDemo, contacto_id: "6a000000-0000-0000-0000-000000000002", rol: "INFLUENCIADOR" },
   });
   await prisma.dealActividad.upsert({
     where: { id: "62000000-0000-0000-0000-000000000001" },

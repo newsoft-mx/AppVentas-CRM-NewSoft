@@ -165,10 +165,37 @@ model Cliente {
   updated_at        DateTime           @updatedAt @db.Timestamptz(6)
 
   // Relaciones
-  ordenes OrdenVenta[]
-  deals   Deal[]
+  ordenes   OrdenVenta[]
+  deals     Deal[]
+  contactos Contacto[]
 
   @@map("cliente")
+}
+
+// ============================================================
+// CONTACTO  (dueño = Cliente)
+// Unifica los contactos: una persona por fila, referenciada por los deals
+// (vía DealContacto). Cliente.contacto/email/telefono espejan al principal.
+// ============================================================
+model Contacto {
+  id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  cliente_id   String    @db.Uuid
+  cliente      Cliente   @relation(fields: [cliente_id], references: [id], onDelete: Cascade)
+  nombre       String    @db.VarChar(150)
+  email        String?   @db.VarChar(100)
+  telefono     String?   @db.VarChar(20)
+  whatsapp     String?   @db.VarChar(20)
+  cargo        String?   @db.VarChar(100)
+  // Exactamente uno = true por cliente. Espeja Cliente.contacto/email/telefono.
+  es_principal Boolean   @default(false)
+  // Soft-delete: no se borra en duro para no romper links de deals ni la bitácora.
+  activo       Boolean   @default(true)
+  created_at   DateTime  @default(now()) @db.Timestamptz(6)
+
+  deal_links DealContacto[]
+
+  @@index([cliente_id])
+  @@map("contacto")
 }
 
 // ============================================================
@@ -558,20 +585,31 @@ model Deal {
 // DEAL CONTACTO
 // Múltiples contactos por deal, con rol (decisor/influenciador/etc.)
 // ============================================================
+// Link deal ↔ contacto (los datos de la persona viven en Contacto, dueño del cliente).
+// El rol es por-deal (un mismo contacto puede ser DECISOR en un deal y USUARIO en otro).
 model DealContacto {
-  id         String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  deal_id    String      @db.Uuid
-  deal       Deal        @relation(fields: [deal_id], references: [id], onDelete: Cascade)
-  nombre     String      @db.VarChar(150)
-  rol        RolContacto @default(OTRO)
-  email      String?     @db.VarChar(100)
-  telefono   String?     @db.VarChar(20)
-  whatsapp   String?     @db.VarChar(20)
-  created_at DateTime    @default(now()) @db.Timestamptz(6)
+  id          String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  deal_id     String      @db.Uuid
+  deal        Deal        @relation(fields: [deal_id], references: [id], onDelete: Cascade)
+  contacto_id String      @db.Uuid
+  contacto    Contacto    @relation(fields: [contacto_id], references: [id], onDelete: Cascade)
+  rol         RolContacto @default(OTRO)
+  created_at  DateTime    @default(now()) @db.Timestamptz(6)
+
+  // DEPRECADAS (fase EXPAND del Bloque C): los datos del contacto ahora viven en
+  // "contacto" (vía contacto_id). Estas columnas quedan como red de seguridad tras
+  // el backfill y NO se leen en código. Se eliminan en la migración de CONTRACT
+  // (ver prisma/pending-migrations/), una vez verificado en datos reales.
+  nombre   String? @db.VarChar(150)
+  email    String? @db.VarChar(100)
+  telefono String? @db.VarChar(20)
+  whatsapp String? @db.VarChar(20)
 
   actividades DealActividad[]
 
+  @@unique([deal_id, contacto_id])
   @@index([deal_id])
+  @@index([contacto_id])
   @@map("deal_contacto")
 }
 

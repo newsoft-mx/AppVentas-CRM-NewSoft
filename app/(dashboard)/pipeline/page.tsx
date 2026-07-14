@@ -34,7 +34,7 @@ export default async function PipelinePage() {
         cliente: { select: { id: true, nombre: true } },
         vendedor: { select: { id: true, nombre: true } },
         tipo_cotizacion: { select: { id: true, nombre: true } },
-        contactos: { select: { nombre: true } },
+        contactos: { select: { contacto: { select: { nombre: true } } } },
         _count: { select: { actividades: true } },
         // Próximo seguimiento pendiente (tarea agendada más cercana)
         actividades: {
@@ -134,7 +134,7 @@ export default async function PipelinePage() {
       cliente: d.cliente ? { id: d.cliente.id, nombre: d.cliente.nombre } : null,
       vendedor: d.vendedor ? { id: d.vendedor.id, nombre: d.vendedor.nombre } : null,
       tipo: d.tipo_cotizacion ? { id: d.tipo_cotizacion.id, nombre: d.tipo_cotizacion.nombre } : null,
-      contactos: d.contactos.map((c) => c.nombre),
+      contactos: d.contactos.map((c) => c.contacto.nombre),
       razon_perdida: d.razon_perdida,
     };
   });

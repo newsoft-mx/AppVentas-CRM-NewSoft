@@ -114,12 +114,27 @@ export const ESTADO_ACCION_META: Record<
 export const ESTADO_ACCION_CICLO: EstadoAccion[] = ["PENDIENTE", "EN_PROCESO", "TERMINADO"];
 
 export interface DealContactoItem {
+  /** id del link deal↔contacto (DealContacto) */
   id: string;
+  /** id del contacto compartido (Contacto, dueño del cliente) */
+  contacto_id: string;
   nombre: string;
   rol: RolContacto;
   email: string | null;
   telefono: string | null;
   whatsapp: string | null;
+  cargo: string | null;
+  es_principal: boolean;
+}
+
+export interface ContactoCliente {
+  id: string;
+  nombre: string;
+  email: string | null;
+  telefono: string | null;
+  whatsapp: string | null;
+  cargo: string | null;
+  es_principal: boolean;
 }
 
 // Modelo de actividad (SOL-04)

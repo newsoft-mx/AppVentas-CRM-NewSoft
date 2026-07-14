@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Save } from "lucide-react";
+import ContactosCliente from "./ContactosCliente";
 import type { ClienteConStats, ClienteInput, CondicionResumen } from "@/types/clientes";
 
 interface ClienteFormProps {
@@ -170,9 +171,9 @@ export default function ClienteForm({
         </div>
       </div>
 
-      {/* ── Contacto ── */}
+      {/* ── Contacto principal ── */}
       <div>
-        <label className="label">Nombre de contacto *</label>
+        <label className="label">Contacto principal *</label>
         <input
           className={`input ${errors.contacto ? "border-red-400 focus:ring-red-400" : ""}`}
           value={form.contacto}
@@ -180,6 +181,9 @@ export default function ClienteForm({
           placeholder="Carlos Mendoza"
         />
         {errors.contacto && <p className="mt-1 text-xs text-red-500">{errors.contacto}</p>}
+        {isEditing && !convertir && (
+          <p className="mt-1 text-xs text-gray-400">Este nombre, email y teléfono son los del contacto principal. Gestioná más contactos abajo.</p>
+        )}
       </div>
 
       {/* ── Email y Teléfono ── */}
@@ -211,6 +215,23 @@ export default function ClienteForm({
           />
         </div>
       </div>
+
+      {/* ── Contactos del cliente (Bloque C): múltiples contactos ── */}
+      {isEditing && !convertir && cliente && (
+        <ContactosCliente
+          clienteId={cliente.id}
+          canWrite
+          onPrincipalChange={async () => {
+            // Al cambiar el principal, refrescar los campos de la ficha para no
+            // revertirlo al guardar (el PUT re-espeja Cliente.* → principal).
+            const res = await fetch(`/api/clientes/${cliente.id}/contactos`);
+            if (!res.ok) return;
+            const { contactos } = (await res.json()) as { contactos: Array<{ nombre: string; email: string | null; telefono: string | null; es_principal: boolean }> };
+            const p = contactos.find((c) => c.es_principal);
+            if (p) setForm((prev) => ({ ...prev, contacto: p.nombre, email: p.email ?? "", telefono: p.telefono ?? "" }));
+          }}
+        />
+      )}
 
       {/* ── Condición de pago ── */}
       <div>

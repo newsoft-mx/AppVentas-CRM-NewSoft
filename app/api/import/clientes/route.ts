@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { catalogKey, parseImportBuffer, nullable } from "@/lib/csv";
 import { canManageClients, requireAuth } from "@/lib/session";
 import { clienteCreateSchema } from "@/lib/validations/clientes";
+import { asegurarPrincipalDesdeCliente } from "@/lib/contactos";
 
 interface ImportError {
   fila: number;
@@ -77,8 +78,11 @@ export async function POST(req: NextRequest) {
     }
 
     try {
-      await prisma.cliente.create({
-        data: parsed.data as Parameters<typeof prisma.cliente.create>[0]["data"],
+      await prisma.$transaction(async (tx) => {
+        const c = await tx.cliente.create({
+          data: parsed.data as Parameters<typeof prisma.cliente.create>[0]["data"],
+        });
+        await asegurarPrincipalDesdeCliente(tx, c.id);
       });
       created += 1;
     } catch {

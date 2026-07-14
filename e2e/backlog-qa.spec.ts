@@ -239,4 +239,26 @@ test.describe("QA lote SOL-14..20", () => {
     expect(dealDb?.razon_perdida).toBe(motivo!.nombre); // etiqueta denormalizada
     expect(dealDb?.motivo_perdida_id).toBe(motivo!.id); // FK al catálogo
   });
+
+  test("C · editar el contacto principal se refleja en la ficha del cliente (invariante)", async ({ request }) => {
+    // Cliente del deal demo "Suite Operativa" (0002)
+    const CLIENTE = "30000000-0000-0000-0000-000000000002";
+    const listRes = await request.get(`/api/clientes/${CLIENTE}/contactos`);
+    expect(listRes.status()).toBe(200);
+    const { contactos } = (await listRes.json()) as { contactos: Array<{ id: string; nombre: string; es_principal: boolean }> };
+    const principal = contactos.find((c) => c.es_principal)!;
+    expect(principal).toBeTruthy();
+    const original = principal.nombre;
+    const nuevo = `E2E Ppal ${Date.now()}`;
+
+    // Editar el contacto principal
+    const patch = await request.patch(`/api/clientes/${CLIENTE}/contactos/${principal.id}`, { data: { nombre: nuevo } });
+    expect(patch.status()).toBe(200);
+    // El espejo del cliente refleja el cambio (SSOT del principal)
+    const cliDb = await db.cliente.findUnique({ where: { id: CLIENTE }, select: { contacto: true } });
+    expect(cliDb?.contacto).toBe(nuevo);
+
+    // Restaurar
+    await request.patch(`/api/clientes/${CLIENTE}/contactos/${principal.id}`, { data: { nombre: original } });
+  });
 });

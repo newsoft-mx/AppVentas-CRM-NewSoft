@@ -26,7 +26,7 @@ export default async function AccionesPage() {
         deal: dealScope,
       },
       include: {
-        contacto: { select: { nombre: true } },
+        contacto: { select: { contacto: { select: { nombre: true } } } },
         deal: {
           select: {
             id: true,
@@ -79,7 +79,7 @@ export default async function AccionesPage() {
     contenido: t.contenido,
     fecha_tarea: t.fecha_tarea ? t.fecha_tarea.toISOString() : null,
     estado_accion: t.estado_accion,
-    contacto_nombre: t.contacto?.nombre ?? null,
+    contacto_nombre: t.contacto?.contacto?.nombre ?? null,
     deal: {
       id: t.deal.id,
       nombre: t.deal.nombre,

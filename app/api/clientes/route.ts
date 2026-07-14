@@ -6,6 +6,7 @@ import { clienteCreateSchema } from "@/lib/validations/clientes";
 import { canManageClients, requireAuth } from "@/lib/session";
 import { scopeClienteWhere } from "@/lib/access-control";
 import { netAmount, netAmountMxn } from "@/lib/net-amounts";
+import { asegurarPrincipalDesdeCliente } from "@/lib/contactos";
 
 // ── Helper: agrega stats de órdenes por cliente ──────────────
 function buildStats(
@@ -118,13 +119,18 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const nuevo = await prisma.cliente.create({
-      data: validation.data as Parameters<typeof prisma.cliente.create>[0]["data"],
-      include: {
-        condicion_pago: {
-          select: { id: true, nombre: true, dias_credito: true },
+    const nuevo = await prisma.$transaction(async (tx) => {
+      const c = await tx.cliente.create({
+        data: validation.data as Parameters<typeof prisma.cliente.create>[0]["data"],
+        include: {
+          condicion_pago: {
+            select: { id: true, nombre: true, dias_credito: true },
+          },
         },
-      },
+      });
+      // Bloque C: todo cliente nace con su Contacto principal (espejo de la ficha).
+      await asegurarPrincipalDesdeCliente(tx, c.id);
+      return c;
     });
 
     return NextResponse.json(
