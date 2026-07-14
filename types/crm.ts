@@ -158,6 +158,8 @@ export interface DealActividadItem {
   contenido: string;
   autor: string;
   contacto_nombre: string | null;
+  /** id del DealContacto vinculado (para precargar el compositor al editar) */
+  contacto_id: string | null;
   fecha_evento: string | null;
   exitosa: boolean | null;
   es_tarea: boolean;

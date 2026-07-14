@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -17,7 +17,7 @@ import Markdown from "@/components/ui/Markdown";
 import MarkdownEditor from "@/components/ui/MarkdownEditor";
 import { formatCompacto, formatFechaHora } from "@/lib/utils";
 import { MAX_CONTENIDO } from "@/lib/actividad";
-import { ahoraInput } from "@/lib/tz";
+import { ahoraInput, fechaInput } from "@/lib/tz";
 import { TIPO_ACTIVIDAD_META, TIPOS_CREABLES } from "@/lib/actividad-tipos";
 import InputFechaHora from "@/components/ui/InputFechaHora";
 import { esTareaPendiente, estaVencida } from "@/lib/tareas";
@@ -161,9 +161,10 @@ export default function DealDetalleClient({
   const [notas, setNotas] = useState(deal.notas ?? "");
   const [editandoNotas, setEditandoNotas] = useState(false);
   const [toast, setToast] = useState<ToastData | null>(null);
-  // Edición/eliminación de entradas de bitácora (SOL-02)
+  // Edición de una entrada: se reusa el MISMO compositor precargado (editandoId != null).
   const [editandoId, setEditandoId] = useState<string | null>(null);
-  const [textoEdit, setTextoEdit] = useState("");
+  // Ref al compositor para desplazarlo a la vista al iniciar una edición.
+  const composerRef = useRef<HTMLDivElement>(null);
   async function guardarNotas() {
     // No cerrar el editor hasta confirmar el guardado: si el PATCH falla, el texto
     // solo vive en memoria y se perdería al recargar (pérdida silenciosa de datos).
@@ -235,29 +236,6 @@ export default function DealDetalleClient({
       // Revertir el pin optimista si el servidor no lo aceptó.
       setActividades((cur) => cur.map((x) => (x.id === a.id ? { ...x, destacada: !nuevo } : x)));
       setToast({ type: "error", message: "No se pudo actualizar la actividad." });
-    }
-  }
-
-  // Editar el contenido de una entrada (SOL-02) → marca "editado"
-  async function guardarEdicion(a: DealActividadItem) {
-    const nuevo = textoEdit.trim();
-    if (!nuevo || nuevo === a.contenido) { setEditandoId(null); return; }
-    const prev = actividades;
-    setActividades((cur) => cur.map((x) => (x.id === a.id ? { ...x, contenido: nuevo, editada: true } : x)));
-    setEditandoId(null);
-    try {
-      const res = await fetch(`/api/crm/actividades/${a.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ contenido: nuevo }),
-      });
-      if (!res.ok) {
-        const data = await res.json().catch(() => null);
-        throw new Error(data?.error ?? "No se pudo guardar la edición.");
-      }
-    } catch (e) {
-      setActividades(prev);
-      setToast({ type: "error", message: e instanceof Error ? e.message : "No se pudo guardar la edición." });
     }
   }
 
@@ -373,6 +351,27 @@ export default function DealDetalleClient({
     setTipoAccionSel(null);
     setTipoNueva("NOTA");
     setComposerFocus(false);
+    setEditandoId(null);
+  }
+
+  // Editar una entrada: precarga el MISMO compositor con todos sus campos y lo abre.
+  // Guardar hace PATCH (edición completa); la validación/serialización la comparte con el alta.
+  function iniciarEdicion(a: DealActividadItem) {
+    setEditandoId(a.id);
+    setTexto(a.contenido);
+    setEnlace(a.enlace_url ?? "");
+    setContactoSel(a.contacto_id ?? "");
+    setTipoAccionSel(tiposAccion.find((t) => t.id === a.tipo_accion?.id) ?? null);
+    setTipoNueva(a.tipo);
+    setResultadoSel(a.resultado?.id ?? "");
+    setExitosa(a.exitosa ?? true);
+    // ¿Cuándo?: si es tarea agendada refleja fecha_tarea (+recordatorio); si es registro,
+    // fecha_evento (o created_at si la nota no tenía fecha).
+    setRecordatorio(a.es_tarea);
+    setFechaEvento(fechaInput(a.fecha_tarea ?? a.fecha_evento ?? a.created_at));
+    setComposerFocus(true);
+    setRegistrando(true);
+    requestAnimationFrame(() => composerRef.current?.scrollIntoView({ behavior: "smooth", block: "center" }));
   }
   function cerrarCompositor() {
     resetCompositor();
@@ -382,33 +381,38 @@ export default function DealDetalleClient({
   async function guardarActividad() {
     if (!texto.trim() || guardando) return;
     setGuardando(true);
+    // Alta (POST) o edición completa (PATCH) — mismo payload; el server comparte validación.
+    const editar = editandoId != null;
+    // Fecha futura + recordatorio → tarea agendada (fecha_tarea → Próximas Acciones y
+    // alertas). Pasada/ahora, o futura sin recordatorio → registro (fecha_evento).
+    const payload = {
+      tipo: tipoNueva,
+      contenido: texto.trim(),
+      contacto_id: contactoSel || undefined,
+      fecha_evento: cuandoFutura && recordatorio ? undefined : fechaEvento || undefined,
+      exitosa: tipoNueva === "LLAMADA" ? exitosa : undefined,
+      fecha_tarea: cuandoFutura && recordatorio ? fechaEvento : undefined,
+      tipo_accion_id: tipoAccionSel?.id || undefined,
+      resultado_id: mostrarResultado ? resultadoSel || undefined : undefined,
+      enlace_url: enlace.trim() || undefined,
+    };
     try {
-      const res = await fetch(`/api/crm/deals/${deal.id}/actividades`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        // Fecha futura + recordatorio → tarea agendada (fecha_tarea → Próximas Acciones
-        // y alertas). Pasada/ahora, o futura sin recordatorio → registro (fecha_evento).
-        body: JSON.stringify({
-          tipo: tipoNueva,
-          contenido: texto.trim(),
-          contacto_id: contactoSel || undefined,
-          fecha_evento: cuandoFutura && recordatorio ? undefined : fechaEvento || undefined,
-          exitosa: tipoNueva === "LLAMADA" ? exitosa : undefined,
-          fecha_tarea: cuandoFutura && recordatorio ? fechaEvento : undefined,
-          tipo_accion_id: tipoAccionSel?.id || undefined,
-          resultado_id: mostrarResultado ? resultadoSel || undefined : undefined,
-          enlace_url: enlace.trim() || undefined,
-        }),
-      });
+      const res = await fetch(
+        editar ? `/api/crm/actividades/${editandoId}` : `/api/crm/deals/${deal.id}/actividades`,
+        { method: editar ? "PATCH" : "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) }
+      );
       const data = await res.json().catch(() => null);
       if (!res.ok) throw new Error(data?.error ?? "No se pudo guardar la actividad.");
-      setActividades((cur) => [data.actividad as DealActividadItem, ...cur]);
-      // Termómetro y sugerencia de avance devueltos por el servidor (REQ-06)
+      const guardada = data.actividad as DealActividadItem;
+      setActividades((cur) =>
+        editar ? cur.map((x) => (x.id === guardada.id ? guardada : x)) : [guardada, ...cur]
+      );
+      // Termómetro devuelto por el servidor (REQ-06) — el alta y la edición lo recalculan.
       if (data.temperatura) setTemperatura(data.temperatura as Temperatura);
       if (data.sugerir_avance) setSugerirAvance(true);
       // Cierre de ciclo (SOL-04): el resultado sugiere agendar la próxima acción
       if (data.sugerir_reagendar) {
-        setToast({ type: "success", message: "Registrado. El resultado sugiere agendar la próxima acción." });
+        setToast({ type: "success", message: "Guardado. El resultado sugiere agendar la próxima acción." });
       }
       // En modo AUTOMÁTICO el servidor ya avanzó de etapa y registró el evento SISTEMA:
       // refrescar para reflejar la nueva etapa y la entrada en la bitácora.
@@ -643,6 +647,7 @@ export default function DealDetalleClient({
           {/* Compositor: visible solo al registrar; arriba el TIPO de entrada → cambian los campos */}
           {canWrite && registrando && (
             <div
+              ref={composerRef}
               className="border-b border-surface-border bg-white px-5 py-4"
               onFocus={() => setComposerFocus(true)}
               onBlur={(e) => {
@@ -650,7 +655,9 @@ export default function DealDetalleClient({
               }}
             >
               <div className="mb-3 flex items-center justify-between">
-                <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">Nueva actividad</span>
+                <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">
+                  {editandoId ? "Editar actividad" : "Nueva actividad"}
+                </span>
                 <button
                   onClick={cerrarCompositor}
                   title="Cerrar"
@@ -791,7 +798,7 @@ export default function DealDetalleClient({
                   disabled={!texto.trim() || texto.length > MAX_CONTENIDO || guardando}
                   className="rounded-lg bg-navy px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-navy-700 disabled:opacity-50"
                 >
-                  {guardando ? "Guardando…" : "Registrar"}
+                  {guardando ? "Guardando…" : editandoId ? "Guardar cambios" : "Registrar"}
                 </button>
               </div>
             </div>
@@ -881,9 +888,9 @@ export default function DealDetalleClient({
                             />
                           </button>
                         )}
-                        {canWrite && a.tipo !== "SISTEMA" && editandoId !== a.id && (
+                        {canWrite && a.tipo !== "SISTEMA" && (
                           <>
-                            <button onClick={() => { setEditandoId(a.id); setTextoEdit(a.contenido); }} title="Editar" className="text-gray-300 hover:text-navy">
+                            <button onClick={() => iniciarEdicion(a)} title="Editar" className="text-gray-300 hover:text-navy">
                               <Pencil size={12} />
                             </button>
                             <button onClick={() => eliminarActividad(a)} title="Eliminar" className="text-gray-300 hover:text-red-500">
@@ -897,26 +904,12 @@ export default function DealDetalleClient({
                         </span>
                       </div>
                       <div
-                        className="mt-1 rounded-lg border border-surface-border bg-white px-3 py-2 text-sm leading-relaxed text-gray-700"
+                        className={`mt-1 rounded-lg border border-surface-border bg-white px-3 py-2 text-sm leading-relaxed text-gray-700 ${
+                          editandoId === a.id ? "ring-2 ring-orange/40" : ""
+                        }`}
                         style={{ borderLeftWidth: 3, borderLeftColor: a.destacada ? "#F5A623" : meta.color }}
                       >
-                        {editandoId === a.id ? (
-                          <div className="space-y-2">
-                            <MarkdownEditor value={textoEdit} onChange={setTextoEdit} autoFocus />
-                            <div className="flex justify-end gap-2">
-                              <button onClick={() => setEditandoId(null)} className="rounded px-2 py-1 text-xs font-medium text-gray-500 hover:bg-gray-100">Cancelar</button>
-                              <button
-                                onClick={() => guardarEdicion(a)}
-                                disabled={textoEdit.length > MAX_CONTENIDO}
-                                className="rounded bg-orange px-2.5 py-1 text-xs font-semibold text-white hover:bg-orange/90 disabled:opacity-50"
-                              >
-                                Guardar
-                              </button>
-                            </div>
-                          </div>
-                        ) : (
-                          <Markdown>{a.contenido}</Markdown>
-                        )}
+                        <Markdown>{a.contenido}</Markdown>
                         {a.enlace_url && /^https?:\/\//i.test(a.enlace_url) && (
                           <a
                             href={a.enlace_url}
