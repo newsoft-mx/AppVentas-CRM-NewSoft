@@ -130,10 +130,6 @@ export default function DealDetalleClient({
   const [resultadoSel, setResultadoSel] = useState("");
   const [enlace, setEnlace] = useState("");
   const [guardando, setGuardando] = useState(false);
-  // Compositor compacto por defecto: los opcionales se revelan al enfocar o tener
-  // contenido (progressive disclosure — evita saturar la vista con opcionales).
-  const [composerFocus, setComposerFocus] = useState(false);
-  const composerAbierto = composerFocus || Boolean(texto.trim() || enlace.trim());
   // "Registrar fecha" es opcional: solo cuenta si está completa (fecha + hora). Un valor
   // parcial (al limpiar un lado) se trata como vacío para no guardar una fecha inválida.
   const fechaValida = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(fechaEvento);
@@ -351,7 +347,6 @@ export default function DealDetalleClient({
     setEnlace("");
     setTipoAccionSel(null);
     setTipoNueva("NOTA");
-    setComposerFocus(false);
     setEditandoId(null);
   }
 
@@ -371,7 +366,6 @@ export default function DealDetalleClient({
     setRecordatorio(a.es_tarea);
     const cuando = a.fecha_tarea ?? a.fecha_evento;
     setFechaEvento(cuando ? fechaInput(cuando) : "");
-    setComposerFocus(true);
     setRegistrando(true);
     requestAnimationFrame(() => composerRef.current?.scrollIntoView({ behavior: "smooth", block: "center" }));
   }
@@ -575,13 +569,12 @@ export default function DealDetalleClient({
           <Section title="Resumen del proyecto">
             {editandoNotas ? (
               <div className="space-y-2">
-                <textarea
+                {/* Mismo editor que el compositor (SSOT): autocrece + expandir + markdown. */}
+                <MarkdownEditor
                   value={notas}
-                  onChange={(e) => setNotas(e.target.value)}
-                  rows={3}
+                  onChange={setNotas}
                   autoFocus
                   placeholder="¿De qué trata este deal? (contexto, alcance, notas)…"
-                  className="w-full resize-none rounded-lg border border-surface-border bg-white px-3 py-2 text-xs text-navy outline-none focus:border-orange"
                 />
                 <div className="flex justify-end gap-2">
                   <button onClick={() => { setNotas(deal.notas ?? ""); setEditandoNotas(false); }} className="text-[11px] font-semibold text-gray-400 hover:text-navy">Cancelar</button>
@@ -593,7 +586,13 @@ export default function DealDetalleClient({
                 onClick={() => canWrite && setEditandoNotas(true)}
                 className="flex w-full items-start gap-1.5 text-left text-xs text-gray-600 hover:text-navy"
               >
-                <span className="flex-1">{notas || <span className="text-gray-400">Sin descripción — clic para agregar</span>}</span>
+                <span className="flex-1">
+                  {notas ? (
+                    <Markdown>{notas}</Markdown>
+                  ) : (
+                    <span className="text-gray-400">Sin descripción — clic para agregar</span>
+                  )}
+                </span>
                 {canWrite && <Pencil size={12} className="mt-0.5 shrink-0 text-gray-300" />}
               </button>
             )}
@@ -610,6 +609,7 @@ export default function DealDetalleClient({
               <Field label="Tamaño empresa" value={TAMANO_EMPRESA_LABEL[deal.cliente.tamano_empresa]} />
             )}
             <Field label="Responsable" value={deal.vendedor?.nombre ?? "Sin vendedor"} />
+            <Field label="Ingreso al pipeline" value={fmtFecha(deal.fecha_ingreso.slice(0, 10))} />
           </Section>
 
           {/* Contactos (Bloque C): editar el contacto compartido, agregar, cambiar rol */}
@@ -677,10 +677,6 @@ export default function DealDetalleClient({
             <div
               ref={composerRef}
               className="border-b border-surface-border bg-white px-5 py-4"
-              onFocus={() => setComposerFocus(true)}
-              onBlur={(e) => {
-                if (!e.currentTarget.contains(e.relatedTarget as Node)) setComposerFocus(false);
-              }}
             >
               <div className="mb-3 flex items-center justify-between">
                 <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">
@@ -805,22 +801,21 @@ export default function DealDetalleClient({
 
               <MarkdownEditor value={texto} onChange={setTexto} placeholder={TIPO_ACTIVIDAD_META[tipoNueva].placeholder} />
 
-              {/* Opcional (enlace): se revela al componer para no saturar la vista */}
-              {composerAbierto && (
-                <div className="mt-2 space-y-2">
-                  {/* Enlace externo (ej. propuesta en Google Drive) — alternativa a subir archivo */}
-                  <label className="flex items-center gap-2 rounded-lg border border-surface-border bg-surface px-3 py-1.5 text-sm text-navy focus-within:border-orange">
-                    <Link2 size={14} className="shrink-0 text-gray-400" />
-                    <input
-                      type="url"
-                      value={enlace}
-                      onChange={(e) => setEnlace(e.target.value)}
-                      placeholder="Enlace (Google Drive, propuesta…) — opcional"
-                      className="w-full bg-transparent outline-none placeholder:text-gray-400"
-                    />
-                  </label>
-                </div>
-              )}
+              {/* Enlace externo (ej. propuesta en Google Drive): siempre visible mientras se
+                  compone — antes se ocultaba al perder foco y el campo "se cerraba". */}
+              <div className="mt-2 space-y-2">
+                <label className="flex items-center gap-2 rounded-lg border border-surface-border bg-surface
+                                  px-3 py-1.5 text-sm text-navy focus-within:border-orange">
+                  <Link2 size={14} className="shrink-0 text-gray-400" />
+                  <input
+                    type="url"
+                    value={enlace}
+                    onChange={(e) => setEnlace(e.target.value)}
+                    placeholder="Enlace (Google Drive, propuesta…) — opcional"
+                    className="w-full bg-transparent outline-none placeholder:text-gray-400"
+                  />
+                </label>
+              </div>
 
               {/* CTA — cancelar (colapsa) + registrar */}
               <div className="mt-3 flex items-center justify-end gap-2">

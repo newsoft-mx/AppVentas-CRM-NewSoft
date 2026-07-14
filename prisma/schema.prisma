@@ -580,6 +580,10 @@ model Deal {
   orden              OrdenVenta?   @relation(fields: [orden_id], references: [id], onDelete: SetNull)
 
   notas      String?  @db.Text
+  // Fecha de ingreso del lead al pipeline (dato de NEGOCIO, editable): al migrar leads
+  // a mano se corrige para que no aparezcan todos "nuevos hoy". Los KPIs de altas, el
+  // orden de la lista y "días abierto" la leen. created_at queda INMUTABLE (auditoría).
+  fecha_ingreso DateTime @default(now()) @db.Timestamptz(6)
   created_at DateTime @default(now()) @db.Timestamptz(6)
   updated_at DateTime @updatedAt @db.Timestamptz(6)
 

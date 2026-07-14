@@ -38,6 +38,8 @@ export interface DealResumen {
   contactos: string[];
   /** Motivo de pérdida (solo si resultado = PERDIDO), para el desglose (SOL-06/18) */
   razon_perdida: string | null;
+  /** Fecha de ingreso al pipeline (ISO) — dato de negocio, editable en la vista lista */
+  fecha_ingreso: string;
 }
 
 // Estado del deal (resultado): label + color central (pilar 5). Un solo lugar
@@ -202,6 +204,7 @@ export interface DealDetalle {
   resultado: DealResultado;
   fecha_cierre_estimada: string | null;
   dias_abierto: number;
+  fecha_ingreso: string; // ISO — fecha de ingreso al pipeline (editable)
   notas: string | null;
   stage: { id: string; nombre: string; orden: number };
   cliente: {

@@ -88,6 +88,17 @@ export async function PATCH(
       else data.fecha_cierre_estimada = d;
     }
   }
+  // Fecha de ingreso al pipeline (dato de negocio, editable). Obligatoria (NOT NULL);
+  // created_at NO se toca acá (auditoría inmutable).
+  if (b.fecha_ingreso !== undefined) {
+    const raw = b.fecha_ingreso;
+    if (!raw) errores.push("La fecha de ingreso es obligatoria");
+    else {
+      const d = new Date(`${raw as string}T00:00:00`);
+      if (Number.isNaN(d.getTime())) errores.push("fecha_ingreso inválida");
+      else data.fecha_ingreso = d;
+    }
+  }
 
   if (errores.length) return NextResponse.json({ error: errores.join("; ") }, { status: 422 });
   if (Object.keys(data).length === 0) return NextResponse.json({ error: "Nada para actualizar" }, { status: 422 });
