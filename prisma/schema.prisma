@@ -155,6 +155,10 @@ model Cliente {
   ciudad            String             @db.VarChar(100)
   email             String?            @db.VarChar(100)
   telefono          String?            @db.VarChar(20)
+  // Sitio web de la empresa (opcional): ayuda a identificar al lead. Se nudgea en UI si falta.
+  website           String?            @db.VarChar(255)
+  // Tamaño de la empresa por rango de empleados (opcional)
+  tamano_empresa    TamanoEmpresa?
   // Condición de pago por defecto del cliente
   condicion_pago_id String             @db.Uuid
   condicion_pago    CondicionComercial @relation(fields: [condicion_pago_id], references: [id])
@@ -221,6 +225,16 @@ enum EstatusCliente {
   INACTIVO
 
   @@map("estatus_cliente")
+}
+
+// Tamaño de empresa por rango de empleados (SSOT de etiquetas en types/crm.ts).
+enum TamanoEmpresa {
+  MICRO      // 1–10
+  PEQUENA    // 11–50
+  MEDIANA    // 51–250
+  GRANDE     // 250+
+
+  @@map("tamano_empresa")
 }
 
 // Moneda de la orden

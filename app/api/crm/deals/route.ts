@@ -4,7 +4,7 @@ import { canWrite, requireAuth } from "@/lib/session";
 import { getScoringContext, dealScoreView } from "@/lib/deal-score";
 import { crearContactoPrincipal, crearOEncontrarContacto } from "@/lib/contactos";
 import { logger } from "@/lib/logger";
-import type { DealResumen } from "@/types/crm";
+import { TAMANOS_EMPRESA, type DealResumen, type TamanoEmpresa } from "@/types/crm";
 import type { RolContacto } from "@prisma/client";
 
 export const dynamic = "force-dynamic";
@@ -52,6 +52,13 @@ export async function POST(req: NextRequest) {
   // a partir de los datos mínimos (empresa + contacto). Los datos fiscales se piden al convertir.
   const cn = (body.cliente_nuevo ?? null) as Record<string, unknown> | null;
   const prospectoNombre = cn && typeof cn.nombre === "string" ? cn.nombre.trim() : "";
+  // Datos de empresa opcionales del prospecto (mismo trato que en la ficha de cliente).
+  const rawWeb = cn && typeof cn.website === "string" ? cn.website.trim() : "";
+  const prospectoWebsite = rawWeb ? (/^https?:\/\//i.test(rawWeb) ? rawWeb : `https://${rawWeb}`).slice(0, 255) : null;
+  const tamanoRaw = cn && typeof cn.tamano_empresa === "string" ? cn.tamano_empresa : "";
+  const prospectoTamano = TAMANOS_EMPRESA.includes(tamanoRaw as TamanoEmpresa)
+    ? (tamanoRaw as TamanoEmpresa)
+    : null;
 
   if (!nombre) return NextResponse.json({ error: "El nombre es obligatorio", campo: "nombre" }, { status: 422 });
   if (nombre.length > 200 || prospectoNombre.length > 200 || contactoNombre.length > 150) {
@@ -102,6 +109,8 @@ export async function POST(req: NextRequest) {
             ciudad: "",
             email: contactoEmail,
             telefono: contactoTel,
+            website: prospectoWebsite,
+            tamano_empresa: prospectoTamano,
             condicion_pago_id: cond.id,
             estatus: "PROSPECTO",
           },

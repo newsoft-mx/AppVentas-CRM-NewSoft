@@ -5,7 +5,8 @@ import Modal from "@/components/ui/Modal";
 import SearchableSelect from "@/components/ui/SearchableSelect";
 import {
   TEMPERATURA_META, TEMPERATURAS, ROL_CONTACTO_LABEL,
-  type DealResumen, type StageResumen, type Temperatura, type RolContacto,
+  TAMANOS_EMPRESA, TAMANO_EMPRESA_LABEL,
+  type DealResumen, type StageResumen, type Temperatura, type RolContacto, type TamanoEmpresa,
 } from "@/types/crm";
 
 // Valores actuales del deal para el modo edición (SOL-01)
@@ -45,6 +46,8 @@ export default function NuevoDealModal({ stages, vendedores, clientes, tipos, on
     nombre: deal?.nombre ?? "",
     cliente_id: deal?.cliente_id ?? "",
     prospecto_nombre: "",
+    prospecto_website: "",
+    prospecto_tamano: "" as "" | TamanoEmpresa,
     vendedor_id: deal?.vendedor_id ?? "",
     stage_id: deal?.stage_id ?? stages[0]?.id ?? "",
     tipo_cotizacion_id: deal?.tipo_cotizacion_id ?? "",
@@ -119,7 +122,7 @@ export default function NuevoDealModal({ stages, vendedores, clientes, tipos, on
     try {
       const {
         contacto_nombre, contacto_rol, contacto_email, contacto_telefono, contacto_whatsapp,
-        prospecto_nombre, cliente_id, ...rest
+        prospecto_nombre, prospecto_website, prospecto_tamano, cliente_id, ...rest
       } = form;
       const payload: Record<string, unknown> = {
         ...rest,
@@ -134,7 +137,11 @@ export default function NuevoDealModal({ stages, vendedores, clientes, tipos, on
       if (modoCliente === "existente") {
         payload.cliente_id = cliente_id;
       } else {
-        payload.cliente_nuevo = { nombre: prospecto_nombre.trim() };
+        payload.cliente_nuevo = {
+          nombre: prospecto_nombre.trim(),
+          website: prospecto_website.trim() || null,
+          tamano_empresa: prospecto_tamano || null,
+        };
       }
       const res = await fetch("/api/crm/deals", {
         method: "POST",
@@ -180,6 +187,29 @@ export default function NuevoDealModal({ stages, vendedores, clientes, tipos, on
             <input className={inputCls} value={form.prospecto_nombre} onChange={(e) => set("prospecto_nombre", e.target.value)} placeholder="Empresa / nombre del prospecto" />
           )}
         </div>
+
+        {modoCliente === "prospecto" && (
+          <>
+            <Campo label="Website del prospecto">
+              <input
+                className={inputCls}
+                value={form.prospecto_website}
+                onChange={(e) => set("prospecto_website", e.target.value)}
+                placeholder="empresa.com (opcional)"
+              />
+            </Campo>
+            <Campo label="Tamaño de empresa">
+              <select
+                className={inputCls}
+                value={form.prospecto_tamano}
+                onChange={(e) => set("prospecto_tamano", e.target.value as "" | TamanoEmpresa)}
+              >
+                <option value="">— Sin especificar —</option>
+                {TAMANOS_EMPRESA.map((t) => <option key={t} value={t}>{TAMANO_EMPRESA_LABEL[t]}</option>)}
+              </select>
+            </Campo>
+          </>
+        )}
 
         <Campo label="Vendedor (dueño)">
           <SearchableSelect
