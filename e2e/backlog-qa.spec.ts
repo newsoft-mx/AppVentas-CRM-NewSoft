@@ -232,7 +232,10 @@ test.describe("QA lote SOL-14..20", () => {
       data: { resultado: "PERDIDO", razon_perdida: motivo!.nombre },
     });
     expect(res.status()).toBe(200);
-    const dealDb = await db.deal.findUnique({ where: { id: deal.id }, select: { razon_perdida: true, motivo_perdida_id: true } });
+    const dealDb = await db.deal.findUnique({
+      where: { id: deal.id },
+      select: { razon_perdida: true, motivo_perdida_id: true },
+    });
     expect(dealDb?.razon_perdida).toBe(motivo!.nombre); // etiqueta denormalizada
     expect(dealDb?.motivo_perdida_id).toBe(motivo!.id); // FK al catálogo
   });

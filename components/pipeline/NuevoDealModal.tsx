@@ -3,7 +3,10 @@
 import { useState } from "react";
 import Modal from "@/components/ui/Modal";
 import SearchableSelect from "@/components/ui/SearchableSelect";
-import { TEMPERATURA_META, TEMPERATURAS, ROL_CONTACTO_LABEL, type DealResumen, type StageResumen, type Temperatura, type RolContacto } from "@/types/crm";
+import {
+  TEMPERATURA_META, TEMPERATURAS, ROL_CONTACTO_LABEL,
+  type DealResumen, type StageResumen, type Temperatura, type RolContacto,
+} from "@/types/crm";
 
 // Valores actuales del deal para el modo edición (SOL-01)
 export interface DealEditInitial {
