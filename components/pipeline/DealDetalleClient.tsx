@@ -17,7 +17,8 @@ import Markdown from "@/components/ui/Markdown";
 import MarkdownEditor from "@/components/ui/MarkdownEditor";
 import { formatCompacto, formatFechaHora } from "@/lib/utils";
 import { MAX_CONTENIDO } from "@/lib/actividad";
-import { ahoraLocal } from "@/lib/filter-utils";
+import { ahoraInput } from "@/lib/tz";
+import InputFechaHora from "@/components/ui/InputFechaHora";
 import {
   TEMPERATURA_META, ESTADO_ACCION_META, ESTADO_ACCION_CICLO,
   EFECTO_META, ESTADO_PLAN_META,
@@ -71,7 +72,12 @@ function fmtFull(n: number): string {
 }
 function fmtFecha(iso: string | null): string {
   if (!iso) return "—";
-  return new Date(iso + "T00:00:00").toLocaleDateString("es-MX", { day: "2-digit", month: "short" });
+  // Fecha-solo (YYYY-MM-DD): anclar a UTC → misma fecha en server y cliente (sin corrimiento).
+  return new Date(iso + "T00:00:00Z").toLocaleDateString("es-MX", {
+    day: "2-digit",
+    month: "short",
+    timeZone: "UTC",
+  });
 }
 const FILTROS_VER: { key: "TODAS" | "NOTA" | "LLAMADA" | "EMAIL" | "WHATSAPP"; label: string }[] = [
   { key: "TODAS", label: "Todas" },
@@ -120,9 +126,9 @@ export default function DealDetalleClient({
   // Contacto precargado por defecto: el primer contacto del deal (REQ-03)
   const [contactoSel, setContactoSel] = useState(deal.contactos[0]?.id ?? "");
   const [fechaEvento, setFechaEvento] = useState("");
-  // Precargar "Cuándo ocurrió" con ahora (editable). En useEffect para evitar
-  // mismatch de hidratación (new Date() difiere entre server y cliente). (SOL-03)
-  useEffect(() => setFechaEvento(ahoraLocal()), []);
+  // Precargar "Cuándo ocurrió" con ahora en CDMX (editable). En useEffect para evitar
+  // mismatch de hidratación (la hora difiere entre server y cliente). (SOL-03)
+  useEffect(() => setFechaEvento(ahoraInput()), []);
   const [exitosa, setExitosa] = useState(true);
   const [seguimiento, setSeguimiento] = useState("");
   const [resultadoSel, setResultadoSel] = useState("");
@@ -345,7 +351,7 @@ export default function DealDetalleClient({
       if (data.avanzo_etapa) router.refresh();
       setTexto("");
       setContactoSel(deal.contactos[0]?.id ?? "");
-      setFechaEvento(ahoraLocal());
+      setFechaEvento(ahoraInput());
       setExitosa(true);
       setSeguimiento("");
       setResultadoSel("");
@@ -623,12 +629,7 @@ export default function DealDetalleClient({
                   </label>
                   <label className="flex flex-col gap-1 text-[11px] font-medium text-gray-500">
                     Cuándo ocurrió
-                    <input
-                      type="datetime-local"
-                      value={fechaEvento}
-                      onChange={(e) => setFechaEvento(e.target.value)}
-                      className="rounded-lg border border-surface-border bg-white px-3 py-2 text-sm text-navy outline-none focus:border-orange"
-                    />
+                    <InputFechaHora value={fechaEvento} onChange={(e) => setFechaEvento(e.target.value)} />
                   </label>
                   {tipoNueva === "LLAMADA" && (
                     <label className="flex items-center gap-2 text-sm text-gray-600 sm:col-span-2">
@@ -676,11 +677,10 @@ export default function DealDetalleClient({
                   {/* Agendar próximo paso (opcional) — alimenta el inbox de Próximas Acciones */}
                   <label className="flex flex-col gap-1 text-[11px] font-medium text-gray-500">
                     <span className="flex items-center gap-1"><CalendarClock size={12} /> Agendar seguimiento (opcional)</span>
-                    <input
-                      type="datetime-local"
+                    <InputFechaHora
                       value={seguimiento}
                       onChange={(e) => setSeguimiento(e.target.value)}
-                      className="w-fit rounded-lg border border-surface-border bg-white px-3 py-2 text-sm text-navy outline-none focus:border-orange"
+                      className="w-fit"
                     />
                   </label>
                 </div>

@@ -12,6 +12,7 @@ import {
   type AccionItem, type TipoActividad, type EstadoAccion, type GrupoUrgencia,
 } from "@/types/crm";
 import CalendarioAcciones from "@/components/pipeline/CalendarioAcciones";
+import InputFechaHora from "@/components/ui/InputFechaHora";
 import { formatCompacto, formatFechaHora } from "@/lib/utils";
 import { useUrlFilters } from "@/hooks/useUrlFilters";
 import { serializeAccionesFiltros, type AccionesFiltros } from "@/lib/acciones-filtros";
@@ -287,12 +288,11 @@ export default function AccionesInbox({
                           {a.fecha_tarea ? formatFechaHora(a.fecha_tarea) : "Sin fecha"}
                         </span>
                         {reprogramando === a.id ? (
-                          <input
-                            type="datetime-local"
+                          <InputFechaHora
                             autoFocus
                             defaultValue={a.fecha_tarea ? toLocalInput(a.fecha_tarea) : ""}
                             onBlur={(e) => reprogramar(a, e.target.value)}
-                            className="rounded border border-surface-border px-1.5 py-0.5 text-[11px] text-navy outline-none focus:border-orange"
+                            className="px-1.5 py-0.5 text-[11px]"
                           />
                         ) : (
                           <button
