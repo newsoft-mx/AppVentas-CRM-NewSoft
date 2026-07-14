@@ -12,6 +12,7 @@ import Modal from "@/components/ui/Modal";
 import Toast, { ToastData } from "@/components/ui/Toast";
 import Termometro from "@/components/pipeline/Termometro";
 import ContactosDeal from "@/components/pipeline/ContactosDeal";
+import CasosNegocioDeal from "@/components/pipeline/CasosNegocioDeal";
 import NuevoDealModal from "@/components/pipeline/NuevoDealModal";
 import Markdown from "@/components/ui/Markdown";
 import MarkdownEditor from "@/components/ui/MarkdownEditor";
@@ -599,6 +600,11 @@ export default function DealDetalleClient({
               onError={(message) => setToast({ type: "error", message })}
               onSelect={setContactoSel}
             />
+          </Section>
+
+          {/* Casos de negocio (Simulador Fase 2): abrir/crear casos vinculados al deal */}
+          <Section title="Casos de negocio">
+            <CasosNegocioDeal dealId={deal.id} />
           </Section>
 
           {/* Historial con el cliente */}

@@ -30,3 +30,19 @@ test("simulador: guardar/listar/borrar un caso y montar el iframe", async ({ bro
   await page.goto("/simulador");
   await expect(page.locator('iframe[title="Simulador de casos de negocio"]')).toBeVisible();
 });
+
+test("simulador Fase 2: deep-link ?caso= carga el caso dentro del iframe", async ({ page, request }) => {
+  const nombre = `Deep-link ${Date.now()}`;
+  // Crear un caso con la sesión del proyecto (storageState admin).
+  const create = await request.post("/api/simulador/casos", {
+    data: { nombre, datos: { name: nombre, period: "mensual", mode: "absolute" } },
+  });
+  const caso = await create.json();
+
+  // Abrir el simulador vía deep-link: el iframe debe cargar ese caso (nombre precargado).
+  await page.goto(`/simulador?caso=${caso.id}`);
+  const frame = page.frameLocator('iframe[title="Simulador de casos de negocio"]');
+  await expect(frame.locator("#caseName")).toHaveValue(nombre);
+
+  await request.delete(`/api/simulador/casos/${caso.id}`);
+});
