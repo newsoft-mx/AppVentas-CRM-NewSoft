@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useMemo, useCallback, useEffect, useTransition } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { BarChart3, Plus, AlertTriangle } from "lucide-react";
 import Link from "next/link";
-import { useRouter, usePathname } from "next/navigation";
+import { useUrlFilters } from "@/hooks/useUrlFilters";
 import FiltrosBar from "./FiltrosBar";
 import TablaOrdenes from "./TablaOrdenes";
 import Toast, { ToastData } from "@/components/ui/Toast";
@@ -57,12 +57,9 @@ export default function VentasClient({
   vendedores,
   canWrite = true,
 }: VentasClientProps) {
-  const router = useRouter();
-  const pathname = usePathname();
-  const [, startTransition] = useTransition();
-
   const [ordenes, setOrdenes] = useState<OrdenResumen[]>(initialOrdenes);
-  const [filtros, setFiltros] = useState<FiltroOrdenes>(initialFiltros);
+  // Filtros persistentes en la URL (mecanismo compartido — pilar 3)
+  const [filtros, setFiltros] = useUrlFilters(initialFiltros, filtrosToQueryString);
   const [confirmDelete, setConfirmDelete] = useState<OrdenResumen | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [toast, setToast] = useState<ToastData | null>(null);
@@ -76,17 +73,6 @@ export default function VentasClient({
       .map(([id, label]) => ({ id, label }))
       .sort((a, b) => a.label.localeCompare(b.label, "es"));
   }, [ordenes]);
-
-  // ── Sincronizar filtros con URL ───────────────────────────────
-  // Cuando los filtros cambian, actualizar la URL sin reload
-  useEffect(() => {
-    const qs = filtrosToQueryString(filtros);
-    const newUrl = qs ? `${pathname}?${qs}` : pathname;
-    startTransition(() => {
-      router.replace(newUrl, { scroll: false });
-    });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filtros]);
 
   // ── Filtrado client-side ──────────────────────────────────────
   const ordenesFiltradas = useMemo(

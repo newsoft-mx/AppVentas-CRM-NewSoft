@@ -18,9 +18,17 @@ import {
 import NuevoDealModal from "@/components/pipeline/NuevoDealModal";
 import { metricasPipeline } from "@/lib/pipeline-metrics";
 import { formatCompacto, formatFechaHora } from "@/lib/utils";
+import { useUrlFilters } from "@/hooks/useUrlFilters";
+import {
+  ESTADOS_DEFAULT,
+  serializePipelineFiltros,
+  type PipelineFiltros,
+  type OrdenPipeline,
+} from "@/lib/pipeline-filtros";
 import Toast, { ToastData } from "@/components/ui/Toast";
 
 interface Props {
+  initialFiltros: PipelineFiltros;
   stages: StageResumen[];
   deals: DealResumen[];
   vendedores: { id: string; nombre: string }[];
@@ -33,18 +41,25 @@ interface Props {
 // Estados en orden de aparición (columnas sintéticas / chips). ABIERTO se
 // muestra en las columnas de etapa; el resto en columnas de estado.
 const ESTADOS_ORDEN: DealResultado[] = ["ABIERTO", "SUSPENDIDO", "GANADO", "PERDIDO"];
-const ESTADOS_DEFAULT: DealResultado[] = ["ABIERTO", "SUSPENDIDO"];
 
-export default function PipelineKanban({ stages, deals, vendedores, clientes, tipos, canWrite, altas }: Props) {
+export default function PipelineKanban({
+  initialFiltros, stages, deals, vendedores, clientes, tipos, canWrite, altas,
+}: Props) {
   const router = useRouter();
   const [items, setItems] = useState<DealResumen[]>(deals);
-  const [vendedorFiltro, setVendedorFiltro] = useState<string>("todos");
-  const [tipoFiltro, setTipoFiltro] = useState<string>("todos");
-  const [busqueda, setBusqueda] = useState("");
-  // Filtro multi-estado (SOL-18): unión de los estados seleccionados.
-  const [estadosSel, setEstadosSel] = useState<Set<DealResultado>>(new Set(ESTADOS_DEFAULT));
-  const [vista, setVista] = useState<"tablero" | "lista">("tablero");
-  const [orden, setOrden] = useState<"none" | "valor" | "temperatura" | "probabilidad" | "actividad" | "seguimiento">("none");
+
+  // Filtros + orden persistentes en la URL (mecanismo compartido — pilar 3). Los 6
+  // controles viven en un solo objeto; los alias de lectura y los setters con el
+  // mismo nombre mantienen el resto del componente intacto.
+  const [filtros, setFiltros] = useUrlFilters(initialFiltros, serializePipelineFiltros);
+  const { q: busqueda, orden, vendedor: vendedorFiltro, tipo: tipoFiltro, vista } = filtros;
+  const estadosSel = useMemo(() => new Set(filtros.estados), [filtros.estados]);
+  const setBusqueda = (v: string) => setFiltros((f) => ({ ...f, q: v }));
+  const setVendedorFiltro = (v: string) => setFiltros((f) => ({ ...f, vendedor: v }));
+  const setTipoFiltro = (v: string) => setFiltros((f) => ({ ...f, tipo: v }));
+  const setVista = (v: "tablero" | "lista") => setFiltros((f) => ({ ...f, vista: v }));
+  const setOrden = (v: OrdenPipeline) => setFiltros((f) => ({ ...f, orden: v }));
+
   const [dragId, setDragId] = useState<string | null>(null);
   const [overStage, setOverStage] = useState<string | null>(null);
   const [toast, setToast] = useState<ToastData | null>(null);
@@ -75,12 +90,12 @@ export default function PipelineKanban({ stages, deals, vendedores, clientes, ti
   const filtered = useMemo(() => preEstado.filter((d) => estadosSel.has(d.resultado)), [preEstado, estadosSel]);
 
   function toggleEstado(est: DealResultado) {
-    setEstadosSel((prev) => {
-      const next = new Set(prev);
-      if (next.has(est)) next.delete(est);
-      else next.add(est);
+    setFiltros((f) => {
+      const next = f.estados.includes(est)
+        ? f.estados.filter((e) => e !== est)
+        : [...f.estados, est];
       // Nunca dejar el filtro vacío: "limpiar" restablece la vista por defecto (activos).
-      return next.size === 0 ? new Set(ESTADOS_DEFAULT) : next;
+      return { ...f, estados: next.length === 0 ? [...ESTADOS_DEFAULT] : next };
     });
   }
 
@@ -106,10 +121,7 @@ export default function PipelineKanban({ stages, deals, vendedores, clientes, ti
     (estadoModificado ? 1 : 0);
 
   function limpiarFiltros() {
-    setTipoFiltro("todos");
-    setVendedorFiltro("todos");
-    setOrden("none");
-    setEstadosSel(new Set(ESTADOS_DEFAULT));
+    setFiltros((f) => ({ ...f, tipo: "todos", vendedor: "todos", orden: "none", estados: [...ESTADOS_DEFAULT] }));
   }
 
   function sortDeals(arr: DealResumen[]): DealResumen[] {

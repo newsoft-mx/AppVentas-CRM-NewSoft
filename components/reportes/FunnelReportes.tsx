@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { ArrowUp, ArrowDown } from "lucide-react";
 import { formatCompacto } from "@/lib/utils";
+import { useUrlFilters } from "@/hooks/useUrlFilters";
+import { serializeFunnelFiltros, type FunnelFiltros } from "@/lib/funnel-filtros";
 
 interface Vendedor {
   id: string;
@@ -170,14 +172,19 @@ function Scorecard({
 export default function FunnelReportes({
   puedeElegir,
   vendedores,
+  initialFiltros,
 }: {
   puedeElegir: boolean;
   vendedores: Vendedor[];
+  initialFiltros: FunnelFiltros;
 }) {
-  const [preset, setPreset] = useState("mes");
-  const [desde, setDesde] = useState("");
-  const [hasta, setHasta] = useState("");
-  const [vendedor, setVendedor] = useState("");
+  // Filtros persistentes en la URL (mecanismo compartido — pilar 3)
+  const [filtros, setFiltros] = useUrlFilters(initialFiltros, serializeFunnelFiltros);
+  const { preset, desde, hasta, vendedor } = filtros;
+  const setPreset = (v: string) => setFiltros((f) => ({ ...f, preset: v }));
+  const setDesde = (v: string) => setFiltros((f) => ({ ...f, desde: v }));
+  const setHasta = (v: string) => setFiltros((f) => ({ ...f, hasta: v }));
+  const setVendedor = (v: string) => setFiltros((f) => ({ ...f, vendedor: v }));
   const [act, setAct] = useState<Datos | null>(null);
   const [prev, setPrev] = useState<Datos | null>(null);
   const [cargando, setCargando] = useState(true);

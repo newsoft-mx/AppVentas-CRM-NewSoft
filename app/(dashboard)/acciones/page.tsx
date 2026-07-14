@@ -3,13 +3,19 @@ import { getServerSession } from "@/lib/server-session";
 import { scopeDealWhere } from "@/lib/access-control";
 import { getScoringContext, dealScoreView } from "@/lib/deal-score";
 import AccionesInbox from "@/components/pipeline/AccionesInbox";
+import { parseAccionesFiltros } from "@/lib/acciones-filtros";
 import type { Metadata } from "next";
 import type { AccionItem, Temperatura } from "@/types/crm";
 
 export const metadata: Metadata = { title: "Próximas Acciones" };
 export const dynamic = "force-dynamic";
 
-export default async function AccionesPage() {
+export default async function AccionesPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const initialFiltros = parseAccionesFiltros(await searchParams);
   const session = await getServerSession();
   // Próximas Acciones: seguimientos pendientes / en proceso (no terminados) de
   // deals activos. Scope por vendedor en sesión (REQ-01): el VENDEDOR solo ve los
@@ -96,6 +102,7 @@ export default async function AccionesPage() {
     <AccionesInbox
       acciones={acciones}
       vendedores={vendedores}
+      initialFiltros={initialFiltros}
       mostrarFiltroVendedor={mostrarFiltroVendedor}
     />
   );

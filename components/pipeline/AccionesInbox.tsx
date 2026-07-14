@@ -13,6 +13,8 @@ import {
 } from "@/types/crm";
 import CalendarioAcciones from "@/components/pipeline/CalendarioAcciones";
 import { formatCompacto, formatFechaHora } from "@/lib/utils";
+import { useUrlFilters } from "@/hooks/useUrlFilters";
+import { serializeAccionesFiltros, type AccionesFiltros } from "@/lib/acciones-filtros";
 
 const TIPO_ICON: Record<TipoActividad, typeof Phone> = {
   NOTA: StickyNote,
@@ -45,18 +47,25 @@ function grupoDe(iso: string | null, ahora: Date): GrupoUrgencia {
 export default function AccionesInbox({
   acciones,
   vendedores,
+  initialFiltros,
   mostrarFiltroVendedor = true,
 }: {
   acciones: AccionItem[];
   vendedores: { id: string; nombre: string }[];
+  initialFiltros: AccionesFiltros;
   mostrarFiltroVendedor?: boolean;
 }) {
   const router = useRouter();
   const [items, setItems] = useState<AccionItem[]>(acciones);
-  const [vista, setVista] = useState<"lista" | "calendario">("lista");
-  const [vendedorFiltro, setVendedorFiltro] = useState("todos");
-  const [tipoFiltro, setTipoFiltro] = useState<"todos" | TipoActividad>("todos");
-  const [estadoFiltro, setEstadoFiltro] = useState<"todos" | EstadoAccion>("todos");
+
+  // Filtros persistentes en la URL (mecanismo compartido — pilar 3)
+  const [filtros, setFiltros] = useUrlFilters(initialFiltros, serializeAccionesFiltros);
+  const { vista, vendedor: vendedorFiltro, tipo: tipoFiltro, estado: estadoFiltro } = filtros;
+  const setVista = (v: "lista" | "calendario") => setFiltros((f) => ({ ...f, vista: v }));
+  const setVendedorFiltro = (v: string) => setFiltros((f) => ({ ...f, vendedor: v }));
+  const setTipoFiltro = (v: "todos" | TipoActividad) => setFiltros((f) => ({ ...f, tipo: v }));
+  const setEstadoFiltro = (v: "todos" | EstadoAccion) => setFiltros((f) => ({ ...f, estado: v }));
+
   const [reprogramando, setReprogramando] = useState<string | null>(null);
   const [toast, setToast] = useState<ToastData | null>(null);
   // "Ahora" debe avanzar: si el inbox queda abierto (o cruza medianoche), el

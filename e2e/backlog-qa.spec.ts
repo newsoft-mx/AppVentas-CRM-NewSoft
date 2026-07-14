@@ -261,4 +261,20 @@ test.describe("QA lote SOL-14..20", () => {
     // Restaurar
     await request.patch(`/api/clientes/${CLIENTE}/contactos/${principal.id}`, { data: { nombre: original } });
   });
+
+  test("Filtros · el Pipeline persiste filtro/orden en la URL y los rehidrata", async ({ page }) => {
+    const ordenSel = page.locator('label:has-text("Ordenar por") select');
+
+    // (1) Aplicar orden mayor→menor por valor → se refleja en la URL (persistencia)
+    await page.goto("/pipeline");
+    await page.getByRole("button", { name: /^Filtros/ }).click();
+    await ordenSel.selectOption("valor");
+    await expect(page).toHaveURL(/orden=valor/);
+
+    // (2) Entrar a la URL con filtros (simula volver) → el control se rehidrata
+    await page.goto("/pipeline?orden=valor&vista=lista");
+    await expect(page.getByRole("button", { name: "Vista lista" })).toBeVisible();
+    await page.getByRole("button", { name: /^Filtros/ }).click();
+    await expect(ordenSel).toHaveValue("valor");
+  });
 });

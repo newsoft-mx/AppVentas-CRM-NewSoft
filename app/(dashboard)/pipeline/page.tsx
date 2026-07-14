@@ -5,6 +5,7 @@ import { scopeDealWhere } from "@/lib/access-control";
 import { estadoAtencion } from "@/lib/atencion";
 import { getScoringContext, dealScoreView } from "@/lib/deal-score";
 import PipelineKanban from "@/components/pipeline/PipelineKanban";
+import { parsePipelineFiltros } from "@/lib/pipeline-filtros";
 import type { Metadata } from "next";
 import type { DealResumen, StageResumen } from "@/types/crm";
 
@@ -17,8 +18,14 @@ function diasEnEtapa(desde: Date): number {
   return Math.max(0, Math.floor(ms / 86_400_000));
 }
 
-export default async function PipelinePage() {
+export default async function PipelinePage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   const session = await getServerSession();
+  // Filtros + orden iniciales desde la URL (persistencia compartida — pilar 3)
+  const initialFiltros = parsePipelineFiltros(await searchParams);
 
   // Scoping por vendedor: el VENDEDOR solo ve SUS deals; ADMIN/GERENTE ven todos.
   const [stages, deals, vendedores, clientes, tipos] = await Promise.all([
@@ -141,6 +148,7 @@ export default async function PipelinePage() {
 
   return (
     <PipelineKanban
+      initialFiltros={initialFiltros}
       stages={stagesSerialized}
       deals={dealsSerialized}
       vendedores={vendedores}
