@@ -4,8 +4,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
-  ArrowLeft, Phone, Mail, MessageCircle, StickyNote,
-  Building2, Trophy, Cog, ChevronDown, XCircle, PauseCircle, Play, CalendarClock,
+  ArrowLeft, Building2, Trophy, ChevronDown, XCircle, PauseCircle, Play, CalendarClock,
   Star, Link2, ArrowUpCircle, ChevronRight, UserPlus, Pencil, Trash2, Plus, X,
 } from "lucide-react";
 import Modal from "@/components/ui/Modal";
@@ -18,6 +17,7 @@ import MarkdownEditor from "@/components/ui/MarkdownEditor";
 import { formatCompacto, formatFechaHora } from "@/lib/utils";
 import { MAX_CONTENIDO } from "@/lib/actividad";
 import { ahoraInput } from "@/lib/tz";
+import { TIPO_ACTIVIDAD_META, TIPOS_CREABLES } from "@/lib/actividad-tipos";
 import InputFechaHora from "@/components/ui/InputFechaHora";
 import { esTareaPendiente, estaVencida } from "@/lib/tareas";
 import {
@@ -80,33 +80,11 @@ function fmtFecha(iso: string | null): string {
     timeZone: "UTC",
   });
 }
-const FILTROS_VER: { key: "TODAS" | "NOTA" | "LLAMADA" | "EMAIL" | "WHATSAPP"; label: string }[] = [
+// Filtros por tipo (eje "Ver"): "Todas" + los tipos creables, derivados del SSOT.
+const FILTROS_VER: { key: "TODAS" | TipoActividad; label: string }[] = [
   { key: "TODAS", label: "Todas" },
-  { key: "NOTA", label: "Notas" },
-  { key: "LLAMADA", label: "Llamadas" },
-  { key: "EMAIL", label: "Emails" },
-  { key: "WHATSAPP", label: "WhatsApp" },
+  ...TIPOS_CREABLES.map((tipo) => ({ key: tipo, label: TIPO_ACTIVIDAD_META[tipo].labelPlural })),
 ];
-const TIPO_PILLS: { tipo: TipoActividad; label: string; icon: typeof StickyNote }[] = [
-  { tipo: "NOTA", label: "Nota", icon: StickyNote },
-  { tipo: "LLAMADA", label: "Llamada", icon: Phone },
-  { tipo: "EMAIL", label: "Email", icon: Mail },
-  { tipo: "WHATSAPP", label: "WhatsApp", icon: MessageCircle },
-];
-const ACT_ICON: Record<TipoActividad, { icon: typeof StickyNote; color: string; bg: string }> = {
-  NOTA: { icon: StickyNote, color: "#F5A623", bg: "#FFF8EB" },
-  LLAMADA: { icon: Phone, color: "#1D9E75", bg: "#E8F8F2" },
-  EMAIL: { icon: Mail, color: "#2A5298", bg: "#EAF0FA" },
-  WHATSAPP: { icon: MessageCircle, color: "#1D9E75", bg: "#E8F8F2" },
-  SISTEMA: { icon: Cog, color: "#6B7A99", bg: "#F3F5F9" },
-};
-const PLACEHOLDER: Record<TipoActividad, string> = {
-  NOTA: "Escribe una nota interna…",
-  LLAMADA: "¿Qué pasó en la llamada?",
-  EMAIL: "Pega o resume el correo…",
-  WHATSAPP: "¿Qué se conversó por WhatsApp?",
-  SISTEMA: "",
-};
 
 export default function DealDetalleClient({
   deal, stages, canWrite,
@@ -120,7 +98,7 @@ export default function DealDetalleClient({
   const [temperatura, setTemperatura] = useState<Temperatura>(deal.temperatura);
   const temp = TEMPERATURA_META[temperatura];
   const [actividades, setActividades] = useState<DealActividadItem[]>(deal.actividades);
-  const [filtroVer, setFiltroVer] = useState<"TODAS" | "NOTA" | "LLAMADA" | "EMAIL" | "WHATSAPP">("TODAS");
+  const [filtroVer, setFiltroVer] = useState<"TODAS" | TipoActividad>("TODAS");
   const [tipoNueva, setTipoNueva] = useState<TipoActividad>("NOTA");
   const [tipoAccionSel, setTipoAccionSel] = useState<TipoAccionOpcion | null>(null);
   const [texto, setTexto] = useState("");
@@ -653,17 +631,20 @@ export default function DealDetalleClient({
                         </button>
                       );
                     })
-                  : TIPO_PILLS.map(({ tipo, label, icon: Icon }) => (
-                      <button
-                        key={tipo}
-                        onClick={() => setTipoNueva(tipo)}
-                        className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold transition-colors ${
-                          tipoNueva === tipo ? "border-navy bg-navy text-white" : "border-surface-border text-gray-500 hover:bg-surface"
-                        }`}
-                      >
-                        <Icon size={13} /> {label}
-                      </button>
-                    ))}
+                  : TIPOS_CREABLES.map((tipo) => {
+                      const { label, icon: Icon } = TIPO_ACTIVIDAD_META[tipo];
+                      return (
+                        <button
+                          key={tipo}
+                          onClick={() => setTipoNueva(tipo)}
+                          className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold transition-colors ${
+                            tipoNueva === tipo ? "border-navy bg-navy text-white" : "border-surface-border text-gray-500 hover:bg-surface"
+                          }`}
+                        >
+                          <Icon size={13} /> {label}
+                        </button>
+                      );
+                    })}
               </div>
 
               {/* Campos según el tipo (catálogo: cuando el tipo captura resultado) */}
@@ -728,7 +709,7 @@ export default function DealDetalleClient({
                 )}
               </div>
 
-              <MarkdownEditor value={texto} onChange={setTexto} placeholder={PLACEHOLDER[tipoNueva]} />
+              <MarkdownEditor value={texto} onChange={setTexto} placeholder={TIPO_ACTIVIDAD_META[tipoNueva].placeholder} />
 
               {/* Opcional (enlace): se revela al componer para no saturar la vista */}
               {composerAbierto && (
@@ -790,7 +771,7 @@ export default function DealDetalleClient({
             )}
             <div className="space-y-4">
               {actividadesFiltradas.map((a) => {
-                const meta = ACT_ICON[a.tipo];
+                const meta = TIPO_ACTIVIDAD_META[a.tipo];
                 const Icon = meta.icon;
                 const estado = ESTADO_ACCION_META[a.estado_accion];
                 return (

@@ -1,0 +1,52 @@
+// SSOT de los tipos de actividad de la bitácora (pilar 3).
+//
+// Antes cada superficie tenía su propia tabla tipo→(ícono/color/label/placeholder):
+// ACT_ICON, TIPO_PILLS, PLACEHOLDER, FILTROS_VER en el detalle, y TIPO_ICON duplicado
+// en AccionesInbox y CalendarioAcciones. Todas debían coincidir. Ahora hay UNA tabla:
+// el ícono, color, etiquetas y si el tipo es creable viven acá y no pueden divergir.
+import { StickyNote, Phone, Mail, MessageCircle, Cog, type LucideIcon } from "lucide-react";
+import type { TipoActividad } from "@/types/crm";
+
+export interface TipoActividadMeta {
+  /** Etiqueta singular (pill del compositor) */
+  label: string;
+  /** Etiqueta plural (tab de filtro "Ver") */
+  labelPlural: string;
+  icon: LucideIcon;
+  /** Color de acento (borde/ícono) */
+  color: string;
+  /** Fondo suave del ícono */
+  bg: string;
+  /** Placeholder del editor al componer este tipo */
+  placeholder: string;
+  /** ¿El usuario puede crear este tipo? SISTEMA es auto-generado (auditoría). */
+  creable: boolean;
+}
+
+export const TIPO_ACTIVIDAD_META: Record<TipoActividad, TipoActividadMeta> = {
+  NOTA: {
+    label: "Nota", labelPlural: "Notas", icon: StickyNote, color: "#F5A623", bg: "#FFF8EB",
+    placeholder: "Escribe una nota interna…", creable: true,
+  },
+  LLAMADA: {
+    label: "Llamada", labelPlural: "Llamadas", icon: Phone, color: "#1D9E75", bg: "#E8F8F2",
+    placeholder: "¿Qué pasó en la llamada?", creable: true,
+  },
+  EMAIL: {
+    label: "Email", labelPlural: "Emails", icon: Mail, color: "#2A5298", bg: "#EAF0FA",
+    placeholder: "Pega o resume el correo…", creable: true,
+  },
+  WHATSAPP: {
+    label: "WhatsApp", labelPlural: "WhatsApp", icon: MessageCircle, color: "#1D9E75", bg: "#E8F8F2",
+    placeholder: "¿Qué se conversó por WhatsApp?", creable: true,
+  },
+  SISTEMA: {
+    label: "Sistema", labelPlural: "Sistema", icon: Cog, color: "#6B7A99", bg: "#F3F5F9",
+    placeholder: "", creable: false,
+  },
+};
+
+// Orden canónico de tipos creables (pills del compositor y tabs de filtro por tipo).
+export const TIPOS_CREABLES: TipoActividad[] = (
+  Object.keys(TIPO_ACTIVIDAD_META) as TipoActividad[]
+).filter((t) => TIPO_ACTIVIDAD_META[t].creable);
