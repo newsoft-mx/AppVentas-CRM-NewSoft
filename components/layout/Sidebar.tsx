@@ -18,6 +18,7 @@ import {
   TrendingUp,
   ShieldCheck,
   UserCircle,
+  Calculator,
 } from "lucide-react";
 import { ROLE_LABEL, type UserRole } from "@/lib/session";
 
@@ -39,6 +40,7 @@ const navGroups: {
       { href: "/pipeline", label: "Pipeline", icon: Workflow },
       { href: "/acciones", label: "Próximas Acciones", icon: CalendarClock },
       { href: "/pipeline/reportes", label: "Reportes de Funnel", icon: TrendingUp },
+      { href: "/simulador", label: "Simulador de casos", icon: Calculator },
     ],
   },
   {
