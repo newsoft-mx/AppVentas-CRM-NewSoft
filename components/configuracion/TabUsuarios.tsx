@@ -265,7 +265,10 @@ export default function TabUsuarios({ initialUsuarios, vendedores }: TabUsuarios
 
       {isModalOpen && (
         <Modal title={editing ? "Editar usuario" : "Nuevo usuario"} onClose={closeModal} size="md">
-          <form onSubmit={handleSubmit} className="space-y-4">
+          {/* autoComplete off + new-password: evita que el gestor del navegador
+              autocomplete/pise la contraseña con credenciales guardadas del admin
+              (se guardaba una password distinta a la tipeada → el usuario no entraba). */}
+          <form onSubmit={handleSubmit} className="space-y-4" autoComplete="off">
             {formError && (
               <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600">
                 {formError}
@@ -277,7 +280,7 @@ export default function TabUsuarios({ initialUsuarios, vendedores }: TabUsuarios
             </div>
             <div>
               <label className="label">Email *</label>
-              <input type="email" className="input" value={form.email} onChange={(e) => setForm((p) => ({ ...p, email: e.target.value }))} />
+              <input type="email" autoComplete="off" className="input" value={form.email} onChange={(e) => setForm((p) => ({ ...p, email: e.target.value }))} />
             </div>
             <div>
               <label className="label">Rol *</label>
@@ -309,11 +312,11 @@ export default function TabUsuarios({ initialUsuarios, vendedores }: TabUsuarios
               <label className="label">
                 Contraseña {editing && <span className="font-normal text-gray-400">(dejar vacía para no cambiar)</span>}
               </label>
-              <input type="password" className="input" value={form.password} onChange={(e) => setForm((p) => ({ ...p, password: e.target.value }))} />
+              <input type="password" autoComplete="new-password" className="input" value={form.password} onChange={(e) => setForm((p) => ({ ...p, password: e.target.value }))} />
             </div>
             <div>
               <label className="label">Confirmar contraseña</label>
-              <input type="password" className="input" value={form.passwordConfirm} onChange={(e) => setForm((p) => ({ ...p, passwordConfirm: e.target.value }))} />
+              <input type="password" autoComplete="new-password" className="input" value={form.passwordConfirm} onChange={(e) => setForm((p) => ({ ...p, passwordConfirm: e.target.value }))} />
             </div>
             {editing && (
               <label className="flex items-center gap-2 text-sm text-gray-700">
