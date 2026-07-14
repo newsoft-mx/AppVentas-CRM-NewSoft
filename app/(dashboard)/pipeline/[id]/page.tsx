@@ -6,7 +6,7 @@ import { scopeDealWhere } from "@/lib/access-control";
 import DealDetalleClient from "@/components/pipeline/DealDetalleClient";
 import { getScoringContext, dealScoreView } from "@/lib/deal-score";
 import type { Metadata } from "next";
-import type { DealDetalle, StageResumen, Temperatura } from "@/types/crm";
+import type { DealDetalle, StageResumen } from "@/types/crm";
 
 export const metadata: Metadata = { title: "Deal — Pipeline CRM" };
 export const dynamic = "force-dynamic";
