@@ -186,6 +186,7 @@ export async function POST(req: NextRequest) {
       tipo: deal.tipo_cotizacion ? { id: deal.tipo_cotizacion.id, nombre: deal.tipo_cotizacion.nombre } : null,
       contactos: deal.contactos.map((c) => c.contacto.nombre),
       razon_perdida: deal.razon_perdida,
+      fecha_ingreso: deal.fecha_ingreso.toISOString(),
     };
 
     return NextResponse.json(resumen, { status: 201 });

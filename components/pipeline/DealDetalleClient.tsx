@@ -610,6 +610,7 @@ export default function DealDetalleClient({
               <Field label="Tamaño empresa" value={TAMANO_EMPRESA_LABEL[deal.cliente.tamano_empresa]} />
             )}
             <Field label="Responsable" value={deal.vendedor?.nombre ?? "Sin vendedor"} />
+            <Field label="Ingreso al pipeline" value={fmtFecha(deal.fecha_ingreso.slice(0, 10))} />
           </Section>
 
           {/* Contactos (Bloque C): editar el contacto compartido, agregar, cambiar rol */}

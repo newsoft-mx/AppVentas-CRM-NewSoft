@@ -27,6 +27,11 @@ import {
 } from "@/lib/pipeline-filtros";
 import Toast, { ToastData } from "@/components/ui/Toast";
 
+// Fecha de ingreso compacta para la celda de la lista (día/mes/año corto).
+function fmtIngreso(iso: string): string {
+  return new Date(iso).toLocaleDateString("es-MX", { day: "2-digit", month: "short", year: "2-digit" });
+}
+
 interface Props {
   initialFiltros: PipelineFiltros;
   stages: StageResumen[];
@@ -64,6 +69,25 @@ export default function PipelineKanban({
   const [overStage, setOverStage] = useState<string | null>(null);
   const [toast, setToast] = useState<ToastData | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
+  // Edición inline de la fecha de ingreso en la vista lista (dato de negocio, útil al
+  // migrar leads a mano para que no queden todos "hoy"). created_at no se toca.
+  const [editIngresoId, setEditIngresoId] = useState<string | null>(null);
+  async function guardarIngreso(id: string, valor: string) {
+    setEditIngresoId(null);
+    if (!valor) return;
+    const res = await fetch(`/api/crm/deals/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ fecha_ingreso: valor }),
+    });
+    if (res.ok) {
+      const iso = new Date(`${valor}T00:00:00`).toISOString();
+      setItems((prev) => prev.map((d) => (d.id === id ? { ...d, fecha_ingreso: iso } : d)));
+      setToast({ type: "success", message: "Fecha de ingreso actualizada." });
+    } else {
+      setToast({ type: "error", message: "No se pudo actualizar la fecha de ingreso." });
+    }
+  }
 
   // Filtro por vendedor + tipo + búsqueda (SOL-17), ANTES del estado: sirve para
   // contar cuántos deals hay por estado en el contexto actual.
@@ -493,6 +517,7 @@ export default function PipelineKanban({
                   <th className="px-4 py-3 text-center font-semibold">Act.</th>
                   <th className="px-4 py-3 text-right font-semibold">Valor</th>
                   <th className="px-4 py-3 font-semibold">Dueño</th>
+                  <th className="px-4 py-3 font-semibold">Ingreso</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-surface-border">
@@ -519,11 +544,41 @@ export default function PipelineKanban({
                       <td className="px-4 py-2.5 text-center text-gray-600">{d.actividades_count}</td>
                       <td className="px-4 py-2.5 text-right font-bold text-navy">{formatCompacto(d.valor)}</td>
                       <td className="px-4 py-2.5 text-gray-600">{d.vendedor?.nombre ?? "Sin asignar"}</td>
+                      <td className="px-4 py-2.5 text-gray-600" onClick={(e) => e.stopPropagation()}>
+                        {editIngresoId === d.id ? (
+                          <input
+                            type="date"
+                            autoFocus
+                            defaultValue={d.fecha_ingreso.slice(0, 10)}
+                            onBlur={(e) => guardarIngreso(d.id, e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") guardarIngreso(d.id, (e.target as HTMLInputElement).value);
+                              else if (e.key === "Escape") setEditIngresoId(null);
+                            }}
+                            className="rounded border border-surface-border px-1.5 py-0.5 text-xs
+                                       outline-none focus:border-orange"
+                          />
+                        ) : (
+                          <button
+                            onClick={() => canWrite && setEditIngresoId(d.id)}
+                            className={`rounded px-1 text-xs ${
+                              canWrite ? "hover:bg-surface hover:text-navy" : "cursor-default"
+                            }`}
+                            title={canWrite ? "Editar fecha de ingreso" : undefined}
+                          >
+                            {fmtIngreso(d.fecha_ingreso)}
+                          </button>
+                        )}
+                      </td>
                     </tr>
                   );
                 })}
                 {filtered.length === 0 && (
-                  <tr><td colSpan={10} className="px-4 py-8 text-center text-gray-400">Sin deals con estos filtros.</td></tr>
+                  <tr>
+                    <td colSpan={11} className="px-4 py-8 text-center text-gray-400">
+                      Sin deals con estos filtros.
+                    </td>
+                  </tr>
                 )}
               </tbody>
               {filtered.length > 0 && (
@@ -531,7 +586,7 @@ export default function PipelineKanban({
                   <tr className="border-t border-surface-border bg-gray-50 font-bold text-navy">
                     <td className="px-4 py-3" colSpan={8}>Total ({filtered.length} deals)</td>
                     <td className="px-4 py-3 text-right">{formatCompacto(filtered.reduce((s, d) => s + d.valor, 0))}</td>
-                    <td className="px-4 py-3" />
+                    <td className="px-4 py-3" colSpan={2} />
                   </tr>
                 </tfoot>
               )}

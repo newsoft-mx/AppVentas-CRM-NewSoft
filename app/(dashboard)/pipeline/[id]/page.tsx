@@ -113,7 +113,8 @@ export default async function DealDetallePage({
     fecha_cierre_estimada: deal.fecha_cierre_estimada
       ? deal.fecha_cierre_estimada.toISOString().slice(0, 10)
       : null,
-    dias_abierto: diasDesde(deal.created_at),
+    dias_abierto: diasDesde(deal.fecha_ingreso),
+    fecha_ingreso: deal.fecha_ingreso.toISOString(),
     notas: deal.notas,
     stage: {
       id: deal.stage.id,

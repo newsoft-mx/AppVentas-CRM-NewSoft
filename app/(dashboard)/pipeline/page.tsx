@@ -52,7 +52,8 @@ export default async function PipelinePage({
           select: { fecha_tarea: true },
         },
       },
-      orderBy: { created_at: "desc" },
+      // Orden por fecha de ingreso al pipeline (dato de negocio), no por created_at.
+      orderBy: { fecha_ingreso: "desc" },
     }),
     prisma.vendedor.findMany({
       where: { activo: true },
@@ -89,9 +90,9 @@ export default async function PipelinePage({
       select: { deal_id: true, tipo_accion_id: true, resultado_id: true, created_at: true },
     }),
     getScoringContext(),
-    prisma.deal.count({ where: scopeDealWhere(session, { created_at: { gte: inicioDia } }) }),
-    prisma.deal.count({ where: scopeDealWhere(session, { created_at: { gte: inicioSemana } }) }),
-    prisma.deal.count({ where: scopeDealWhere(session, { created_at: { gte: inicioMes } }) }),
+    prisma.deal.count({ where: scopeDealWhere(session, { fecha_ingreso: { gte: inicioDia } }) }),
+    prisma.deal.count({ where: scopeDealWhere(session, { fecha_ingreso: { gte: inicioSemana } }) }),
+    prisma.deal.count({ where: scopeDealWhere(session, { fecha_ingreso: { gte: inicioMes } }) }),
   ]);
   // Agrupa por deal: actividades (para el score) + última fecha (para atención). asc → última gana.
   const actsByDeal = new Map<string, { tipo_accion_id: string | null; resultado_id: string | null; created_at: Date }[]>();
@@ -144,6 +145,7 @@ export default async function PipelinePage({
       tipo: d.tipo_cotizacion ? { id: d.tipo_cotizacion.id, nombre: d.tipo_cotizacion.nombre } : null,
       contactos: d.contactos.map((c) => c.contacto.nombre),
       razon_perdida: d.razon_perdida,
+      fecha_ingreso: d.fecha_ingreso.toISOString(),
     };
   });
 
