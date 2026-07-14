@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { requireAuth, canManageClients } from "@/lib/session";
 import { clienteUpdateSchema } from "@/lib/validations/clientes";
 import { netAmount, netAmountMxn } from "@/lib/net-amounts";
+import { asegurarPrincipalDesdeCliente } from "@/lib/contactos";
 
 export const dynamic = "force-dynamic";
 
@@ -48,13 +49,18 @@ export async function POST(
       if (dup) return NextResponse.json({ error: "Ya existe un cliente con ese RFC", campo: "rfc" }, { status: 422 });
     }
 
-    const cliente = await prisma.cliente.update({
-      where: { id },
-      data: { ...parsed.data, estatus: "ACTIVO" },
-      include: {
-        condicion_pago: { select: { id: true, nombre: true, dias_credito: true } },
-        ordenes: { select: { moneda: true, tipo_cambio: true, subtotal_con_descuento: true } },
-      },
+    const cliente = await prisma.$transaction(async (tx) => {
+      const c = await tx.cliente.update({
+        where: { id },
+        data: { ...parsed.data, estatus: "ACTIVO" },
+        include: {
+          condicion_pago: { select: { id: true, nombre: true, dias_credito: true } },
+          ordenes: { select: { moneda: true, tipo_cambio: true, subtotal_con_descuento: true } },
+        },
+      });
+      // Bloque C: la conversión puede editar contacto/email/telefono → sincronizar el principal.
+      await asegurarPrincipalDesdeCliente(tx, id);
+      return c;
     });
 
     const { ordenes, ...c } = cliente;

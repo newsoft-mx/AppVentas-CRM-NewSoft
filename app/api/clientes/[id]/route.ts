@@ -5,6 +5,7 @@ import { scopeClienteWhere } from "@/lib/access-control";
 import { clienteUpdateSchema } from "@/lib/validations/clientes";
 import { canManageClients, requireAuth } from "@/lib/session";
 import { netAmount, netAmountMxn } from "@/lib/net-amounts";
+import { asegurarPrincipalDesdeCliente } from "@/lib/contactos";
 
 // GET /api/clientes/:id
 export async function GET(
@@ -116,17 +117,22 @@ export async function PUT(
       );
     }
 
-    const updated = await prisma.cliente.update({
-      where: { id },
-      data: validation.data as Parameters<typeof prisma.cliente.update>[0]["data"],
-      include: {
-        condicion_pago: {
-          select: { id: true, nombre: true, dias_credito: true },
+    const updated = await prisma.$transaction(async (tx) => {
+      const c = await tx.cliente.update({
+        where: { id },
+        data: validation.data as Parameters<typeof prisma.cliente.update>[0]["data"],
+        include: {
+          condicion_pago: {
+            select: { id: true, nombre: true, dias_credito: true },
+          },
+          ordenes: {
+            select: { moneda: true, tipo_cambio: true, subtotal_con_descuento: true },
+          },
         },
-        ordenes: {
-          select: { moneda: true, tipo_cambio: true, subtotal_con_descuento: true },
-        },
-      },
+      });
+      // Bloque C: mantener el Contacto principal en sync con la ficha del cliente.
+      await asegurarPrincipalDesdeCliente(tx, id);
+      return c;
     });
 
     const { ordenes, ...c } = updated as typeof updated & {

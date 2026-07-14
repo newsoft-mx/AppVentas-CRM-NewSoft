@@ -133,7 +133,7 @@ export async function POST(
         estado_plan: estadoPlan,
       },
       include: {
-        contacto: { select: { nombre: true } },
+        contacto: { select: { contacto: { select: { nombre: true } } } },
         tipo_accion: { select: { id: true, nombre: true, color: true } },
         resultado: { select: { id: true, nombre: true, efecto: true } },
       },
@@ -194,7 +194,7 @@ export async function POST(
           tipo: actividad.tipo,
           contenido: actividad.contenido,
           autor: actividad.autor,
-          contacto_nombre: actividad.contacto?.nombre ?? null,
+          contacto_nombre: actividad.contacto?.contacto?.nombre ?? null,
           fecha_evento: actividad.fecha_evento ? actividad.fecha_evento.toISOString() : null,
           exitosa: actividad.exitosa,
           es_tarea: actividad.es_tarea,

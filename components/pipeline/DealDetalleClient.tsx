@@ -11,6 +11,7 @@ import {
 import Modal from "@/components/ui/Modal";
 import Toast, { ToastData } from "@/components/ui/Toast";
 import Termometro from "@/components/pipeline/Termometro";
+import ContactosDeal from "@/components/pipeline/ContactosDeal";
 import NuevoDealModal from "@/components/pipeline/NuevoDealModal";
 import Markdown from "@/components/ui/Markdown";
 import MarkdownEditor from "@/components/ui/MarkdownEditor";
@@ -18,7 +19,7 @@ import { formatCompacto, formatFechaHora } from "@/lib/utils";
 import { MAX_CONTENIDO } from "@/lib/actividad";
 import { ahoraLocal } from "@/lib/filter-utils";
 import {
-  TEMPERATURA_META, ROL_CONTACTO_LABEL, ESTADO_ACCION_META, ESTADO_ACCION_CICLO,
+  TEMPERATURA_META, ESTADO_ACCION_META, ESTADO_ACCION_CICLO,
   EFECTO_META, ESTADO_PLAN_META,
   type DealDetalle, type DealActividadItem, type StageResumen, type TipoActividad,
   type Temperatura,
@@ -72,10 +73,6 @@ function fmtFecha(iso: string | null): string {
   if (!iso) return "—";
   return new Date(iso + "T00:00:00").toLocaleDateString("es-MX", { day: "2-digit", month: "short" });
 }
-// Saneo de teléfono para tel:/wa.me (SOL-15). tel: admite +; wa.me solo dígitos.
-const telHref = (t: string) => `tel:${t.replace(/[^\d+]/g, "")}`;
-const waHref = (t: string) => `https://wa.me/${t.replace(/\D/g, "")}`;
-
 const FILTROS_VER: { key: "TODAS" | "NOTA" | "LLAMADA" | "EMAIL" | "WHATSAPP"; label: string }[] = [
   { key: "TODAS", label: "Todas" },
   { key: "NOTA", label: "Notas" },
@@ -524,69 +521,16 @@ export default function DealDetalleClient({
             <Field label="Responsable" value={deal.vendedor?.nombre ?? "Sin vendedor"} />
           </Section>
 
-          {/* Contactos */}
+          {/* Contactos (Bloque C): editar el contacto compartido, agregar, cambiar rol */}
           <Section title="Contactos">
-            {deal.contactos.length === 0 && <p className="text-xs text-gray-400">Sin contactos</p>}
-            {deal.contactos.map((c) => {
-              const esDecisor = c.rol === "DECISOR";
-              return (
-                <div key={c.id} className="mb-3 flex items-start gap-2.5 last:mb-0">
-                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-navy
-                    text-[11px] font-bold text-white">
-                    {c.nombre.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase()}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-1.5">
-                      <span className="text-xs font-semibold text-navy">{c.nombre}</span>
-                      {esDecisor ? (
-                        <span className="flex items-center gap-0.5 rounded bg-orange/10 px-1.5 py-0.5
-                          text-[9px] font-bold uppercase tracking-wide text-orange">
-                          <Star size={9} /> Decisor
-                        </span>
-                      ) : (
-                        <span className="text-[10px] text-gray-400">{ROL_CONTACTO_LABEL[c.rol]}</span>
-                      )}
-                    </div>
-                    {/* Datos de contacto accionables (SOL-15): tel:/mailto:/wa.me. Al usarlos,
-                        pre-selecciona el contacto en el composer para registrar la interacción. */}
-                    <div className="mt-1 flex flex-col gap-0.5">
-                      {c.telefono && (
-                        <a
-                          href={telHref(c.telefono)}
-                          onClick={() => setContactoSel(c.id)}
-                          className="flex items-center gap-1.5 text-[11px] text-blue-700 hover:underline"
-                        >
-                          <Phone size={11} className="shrink-0" /> {c.telefono}
-                        </a>
-                      )}
-                      {c.email && (
-                        <a
-                          href={`mailto:${c.email}`}
-                          onClick={() => setContactoSel(c.id)}
-                          className="flex min-w-0 items-center gap-1.5 text-[11px] text-blue-700 hover:underline"
-                        >
-                          <Mail size={11} className="shrink-0" /> <span className="truncate">{c.email}</span>
-                        </a>
-                      )}
-                      {c.whatsapp && (
-                        <a
-                          href={waHref(c.whatsapp)}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          onClick={() => setContactoSel(c.id)}
-                          className="flex items-center gap-1.5 text-[11px] text-green-700 hover:underline"
-                        >
-                          <MessageCircle size={11} className="shrink-0" /> {c.whatsapp}
-                        </a>
-                      )}
-                      {!c.telefono && !c.email && !c.whatsapp && (
-                        <span className="text-[10px] text-gray-400">Sin datos de contacto</span>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
+            <ContactosDeal
+              dealId={deal.id}
+              clienteId={deal.cliente?.id ?? null}
+              contactos={deal.contactos}
+              canWrite={canWrite}
+              onError={(message) => setToast({ type: "error", message })}
+              onSelect={setContactoSel}
+            />
           </Section>
 
           {/* Historial con el cliente */}
