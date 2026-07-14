@@ -4,11 +4,11 @@ import { canWrite, requireAuth } from "@/lib/session";
 import { scopeDealWhere } from "@/lib/access-control";
 import { transicionResultadoPermitida } from "@/lib/utils";
 import { logger } from "@/lib/logger";
+import { RESULTADOS_DEAL, type DealResultado } from "@/types/crm";
 
 export const dynamic = "force-dynamic";
 
-const RESULTADOS = ["ABIERTO", "GANADO", "PERDIDO", "SUSPENDIDO"] as const;
-type Resultado = (typeof RESULTADOS)[number];
+type Resultado = DealResultado;
 
 // ── POST /api/crm/deals/:id/resultado ───────────────────────────
 // Cambia el resultado del deal: ganado / perdido / suspendido (hold) / reabierto.
@@ -31,7 +31,7 @@ export async function POST(
   }
 
   const resultado = body.resultado as Resultado;
-  if (!RESULTADOS.includes(resultado)) {
+  if (!RESULTADOS_DEAL.includes(resultado)) {
     return NextResponse.json({ error: "Resultado inválido", campo: "resultado" }, { status: 422 });
   }
   const razon = typeof body.razon_perdida === "string" ? body.razon_perdida.trim() : "";
@@ -61,11 +61,18 @@ export async function POST(
     if (resultado === "GANADO" || resultado === "PERDIDO") data.fecha_cierre_real = new Date();
     if (resultado === "ABIERTO" || resultado === "SUSPENDIDO") data.fecha_cierre_real = null;
     if (resultado === "PERDIDO") {
-      data.razon_perdida = razon;
+      data.razon_perdida = razon; // etiqueta denormalizada (snapshot para reportes)
       data.comentario_perdida = comentario || null;
+      // FK al catálogo por nombre (integridad). null si es un motivo libre fuera del catálogo.
+      const motivo = await prisma.motivoPerdida.findFirst({
+        where: { activo: true, nombre: { equals: razon, mode: "insensitive" } },
+        select: { id: true },
+      });
+      data.motivo_perdida_id = motivo?.id ?? null;
     } else {
       data.razon_perdida = null;
       data.comentario_perdida = null;
+      data.motivo_perdida_id = null;
     }
 
     const LABEL: Record<Resultado, string> = {

@@ -3,11 +3,9 @@ import { prisma } from "@/lib/prisma";
 import { canWrite, requireAuth } from "@/lib/session";
 import { scopeDealWhere } from "@/lib/access-control";
 import { MAX_CONTENIDO, MSG_CONTENIDO_LARGO } from "@/lib/actividad";
+import { ESTADO_ACCION_CICLO, type EstadoAccion } from "@/types/crm";
 
 export const dynamic = "force-dynamic";
-
-const ESTADOS = ["PENDIENTE", "EN_PROCESO", "TERMINADO"] as const;
-type EstadoAccion = (typeof ESTADOS)[number];
 
 // ── PATCH /api/crm/actividades/:id ──────────────────────────────
 // Actualiza el estado de una acción/seguimiento de la bitácora.
@@ -69,7 +67,7 @@ export async function PATCH(
 
   // Estado de acción (fuente de verdad); sincroniza completada
   if (estado_accion !== undefined) {
-    if (!ESTADOS.includes(estado_accion as EstadoAccion)) {
+    if (!ESTADO_ACCION_CICLO.includes(estado_accion as EstadoAccion)) {
       return NextResponse.json({ error: "estado_accion inválido" }, { status: 422 });
     }
     data.estado_accion = estado_accion as EstadoAccion;

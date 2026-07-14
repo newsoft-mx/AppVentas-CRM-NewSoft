@@ -3,7 +3,10 @@
 import { useState } from "react";
 import Modal from "@/components/ui/Modal";
 import SearchableSelect from "@/components/ui/SearchableSelect";
-import { TEMPERATURA_META, ROL_CONTACTO_LABEL, type DealResumen, type StageResumen, type Temperatura, type RolContacto } from "@/types/crm";
+import {
+  TEMPERATURA_META, TEMPERATURAS, ROL_CONTACTO_LABEL,
+  type DealResumen, type StageResumen, type Temperatura, type RolContacto,
+} from "@/types/crm";
 
 // Valores actuales del deal para el modo edición (SOL-01)
 export interface DealEditInitial {
@@ -33,7 +36,6 @@ interface Props {
   onSaved?: () => void; // callback tras editar
 }
 
-const TEMPS: Temperatura[] = ["MUY_FRIO", "FRIO", "TIBIO", "CALIENTE", "MUY_CALIENTE"];
 
 export default function NuevoDealModal({ stages, vendedores, clientes, tipos, onClose, onCreated, deal, onSaved }: Props) {
   const editando = !!deal;
@@ -207,7 +209,7 @@ export default function NuevoDealModal({ stages, vendedores, clientes, tipos, on
         </Campo>
         <Campo label="Temperatura">
           <select className={inputCls} value={form.temperatura} onChange={(e) => set("temperatura", e.target.value as Temperatura)}>
-            {TEMPS.map((t) => <option key={t} value={t}>{TEMPERATURA_META[t].label}</option>)}
+            {TEMPERATURAS.map((t) => <option key={t} value={t}>{TEMPERATURA_META[t].label}</option>)}
           </select>
         </Campo>
         <Campo label="Valor total (MXN)">

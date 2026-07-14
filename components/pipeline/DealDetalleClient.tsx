@@ -17,13 +17,11 @@ import MarkdownEditor from "@/components/ui/MarkdownEditor";
 import { formatCompacto, formatFechaHora } from "@/lib/utils";
 import { MAX_CONTENIDO } from "@/lib/actividad";
 import { ahoraLocal } from "@/lib/filter-utils";
-
-const RAZONES_PERDIDA = ["Precio", "Tiempo / urgencia", "Competencia", "Sin presupuesto", "Sin respuesta", "No era el momento", "Otro"];
 import {
   TEMPERATURA_META, ROL_CONTACTO_LABEL, ESTADO_ACCION_META, ESTADO_ACCION_CICLO,
   EFECTO_META, ESTADO_PLAN_META,
   type DealDetalle, type DealActividadItem, type StageResumen, type TipoActividad,
-  type Temperatura, type EstadoAccion,
+  type Temperatura,
 } from "@/types/crm";
 // El panel de IA (DealAIPanel) está construido pero se libera en Fase 2.
 
@@ -113,7 +111,8 @@ export default function DealDetalleClient({
 }: Props) {
   const router = useRouter();
   // Motivos del catálogo (SOL-10); si viene vacío, fallback a la lista base.
-  const razonesPerdida = motivos.length ? motivos : RAZONES_PERDIDA;
+  // Los motivos vienen del catálogo MotivoPerdida (SSOT). Sin fallback hardcodeado.
+  const razonesPerdida = motivos;
   const [temperatura, setTemperatura] = useState<Temperatura>(deal.temperatura);
   const temp = TEMPERATURA_META[temperatura];
   const [actividades, setActividades] = useState<DealActividadItem[]>(deal.actividades);

@@ -219,4 +219,24 @@ test.describe("QA lote SOL-14..20", () => {
       expect(r.headers()["content-type"]).toContain("application/pdf");
     }
   });
+
+  test("S · marcar PERDIDO por la ruta enlaza el motivo del catálogo (FK)", async ({ request }) => {
+    const motivo = await db.motivoPerdida.findFirst({ where: { activo: true }, select: { id: true, nombre: true } });
+    expect(motivo, "no hay motivos de pérdida en el catálogo").toBeTruthy();
+    const deal = await crearDealAPI(request, {
+      nombre: `E2E Smotivo ${Date.now()}`,
+      cliente_id: cat.clienteActivo!.id,
+      stage_id: stageDeOrden(cat, 1).id,
+    });
+    const res = await request.post(`/api/crm/deals/${deal.id}/resultado`, {
+      data: { resultado: "PERDIDO", razon_perdida: motivo!.nombre },
+    });
+    expect(res.status()).toBe(200);
+    const dealDb = await db.deal.findUnique({
+      where: { id: deal.id },
+      select: { razon_perdida: true, motivo_perdida_id: true },
+    });
+    expect(dealDb?.razon_perdida).toBe(motivo!.nombre); // etiqueta denormalizada
+    expect(dealDb?.motivo_perdida_id).toBe(motivo!.id); // FK al catálogo
+  });
 });

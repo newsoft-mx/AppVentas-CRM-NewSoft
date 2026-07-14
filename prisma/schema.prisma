@@ -114,6 +114,8 @@ model MotivoPerdida {
   activo     Boolean  @default(true)
   created_at DateTime @default(now()) @db.Timestamptz(6)
 
+  deals Deal[]
+
   @@map("motivo_perdida")
 }
 
@@ -317,16 +319,8 @@ model Partida {
 
 // ── ENUMS CRM ──
 
-// Temperatura del deal (qué tan caliente está la oportunidad)
-enum TemperaturaDeal {
-  MUY_FRIO
-  FRIO
-  TIBIO
-  CALIENTE
-  MUY_CALIENTE
-
-  @@map("temperatura_deal")
-}
+// (El enum TemperaturaDeal se eliminó: la temperatura se DERIVA on-read del score
+//  (dealScoreView), no se persiste. Ver Bloque S — SSOT.)
 
 // Resultado/outcome del deal — separado del stage (posición en el pipeline)
 enum DealResultado {
@@ -531,9 +525,13 @@ model Deal {
   // Outcome
   resultado          DealResultado @default(ABIERTO)
   fecha_cierre_real  DateTime?     @db.Date
-  // Solo cuando resultado = PERDIDO (para estadísticas de pérdida)
-  razon_perdida      String?       @db.VarChar(150)
-  comentario_perdida String?       @db.Text
+  // Solo cuando resultado = PERDIDO (para estadísticas de pérdida).
+  // razon_perdida = etiqueta denormalizada (snapshot del motivo elegido, para reportes);
+  // motivo_perdida_id = FK al catálogo (integridad: no queda apuntando a un motivo borrado).
+  razon_perdida      String?        @db.VarChar(150)
+  motivo_perdida_id  String?        @db.Uuid
+  motivo_perdida     MotivoPerdida? @relation(fields: [motivo_perdida_id], references: [id], onDelete: SetNull)
+  comentario_perdida String?        @db.Text
   // Orden generada al ganar el deal (hand-off al módulo Ventas)
   orden_id           String?       @unique @db.Uuid
   orden              OrdenVenta?   @relation(fields: [orden_id], references: [id], onDelete: SetNull)
@@ -552,6 +550,7 @@ model Deal {
   @@index([stage_id])
   @@index([vendedor_id])
   @@index([cliente_id])
+  @@index([motivo_perdida_id])
   @@map("deal")
 }
 
