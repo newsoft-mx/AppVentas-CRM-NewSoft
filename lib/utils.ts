@@ -221,3 +221,18 @@ export const TRANSICIONES_PERMITIDAS: Record<string, string[]> = {
 export function transicionOrdenPermitida(desde: string, hacia: string): boolean {
   return desde === hacia || (TRANSICIONES_PERMITIDAS[desde] ?? []).includes(hacia);
 }
+
+// Máquina de estados del resultado del deal (Bloque E). Coincide con lo que ofrece
+// la UI: solo ABIERTO/SUSPENDIDO son mutables; GANADO/PERDIDO son terminales (no se
+// reabren por esta vía — hacerlo dejaría la orden ganada colgando). SSOT usado por
+// /resultado y /ganar para que ninguna ruta acepte transiciones ilegales.
+export const TRANSICIONES_RESULTADO_DEAL: Record<string, string[]> = {
+  ABIERTO: ["GANADO", "PERDIDO", "SUSPENDIDO"],
+  SUSPENDIDO: ["GANADO", "PERDIDO", "ABIERTO"],
+  GANADO: [],
+  PERDIDO: [],
+};
+
+export function transicionResultadoPermitida(desde: string, hacia: string): boolean {
+  return desde === hacia || (TRANSICIONES_RESULTADO_DEAL[desde] ?? []).includes(hacia);
+}

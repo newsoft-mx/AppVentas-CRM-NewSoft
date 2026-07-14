@@ -159,6 +159,27 @@ test.describe("QA lote SOL-14..20", () => {
     expect(res.status()).toBe(409);
   });
 
+  test("E · un deal PERDIDO no se reabre ni se gana (máquina de estados, 409)", async ({ request }) => {
+    const deal = await crearDealAPI(request, {
+      nombre: `E2E Emaquina ${Date.now()}`,
+      cliente_id: cat.clienteActivo!.id,
+      stage_id: stageDeOrden(cat, 1).id,
+    });
+    // Marcar PERDIDO (transición legal ABIERTO→PERDIDO)
+    const perder = await request.post(`/api/crm/deals/${deal.id}/resultado`, {
+      data: { resultado: "PERDIDO", razon_perdida: "Precio" },
+    });
+    expect(perder.status()).toBe(200);
+    // PERDIDO es terminal: reabrir (→ABIERTO) es ilegal
+    const reabrir = await request.post(`/api/crm/deals/${deal.id}/resultado`, {
+      data: { resultado: "ABIERTO" },
+    });
+    expect(reabrir.status()).toBe(409);
+    // …y ganarlo por /ganar también es ilegal
+    const ganar = await request.post(`/api/crm/deals/${deal.id}/ganar`);
+    expect(ganar.status()).toBe(409);
+  });
+
   test("T · orden creada desde un deal ganado queda vinculada (orden_id)", async ({ request }) => {
     const deal = await crearDealAPI(request, {
       nombre: `E2E Tlink ${Date.now()}`,

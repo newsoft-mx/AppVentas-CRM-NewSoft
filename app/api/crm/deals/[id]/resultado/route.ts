@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { canWrite, requireAuth } from "@/lib/session";
 import { scopeDealWhere } from "@/lib/access-control";
+import { transicionResultadoPermitida } from "@/lib/utils";
+import { logger } from "@/lib/logger";
 
 export const dynamic = "force-dynamic";
 
@@ -41,9 +43,18 @@ export async function POST(
   try {
     const deal = await prisma.deal.findFirst({
       where: scopeDealWhere(session, { id }),
-      select: { id: true, cliente_id: true, vendedor_id: true, nombre: true, valor: true },
+      select: { id: true, resultado: true, cliente_id: true, vendedor_id: true, nombre: true, valor: true },
     });
     if (!deal) return NextResponse.json({ error: "Deal no encontrado" }, { status: 404 });
+
+    // Máquina de estados (Bloque E): GANADO/PERDIDO son terminales; no se reabren
+    // por esta vía (dejaría la orden ganada colgando). Solo ABIERTO/SUSPENDIDO mutan.
+    if (!transicionResultadoPermitida(deal.resultado, resultado)) {
+      return NextResponse.json(
+        { error: `Transición no permitida: ${deal.resultado} → ${resultado}`, campo: "resultado" },
+        { status: 409 }
+      );
+    }
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const data: any = { resultado };
@@ -83,6 +94,7 @@ export async function POST(
       return NextResponse.json({
         ok: true,
         handoff: {
+          deal_id: deal.id,
           cliente_id: deal.cliente_id,
           vendedor_id: deal.vendedor_id,
           descripcion: deal.nombre,
@@ -91,7 +103,8 @@ export async function POST(
       });
     }
     return NextResponse.json({ ok: true, resultado });
-  } catch {
+  } catch (err) {
+    logger.error("Error al cambiar el resultado del deal", "POST /api/crm/deals/:id/resultado", err);
     return NextResponse.json({ error: "Error al cambiar el resultado del deal" }, { status: 500 });
   }
 }

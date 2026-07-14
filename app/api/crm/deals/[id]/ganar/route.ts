@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { canWrite, requireAuth } from "@/lib/session";
 import { scopeDealWhere } from "@/lib/access-control";
+import { transicionResultadoPermitida } from "@/lib/utils";
 import { logger } from "@/lib/logger";
 
 export const dynamic = "force-dynamic";
@@ -27,6 +28,14 @@ export async function POST(
     if (!deal) return NextResponse.json({ error: "Deal no encontrado" }, { status: 404 });
     if (deal.resultado === "GANADO") {
       return NextResponse.json({ ok: true, ya_ganado: true, deal });
+    }
+    // Máquina de estados (Bloque E): solo ABIERTO/SUSPENDIDO pueden ganarse; un
+    // deal PERDIDO no se gana por esta vía (es terminal).
+    if (!transicionResultadoPermitida(deal.resultado, "GANADO")) {
+      return NextResponse.json(
+        { error: `Transición no permitida: ${deal.resultado} → GANADO` },
+        { status: 409 }
+      );
     }
 
     await prisma.$transaction([
