@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   ArrowLeft, Building2, Trophy, ChevronDown, XCircle, PauseCircle, Play, CalendarClock,
   Star, Link2, ArrowUpCircle, ChevronRight, UserPlus, Pencil, Trash2, Plus, X,
+  type LucideIcon,
 } from "lucide-react";
 import Modal from "@/components/ui/Modal";
 import Toast, { ToastData } from "@/components/ui/Toast";
@@ -80,11 +81,21 @@ function fmtFecha(iso: string | null): string {
     timeZone: "UTC",
   });
 }
-// Filtros por tipo (eje "Ver"): "Todas" + los tipos creables, derivados del SSOT.
-const FILTROS_VER: { key: "TODAS" | TipoActividad; label: string }[] = [
-  { key: "TODAS", label: "Todas" },
-  ...TIPOS_CREABLES.map((tipo) => ({ key: tipo, label: TIPO_ACTIVIDAD_META[tipo].labelPlural })),
-];
+// Una vista de la bitácora ("Ver"): un botón que empareja actividades por un criterio.
+// Dos ejes ortogonales: por tipo de movimiento (derivado del contenido — catálogo
+// tipo_accion, o el tipo legado si no hay catálogo) y facetas transversales
+// (Favoritas / Pendientes / Con enlace). Se arma desde las actividades presentes, con
+// contador, así cubre exactamente los movimientos que existen y no puede divergir.
+interface FiltroBitacora {
+  key: string;
+  label: string;
+  count: number;
+  /** Punto de color (entradas por tipo) */
+  color?: string;
+  /** Ícono (entradas de faceta) */
+  icon?: LucideIcon;
+  match: (a: DealActividadItem) => boolean;
+}
 
 export default function DealDetalleClient({
   deal, stages, canWrite,
@@ -98,7 +109,7 @@ export default function DealDetalleClient({
   const [temperatura, setTemperatura] = useState<Temperatura>(deal.temperatura);
   const temp = TEMPERATURA_META[temperatura];
   const [actividades, setActividades] = useState<DealActividadItem[]>(deal.actividades);
-  const [filtroVer, setFiltroVer] = useState<"TODAS" | TipoActividad>("TODAS");
+  const [filtroVer, setFiltroVer] = useState<string>("TODAS");
   const [tipoNueva, setTipoNueva] = useState<TipoActividad>("NOTA");
   const [tipoAccionSel, setTipoAccionSel] = useState<TipoAccionOpcion | null>(null);
   const [texto, setTexto] = useState("");
@@ -296,8 +307,47 @@ export default function DealDetalleClient({
     }
   }
 
+  // Filtros "Ver" derivados del contenido: Todas + tipos de movimiento presentes +
+  // facetas con resultados. Con contador; se auto-mantienen con lo que hay en la bitácora.
+  const filtrosBitacora = useMemo<FiltroBitacora[]>(() => {
+    const tipos = new Map<string, FiltroBitacora>();
+    for (const a of actividades) {
+      if (a.tipo_accion) {
+        const key = `acc:${a.tipo_accion.id}`;
+        const found = tipos.get(key);
+        if (found) { found.count++; continue; }
+        const accId = a.tipo_accion.id;
+        tipos.set(key, {
+          key, label: a.tipo_accion.nombre, color: a.tipo_accion.color, count: 1,
+          match: (x) => x.tipo_accion?.id === accId,
+        });
+      } else {
+        const key = `leg:${a.tipo}`;
+        const found = tipos.get(key);
+        if (found) { found.count++; continue; }
+        const leg = a.tipo;
+        tipos.set(key, {
+          key, label: TIPO_ACTIVIDAD_META[leg].labelPlural, color: TIPO_ACTIVIDAD_META[leg].color, count: 1,
+          match: (x) => !x.tipo_accion && x.tipo === leg,
+        });
+      }
+    }
+    const facetas: FiltroBitacora[] = [
+      { key: "fav", label: "Favoritas", icon: Star, count: actividades.filter((a) => a.destacada).length, match: (a) => a.destacada },
+      { key: "pend", label: "Pendientes", icon: CalendarClock, count: actividades.filter(esTareaPendiente).length, match: esTareaPendiente },
+      { key: "link", label: "Con enlace", icon: Link2, count: actividades.filter((a) => Boolean(a.enlace_url)).length, match: (a) => Boolean(a.enlace_url) },
+    ];
+    return [
+      { key: "TODAS", label: "Todas", count: actividades.length, match: () => true },
+      ...tipos.values(),
+      ...facetas.filter((f) => f.count > 0),
+    ];
+  }, [actividades]);
+  // Si el filtro elegido dejó de existir (p.ej. se borró la última de ese tipo), cae a "Todas".
+  const filtroActivo = filtrosBitacora.find((f) => f.key === filtroVer) ?? filtrosBitacora[0];
+
   const actividadesFiltradas = actividades
-    .filter((a) => (filtroVer === "TODAS" ? true : a.tipo === filtroVer))
+    .filter((a) => (filtroActivo ? filtroActivo.match(a) : true))
     // Destacadas primero (pin), el resto en su orden cronológico
     .sort((x, y) => Number(y.destacada) - Number(x.destacada));
 
@@ -747,21 +797,27 @@ export default function DealDetalleClient({
             </div>
           )}
 
-          {/* Filtros (ver bitácora por tipo) */}
+          {/* Filtros "Ver": tipos de movimiento presentes + facetas, con contador (derivados del contenido) */}
           <div className="flex flex-wrap items-center gap-2 border-b border-surface-border bg-gray-50 px-5 py-2.5">
             <span className="mr-1 text-[11px] font-semibold uppercase tracking-wide text-gray-400">Ver:</span>
-            {FILTROS_VER.map((f) => (
-              <button
-                key={f.key}
-                onClick={() => setFiltroVer(f.key)}
-                className={`rounded-full px-3 py-1 text-[11px] font-semibold transition-colors ${
-                  filtroVer === f.key ? "bg-navy text-white" : "text-gray-500 hover:bg-gray-200"
-                }`}
-              >
-                {f.label}
-              </button>
-            ))}
-            <span className="rounded-full px-3 py-1 text-[11px] font-semibold text-gray-300" title="Próximamente (adjuntos)">Archivos</span>
+            {filtrosBitacora.map((f) => {
+              const activo = filtroActivo?.key === f.key;
+              const Icon = f.icon;
+              return (
+                <button
+                  key={f.key}
+                  onClick={() => setFiltroVer(f.key)}
+                  className={`flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-semibold transition-colors ${
+                    activo ? "bg-navy text-white" : "text-gray-500 hover:bg-gray-200"
+                  }`}
+                >
+                  {f.color && <span className="h-1.5 w-1.5 rounded-full" style={{ background: f.color }} />}
+                  {Icon && <Icon size={12} />}
+                  {f.label}
+                  <span className={activo ? "text-white/60" : "text-gray-400"}>{f.count}</span>
+                </button>
+              );
+            })}
           </div>
 
           {/* Timeline */}
