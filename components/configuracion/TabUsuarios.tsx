@@ -4,6 +4,7 @@ import { useCallback, useState } from "react";
 import { Pencil, Plus, UserRound } from "lucide-react";
 import Modal from "@/components/ui/Modal";
 import Toast, { ToastData } from "@/components/ui/Toast";
+import { ROLE_LABEL, type UserRole } from "@/lib/session";
 import type { Usuario } from "@/types/configuracion";
 
 interface TabUsuariosProps {
@@ -11,14 +12,13 @@ interface TabUsuariosProps {
   vendedores: { id: string; nombre: string }[];
 }
 
-type RolUsuario = "ADMIN" | "GERENTE_COMERCIAL" | "VENDEDOR" | "ADMINISTRATIVO";
+// El rol usa el tipo canónico (lib/session). Las opciones y sus labels salen del
+// SSOT ROLE_LABEL; solo ADMINISTRATIVO agrega el matiz "(consulta)" para el selector.
+type RolUsuario = UserRole;
 
-const ROLES: { value: RolUsuario; label: string }[] = [
-  { value: "ADMIN", label: "Administrador" },
-  { value: "GERENTE_COMERCIAL", label: "Gerente comercial" },
-  { value: "VENDEDOR", label: "Vendedor" },
-  { value: "ADMINISTRATIVO", label: "Administrativo (consulta)" },
-];
+const ROLES: { value: RolUsuario; label: string }[] = (Object.keys(ROLE_LABEL) as UserRole[]).map(
+  (value) => ({ value, label: value === "ADMINISTRATIVO" ? `${ROLE_LABEL[value]} (consulta)` : ROLE_LABEL[value] })
+);
 
 interface FormState {
   nombre: string;
