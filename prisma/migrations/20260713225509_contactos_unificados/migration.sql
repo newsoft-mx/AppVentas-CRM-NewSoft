@@ -89,7 +89,7 @@ USING (
 ) r
 WHERE dc."id" = r."id" AND r.rn > 1;
 
--- 8. Cerrar el link: NOT NULL + FK + unique + index; dropear columnas embebidas.
+-- 8. Cerrar el link: NOT NULL + FK + unique + index.
 ALTER TABLE "deal_contacto" ALTER COLUMN "contacto_id" SET NOT NULL;
 
 ALTER TABLE "deal_contacto" ADD CONSTRAINT "deal_contacto_contacto_id_fkey"
@@ -98,7 +98,10 @@ ALTER TABLE "deal_contacto" ADD CONSTRAINT "deal_contacto_contacto_id_fkey"
 CREATE UNIQUE INDEX "deal_contacto_deal_id_contacto_id_key" ON "deal_contacto"("deal_id", "contacto_id");
 CREATE INDEX "deal_contacto_contacto_id_idx" ON "deal_contacto"("contacto_id");
 
-ALTER TABLE "deal_contacto" DROP COLUMN "nombre";
-ALTER TABLE "deal_contacto" DROP COLUMN "email";
-ALTER TABLE "deal_contacto" DROP COLUMN "telefono";
-ALTER TABLE "deal_contacto" DROP COLUMN "whatsapp";
+-- 9. FASE EXPAND (segura): NO se dropean las columnas embebidas todavía.
+--    Los datos ya viven en "contacto" (pasos 2/5), pero se conservan acá como red de
+--    seguridad para poder auditar/recuperar tras el deploy. Como los inserts nuevos ya
+--    no las escriben (el alta usa contacto_id), se relaja el NOT NULL de "nombre".
+--    El DROP definitivo va en una migración de CONTRACT posterior, una vez verificado
+--    en datos reales (ver prisma/pending-migrations/).
+ALTER TABLE "deal_contacto" ALTER COLUMN "nombre" DROP NOT NULL;
