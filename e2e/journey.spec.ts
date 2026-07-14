@@ -44,6 +44,8 @@ test.describe("J · Journey completo del vendedor", () => {
 
     // 3) Registrar Reunión con resultado "Se concretó / avanzó"
     const concreto = resultadoPorNombre(cat, "Se concretó / avanzó");
+    // El compositor arranca colapsado (UX): abrirlo antes de elegir el tipo.
+    await page.getByRole("button", { name: "Registrar actividad" }).click();
     await page.getByRole("button", { name: "Reunión", exact: true }).click();
     await page
       .locator("select")

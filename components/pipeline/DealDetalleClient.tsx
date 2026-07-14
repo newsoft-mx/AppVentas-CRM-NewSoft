@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import {
   ArrowLeft, Phone, Mail, MessageCircle, StickyNote,
   Building2, Trophy, Cog, ChevronDown, XCircle, PauseCircle, Play, CalendarClock,
-  Star, Link2, ArrowUpCircle, ChevronRight, UserPlus, Pencil, Trash2,
+  Star, Link2, ArrowUpCircle, ChevronRight, UserPlus, Pencil, Trash2, Plus, X,
 } from "lucide-react";
 import Modal from "@/components/ui/Modal";
 import Toast, { ToastData } from "@/components/ui/Toast";
@@ -138,6 +138,9 @@ export default function DealDetalleClient({
   // tener contenido (progressive disclosure — evita saturar la vista con opcionales).
   const [composerFocus, setComposerFocus] = useState(false);
   const composerAbierto = composerFocus || Boolean(texto.trim() || enlace.trim() || seguimiento);
+  // El compositor está colapsado por defecto (la bitácora ocupa toda la altura); se
+  // abre al tocar "Registrar actividad" y se cierra al guardar o con Cancelar/✕.
+  const [registrando, setRegistrando] = useState(false);
   const [procesando, setProcesando] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
@@ -317,6 +320,25 @@ export default function DealDetalleClient({
     ? new Date(proximoSeguimiento).getTime() < Date.now()
     : false;
 
+  // Limpia el borrador del compositor a su estado inicial (un solo lugar; lo usan el
+  // guardado exitoso y el cierre con Cancelar/✕).
+  function resetCompositor() {
+    setTexto("");
+    setContactoSel(deal.contactos[0]?.id ?? "");
+    setFechaEvento(ahoraInput());
+    setExitosa(true);
+    setSeguimiento("");
+    setResultadoSel("");
+    setEnlace("");
+    setTipoAccionSel(null);
+    setTipoNueva("NOTA");
+    setComposerFocus(false);
+  }
+  function cerrarCompositor() {
+    resetCompositor();
+    setRegistrando(false);
+  }
+
   async function guardarActividad() {
     if (!texto.trim() || guardando) return;
     setGuardando(true);
@@ -349,13 +371,7 @@ export default function DealDetalleClient({
       // En modo AUTOMÁTICO el servidor ya avanzó de etapa y registró el evento SISTEMA:
       // refrescar para reflejar la nueva etapa y la entrada en la bitácora.
       if (data.avanzo_etapa) router.refresh();
-      setTexto("");
-      setContactoSel(deal.contactos[0]?.id ?? "");
-      setFechaEvento(ahoraInput());
-      setExitosa(true);
-      setSeguimiento("");
-      setResultadoSel("");
-      setEnlace("");
+      cerrarCompositor(); // guardado OK → limpia y colapsa el compositor
     } catch (e) {
       setToast({ type: "error", message: e instanceof Error ? e.message : "No se pudo guardar la actividad." });
     } finally {
@@ -569,8 +585,21 @@ export default function DealDetalleClient({
             )}
           </div>
 
-          {/* Compositor: arriba el TIPO de entrada → cambian los campos */}
-          {canWrite && (
+          {/* Colapsado: solo un trigger; la bitácora ocupa toda la altura (pedido de UX). */}
+          {canWrite && !registrando && (
+            <div className="border-b border-surface-border bg-white px-5 py-3">
+              <button
+                onClick={() => setRegistrando(true)}
+                className="flex w-full items-center gap-2 rounded-lg border border-dashed border-surface-border
+                  px-3 py-2 text-sm font-semibold text-gray-500 hover:border-orange hover:text-navy"
+              >
+                <Plus size={15} /> Registrar actividad
+              </button>
+            </div>
+          )}
+
+          {/* Compositor: visible solo al registrar; arriba el TIPO de entrada → cambian los campos */}
+          {canWrite && registrando && (
             <div
               className="border-b border-surface-border bg-white px-5 py-4"
               onFocus={() => setComposerFocus(true)}
@@ -578,6 +607,16 @@ export default function DealDetalleClient({
                 if (!e.currentTarget.contains(e.relatedTarget as Node)) setComposerFocus(false);
               }}
             >
+              <div className="mb-3 flex items-center justify-between">
+                <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">Nueva actividad</span>
+                <button
+                  onClick={cerrarCompositor}
+                  title="Cerrar"
+                  className="rounded p-1 text-gray-400 hover:bg-surface hover:text-navy"
+                >
+                  <X size={16} />
+                </button>
+              </div>
               <div className="mb-3 flex flex-wrap items-center gap-2">
                 {catalogoTipos
                   ? tiposAccion.map((t) => {
@@ -686,8 +725,14 @@ export default function DealDetalleClient({
                 </div>
               )}
 
-              {/* CTA — siempre visible */}
-              <div className="mt-3 flex justify-end">
+              {/* CTA — cancelar (colapsa) + registrar */}
+              <div className="mt-3 flex items-center justify-end gap-2">
+                <button
+                  onClick={cerrarCompositor}
+                  className="rounded-lg px-4 py-2 text-sm font-semibold text-gray-500 hover:bg-surface hover:text-navy"
+                >
+                  Cancelar
+                </button>
                 <button
                   onClick={guardarActividad}
                   disabled={!texto.trim() || texto.length > MAX_CONTENIDO || guardando}

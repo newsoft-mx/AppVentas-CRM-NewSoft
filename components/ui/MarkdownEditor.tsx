@@ -99,8 +99,10 @@ export default function MarkdownEditor({
           onChange={(e) => onChange(e.target.value)}
           placeholder={placeholder}
           rows={rows}
-          className="w-full resize-none rounded-b-lg bg-transparent px-3.5 py-2.5 text-sm text-navy outline-none
-            placeholder:text-gray-400"
+          // resize-y: el usuario puede agrandar el editor arrastrando (pedido de UX);
+          // min-h da un alto base cómodo para no obligar a scrollear al escribir.
+          className="w-full resize-y min-h-[6rem] rounded-b-lg bg-transparent px-3.5 py-2.5
+            text-sm text-navy outline-none placeholder:text-gray-400"
         />
       )}
 
