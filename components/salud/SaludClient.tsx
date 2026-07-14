@@ -55,6 +55,12 @@ export default function SaludClient() {
   const violaciones = data?.checks.filter((c) => c.tipo === "violacion") ?? [];
   const informativos = data?.checks.filter((c) => c.tipo === "informativo") ?? [];
 
+  // Clases compartidas (un solo lugar → sin duplicación ni líneas largas)
+  const cardCls = "divide-y divide-surface-border overflow-hidden rounded-xl border border-surface-border bg-white";
+  const btnCls =
+    "flex items-center gap-1.5 rounded-lg border border-surface-border px-3 py-1.5 " +
+    "text-sm font-medium text-navy hover:bg-surface disabled:opacity-50";
+
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -69,13 +75,15 @@ export default function SaludClient() {
         <button
           onClick={cargar}
           disabled={cargando}
-          className="flex items-center gap-1.5 rounded-lg border border-surface-border px-3 py-1.5 text-sm font-medium text-navy hover:bg-surface disabled:opacity-50"
+          className={btnCls}
         >
           <RefreshCw size={14} className={cargando ? "animate-spin" : ""} /> Actualizar
         </button>
       </div>
 
-      {error && <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
+      {error && (
+        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>
+      )}
 
       {data && (
         <>
@@ -101,7 +109,7 @@ export default function SaludClient() {
           {/* Invariantes (violación = debe dar 0) */}
           <section>
             <p className="mb-2 text-xs font-medium uppercase tracking-wider text-gray-400">Invariantes</p>
-            <div className="divide-y divide-surface-border overflow-hidden rounded-xl border border-surface-border bg-white">
+            <div className={cardCls}>
               {violaciones.map((c) => {
                 const ok = c.count === 0;
                 return (
@@ -132,7 +140,7 @@ export default function SaludClient() {
           {informativos.length > 0 && (
             <section>
               <p className="mb-2 text-xs font-medium uppercase tracking-wider text-gray-400">Informativos</p>
-              <div className="divide-y divide-surface-border overflow-hidden rounded-xl border border-surface-border bg-white">
+              <div className={cardCls}>
                 {informativos.map((c) => (
                   <div key={c.id} className="flex items-center gap-3 px-4 py-3">
                     <Info size={18} className="shrink-0 text-blue-400" />

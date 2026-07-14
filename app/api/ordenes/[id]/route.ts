@@ -240,7 +240,11 @@ export async function DELETE(
     // "archiva" cambiando su estatus por la máquina de estados.
     if (orden.estatus !== "BORRADOR") {
       return NextResponse.json(
-        { error: `Solo se pueden eliminar órdenes en BORRADOR. Una orden ${orden.estatus} no se borra: cambiá su estatus.` },
+        {
+          error:
+            `Solo se pueden eliminar órdenes en BORRADOR. ` +
+            `Una orden ${orden.estatus} no se borra: cambiá su estatus.`,
+        },
         { status: 409 }
       );
     }

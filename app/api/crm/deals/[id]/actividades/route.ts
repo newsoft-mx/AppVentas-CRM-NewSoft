@@ -170,7 +170,12 @@ export async function POST(
             data: { stage_id: view.siguienteStageId, fecha_entrada_stage: new Date() },
           }),
           prisma.dealActividad.create({
-            data: { deal_id: id, tipo: "SISTEMA", autor: "Sistema", contenido: `Avance automático (score ${view.score}/100).` },
+            data: {
+              deal_id: id,
+              tipo: "SISTEMA",
+              autor: "Sistema",
+              contenido: `Avance automático (score ${view.score}/100).`,
+            },
           }),
           prisma.dealStageEvent.create({
             data: { deal_id: id, from_stage_id: deal.stage_id, to_stage_id: view.siguienteStageId },
