@@ -7,9 +7,8 @@ export const metadata: Metadata = {
     template: "%s | NewSoft Sales",
   },
   description: "Sistema interno de gestión de ventas — NewSoft",
-  icons: {
-    icon: "/newsoft-favicon.jpg",
-  },
+  // El favicon lo aporta app/icon.jpg (convención de Next: se sirve en /icon con
+  // hash de contenido → cache-bust y <link> canónico, sin apuntar a /public a mano).
 };
 
 export default function RootLayout({
