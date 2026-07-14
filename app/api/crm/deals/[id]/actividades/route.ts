@@ -120,9 +120,10 @@ export async function POST(
         autor: session.email,
         contacto_id: contactoId,
         enlace_url: enlaceLimpio || null,
-        // Las interacciones (llamada/email/whatsapp) registran cuándo ocurrieron;
-        // si no se indica, se asume "ahora". Las notas no tienen fecha de evento.
-        fecha_evento: tipoActividad === "NOTA" ? null : fecha_evento ? new Date(fecha_evento) : new Date(),
+        // "¿Cuándo?" (fecha_evento): si viene, se respeta para cualquier tipo (incluida
+        // NOTA). Si no viene: NOTA queda sin fecha (usa created_at en el timeline); el
+        // resto asume "ahora".
+        fecha_evento: fecha_evento ? new Date(fecha_evento) : tipoActividad === "NOTA" ? null : new Date(),
         exitosa: exitosaVal,
         // Seguimiento opcional: agenda el próximo paso (con fecha y hora)
         es_tarea: Boolean(fecha_tarea),

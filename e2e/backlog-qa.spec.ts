@@ -277,4 +277,38 @@ test.describe("QA lote SOL-14..20", () => {
     await page.getByRole("button", { name: /^Filtros/ }).click();
     await expect(ordenSel).toHaveValue("valor");
   });
+
+  test("¿Cuándo? · futura+recordatorio → pendiente; pasada → registro", async ({ request }) => {
+    const deal = await crearDealAPI(request, {
+      nombre: `E2E Cuando ${Date.now()}`,
+      cliente_id: cat.clienteActivo!.id,
+      stage_id: stageDeOrden(cat, 1).id,
+    });
+    // Futura + recordatorio → el front manda fecha_tarea → tarea (es_tarea) en Próximas Acciones
+    const fut = new Date(Date.now() + 3 * 86_400_000).toISOString().slice(0, 16);
+    const r1 = await request.post(`/api/crm/deals/${deal.id}/actividades`, {
+      data: { tipo: "LLAMADA", contenido: "llamada futura agendada", fecha_tarea: fut },
+    });
+    expect(r1.status()).toBe(201);
+    const tarea = await db.dealActividad.findFirst({
+      where: { deal_id: deal.id, tipo: "LLAMADA" },
+      select: { es_tarea: true, fecha_tarea: true },
+    });
+    expect(tarea?.es_tarea).toBe(true); // entra a Próximas Acciones / alertas
+    expect(tarea?.fecha_tarea).toBeTruthy();
+
+    // Pasada = registro: Nota con fecha elegida → sin es_tarea, y respeta fecha_evento
+    const r2 = await request.post(`/api/crm/deals/${deal.id}/actividades`, {
+      data: {
+        tipo: "NOTA", contenido: "nota fechada en el pasado", fecha_evento: "2026-07-01T10:00",
+      },
+    });
+    expect(r2.status()).toBe(201);
+    const nota = await db.dealActividad.findFirst({
+      where: { deal_id: deal.id, tipo: "NOTA" },
+      select: { es_tarea: true, fecha_evento: true },
+    });
+    expect(nota?.es_tarea).toBe(false); // registro, NO pendiente
+    expect(nota?.fecha_evento).toBeTruthy(); // la Nota ahora respeta "¿Cuándo?"
+  });
 });

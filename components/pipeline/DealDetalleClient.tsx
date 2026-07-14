@@ -130,14 +130,18 @@ export default function DealDetalleClient({
   // mismatch de hidratación (la hora difiere entre server y cliente). (SOL-03)
   useEffect(() => setFechaEvento(ahoraInput()), []);
   const [exitosa, setExitosa] = useState(true);
-  const [seguimiento, setSeguimiento] = useState("");
+  // Un solo campo de fecha ("¿Cuándo?" = fechaEvento). Si la fecha es futura y se pide
+  // recordatorio, se guarda como tarea (fecha_tarea); si no, como registro (fecha_evento).
+  const [recordatorio, setRecordatorio] = useState(false);
   const [resultadoSel, setResultadoSel] = useState("");
   const [enlace, setEnlace] = useState("");
   const [guardando, setGuardando] = useState(false);
-  // Compositor compacto por defecto: enlace + agendar se revelan al enfocar o
-  // tener contenido (progressive disclosure — evita saturar la vista con opcionales).
+  // Compositor compacto por defecto: los opcionales se revelan al enfocar o tener
+  // contenido (progressive disclosure — evita saturar la vista con opcionales).
   const [composerFocus, setComposerFocus] = useState(false);
-  const composerAbierto = composerFocus || Boolean(texto.trim() || enlace.trim() || seguimiento);
+  const composerAbierto = composerFocus || Boolean(texto.trim() || enlace.trim());
+  // ¿La fecha elegida es futura? (el compositor solo se renderiza en cliente → seguro)
+  const cuandoFutura = fechaEvento ? new Date(fechaEvento).getTime() > Date.now() : false;
   // El compositor está colapsado por defecto (la bitácora ocupa toda la altura); se
   // abre al tocar "Registrar actividad" y se cierra al guardar o con Cancelar/✕.
   const [registrando, setRegistrando] = useState(false);
@@ -327,7 +331,7 @@ export default function DealDetalleClient({
     setContactoSel(deal.contactos[0]?.id ?? "");
     setFechaEvento(ahoraInput());
     setExitosa(true);
-    setSeguimiento("");
+    setRecordatorio(false);
     setResultadoSel("");
     setEnlace("");
     setTipoAccionSel(null);
@@ -346,13 +350,15 @@ export default function DealDetalleClient({
       const res = await fetch(`/api/crm/deals/${deal.id}/actividades`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        // Fecha futura + recordatorio → tarea agendada (fecha_tarea → Próximas Acciones
+        // y alertas). Pasada/ahora, o futura sin recordatorio → registro (fecha_evento).
         body: JSON.stringify({
           tipo: tipoNueva,
           contenido: texto.trim(),
           contacto_id: contactoSel || undefined,
-          fecha_evento: fechaEvento || undefined,
+          fecha_evento: cuandoFutura && recordatorio ? undefined : fechaEvento || undefined,
           exitosa: tipoNueva === "LLAMADA" ? exitosa : undefined,
-          fecha_tarea: seguimiento || undefined,
+          fecha_tarea: cuandoFutura && recordatorio ? fechaEvento : undefined,
           tipo_accion_id: tipoAccionSel?.id || undefined,
           resultado_id: mostrarResultado ? resultadoSel || undefined : undefined,
           enlace_url: enlace.trim() || undefined,
@@ -666,10 +672,6 @@ export default function DealDetalleClient({
                       {deal.contactos.map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}
                     </select>
                   </label>
-                  <label className="flex flex-col gap-1 text-[11px] font-medium text-gray-500">
-                    Cuándo ocurrió
-                    <InputFechaHora value={fechaEvento} onChange={setFechaEvento} />
-                  </label>
                   {tipoNueva === "LLAMADA" && (
                     <label className="flex items-center gap-2 text-sm text-gray-600 sm:col-span-2">
                       <input type="checkbox" checked={exitosa} onChange={(e) => setExitosa(e.target.checked)} className="h-4 w-4" /> ¿Contestó / fue exitosa?
@@ -696,9 +698,31 @@ export default function DealDetalleClient({
                 </div>
               )}
 
+              {/* ¿Cuándo? — un solo campo para todos los tipos. Si es futura y se pide
+                  recordatorio, se agenda como pendiente (fecha_tarea); si no, es registro. */}
+              <div className="mb-3">
+                <label className="flex flex-col gap-1 text-[11px] font-medium text-gray-500">
+                  ¿Cuándo?
+                  <InputFechaHora value={fechaEvento} onChange={setFechaEvento} className="w-fit" />
+                </label>
+                {cuandoFutura && (
+                  <label className="mt-2 flex w-fit items-center gap-2 text-xs font-medium text-navy">
+                    <input
+                      type="checkbox"
+                      checked={recordatorio}
+                      onChange={(e) => setRecordatorio(e.target.checked)}
+                      className="h-4 w-4"
+                    />
+                    <span className="flex items-center gap-1">
+                      <CalendarClock size={13} /> Recordármelo — agendar como pendiente
+                    </span>
+                  </label>
+                )}
+              </div>
+
               <MarkdownEditor value={texto} onChange={setTexto} placeholder={PLACEHOLDER[tipoNueva]} />
 
-              {/* Opcionales (enlace + agendar): se revelan al componer para no saturar la vista */}
+              {/* Opcional (enlace): se revela al componer para no saturar la vista */}
               {composerAbierto && (
                 <div className="mt-2 space-y-2">
                   {/* Enlace externo (ej. propuesta en Google Drive) — alternativa a subir archivo */}
@@ -711,12 +735,6 @@ export default function DealDetalleClient({
                       placeholder="Enlace (Google Drive, propuesta…) — opcional"
                       className="w-full bg-transparent outline-none placeholder:text-gray-400"
                     />
-                  </label>
-
-                  {/* Agendar próximo paso (opcional) — alimenta el inbox de Próximas Acciones */}
-                  <label className="flex flex-col gap-1 text-[11px] font-medium text-gray-500">
-                    <span className="flex items-center gap-1"><CalendarClock size={12} /> Agendar seguimiento (opcional)</span>
-                    <InputFechaHora value={seguimiento} onChange={setSeguimiento} />
                   </label>
                 </div>
               )}
