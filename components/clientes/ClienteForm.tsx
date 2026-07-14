@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Save } from "lucide-react";
 import ContactosCliente from "./ContactosCliente";
 import type { ClienteConStats, ClienteInput, CondicionResumen } from "@/types/clientes";
+import { TAMANOS_EMPRESA, TAMANO_EMPRESA_LABEL, type TamanoEmpresa } from "@/types/crm";
 
 interface ClienteFormProps {
   /** Si se pasa, es edición; si no, es creación */
@@ -33,6 +34,8 @@ export default function ClienteForm({
     ciudad: cliente?.ciudad ?? "",
     email: cliente?.email ?? "",
     telefono: cliente?.telefono ?? "",
+    website: cliente?.website ?? "",
+    tamano_empresa: cliente?.tamano_empresa ?? null,
     condicion_pago_id: cliente?.condicion_pago_id ?? condiciones[0]?.id ?? "",
     notas: cliente?.notas ?? "",
   });
@@ -85,6 +88,8 @@ export default function ClienteForm({
         ciudad: form.ciudad.trim(),
         email: form.email?.trim().toLowerCase() || null,
         telefono: form.telefono?.trim() || null,
+        website: form.website?.trim() || null,
+        tamano_empresa: form.tamano_empresa ?? null,
         condicion_pago_id: form.condicion_pago_id,
         notas: form.notas?.trim() || null,
       };
@@ -168,6 +173,38 @@ export default function ClienteForm({
             placeholder="Ciudad de México"
           />
           {errors.ciudad && <p className="mt-1 text-xs text-red-500">{errors.ciudad}</p>}
+        </div>
+
+        <div>
+          <label className="label">
+            Website <span className="text-gray-400 font-normal">(opcional)</span>
+          </label>
+          <input
+            type="url"
+            className={`input ${errors.website ? "border-red-400 focus:ring-red-400" : ""}`}
+            value={form.website ?? ""}
+            onChange={(e) => set("website", e.target.value)}
+            placeholder="empresa.com"
+          />
+          {errors.website && <p className="mt-1 text-xs text-red-500">{errors.website}</p>}
+        </div>
+
+        <div>
+          <label className="label">
+            Tamaño de empresa <span className="text-gray-400 font-normal">(opcional)</span>
+          </label>
+          <select
+            className="input"
+            value={form.tamano_empresa ?? ""}
+            onChange={(e) =>
+              setForm((prev) => ({ ...prev, tamano_empresa: (e.target.value || null) as TamanoEmpresa | null }))
+            }
+          >
+            <option value="">— Sin especificar —</option>
+            {TAMANOS_EMPRESA.map((t) => (
+              <option key={t} value={t}>{TAMANO_EMPRESA_LABEL[t]}</option>
+            ))}
+          </select>
         </div>
       </div>
 

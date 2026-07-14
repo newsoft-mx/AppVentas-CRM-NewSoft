@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import {
   ArrowLeft, Building2, Trophy, ChevronDown, XCircle, PauseCircle, Play, CalendarClock,
   Star, Link2, ArrowUpCircle, ChevronRight, UserPlus, Pencil, Trash2, Plus, X,
+  Globe, AlertTriangle,
   type LucideIcon,
 } from "lucide-react";
 import Modal from "@/components/ui/Modal";
@@ -24,7 +25,7 @@ import InputFechaHora from "@/components/ui/InputFechaHora";
 import { esTareaPendiente, estaVencida } from "@/lib/tareas";
 import {
   TEMPERATURA_META, ESTADO_ACCION_META, ESTADO_ACCION_CICLO,
-  EFECTO_META, ESTADO_PLAN_META,
+  EFECTO_META, ESTADO_PLAN_META, TAMANO_EMPRESA_LABEL,
   type DealDetalle, type DealActividadItem, type StageResumen, type TipoActividad,
   type Temperatura,
 } from "@/types/crm";
@@ -499,12 +500,30 @@ export default function DealDetalleClient({
               </button>
             )}
           </div>
-          <div className="mt-1.5 flex items-center gap-1.5 text-sm text-gray-500">
+          <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-sm text-gray-500">
             <Building2 size={14} className="text-gray-400" />
             {deal.cliente?.nombre ?? "Sin cliente"}
             {deal.cliente?.estatus === "PROSPECTO" && (
               <span className="rounded-full bg-amber-50 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700">Prospecto</span>
             )}
+            {deal.cliente?.website ? (
+              <a
+                href={deal.cliente.website}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1 text-[11px] font-medium text-orange hover:underline"
+              >
+                <Globe size={12} /> {deal.cliente.website.replace(/^https?:\/\//, "")}
+              </a>
+            ) : deal.cliente ? (
+              <span
+                title="Este lead no tiene sitio web — dificulta identificarlo. Agregalo en la ficha del cliente."
+                className="flex items-center gap-1 rounded-full bg-amber-50 px-1.5 py-0.5
+                           text-[10px] font-semibold text-amber-700"
+              >
+                <AlertTriangle size={11} /> Sin website
+              </span>
+            ) : null}
           </div>
           {canWrite && deal.cliente?.estatus === "PROSPECTO" && (
             <Link
@@ -587,6 +606,9 @@ export default function DealDetalleClient({
             {deal.mensualidad != null && <Field label="Mensualidad" value={`${fmtFull(deal.mensualidad)} / mes`} />}
             {deal.canal && <Field label="Canal" value={deal.canal} />}
             {deal.origen && <Field label="Origen" value={deal.origen} />}
+            {deal.cliente?.tamano_empresa && (
+              <Field label="Tamaño empresa" value={TAMANO_EMPRESA_LABEL[deal.cliente.tamano_empresa]} />
+            )}
             <Field label="Responsable" value={deal.vendedor?.nombre ?? "Sin vendedor"} />
           </Section>
 

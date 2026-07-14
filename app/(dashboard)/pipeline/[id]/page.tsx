@@ -28,7 +28,7 @@ export default async function DealDetallePage({
     where: scopeDealWhere(session, { id }),
     include: {
       stage: { select: { id: true, nombre: true, orden: true } },
-      cliente: { select: { id: true, nombre: true, estatus: true } },
+      cliente: { select: { id: true, nombre: true, estatus: true, website: true, tamano_empresa: true } },
       vendedor: { select: { id: true, nombre: true } },
       tipo_cotizacion: { select: { id: true, nombre: true } },
       contactos: {

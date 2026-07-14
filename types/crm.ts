@@ -95,6 +95,16 @@ export type RolContacto = "DECISOR" | "INFLUENCIADOR" | "USUARIO" | "OTRO";
 export type EstadoAccion = "PENDIENTE" | "EN_PROCESO" | "TERMINADO";
 export type DealResultado = "ABIERTO" | "GANADO" | "PERDIDO" | "SUSPENDIDO";
 export type EstatusCliente = "PROSPECTO" | "ACTIVO" | "INACTIVO";
+export type TamanoEmpresa = "MICRO" | "PEQUENA" | "MEDIANA" | "GRANDE";
+
+// SSOT de tamaños de empresa (por empleados) — orden + etiquetas en un solo lugar.
+export const TAMANOS_EMPRESA: TamanoEmpresa[] = ["MICRO", "PEQUENA", "MEDIANA", "GRANDE"];
+export const TAMANO_EMPRESA_LABEL: Record<TamanoEmpresa, string> = {
+  MICRO: "1–10 empleados",
+  PEQUENA: "11–50 empleados",
+  MEDIANA: "51–250 empleados",
+  GRANDE: "250+ empleados",
+};
 
 // SSOT del conjunto de resultados válidos del deal. Los handlers validan contra
 // esta lista (no re-hardcodean el enum).
@@ -194,7 +204,13 @@ export interface DealDetalle {
   dias_abierto: number;
   notas: string | null;
   stage: { id: string; nombre: string; orden: number };
-  cliente: { id: string; nombre: string; estatus: EstatusCliente } | null;
+  cliente: {
+    id: string;
+    nombre: string;
+    estatus: EstatusCliente;
+    website: string | null;
+    tamano_empresa: TamanoEmpresa | null;
+  } | null;
   vendedor: { id: string; nombre: string } | null;
   tipo: { id: string; nombre: string } | null;
   contactos: DealContactoItem[];

@@ -1,6 +1,7 @@
 /**
  * Tipos de datos para el módulo de Clientes.
  */
+import type { TamanoEmpresa } from "@/types/crm";
 
 export interface CondicionResumen {
   id: string;
@@ -28,6 +29,8 @@ export interface ClienteConStats {
   ciudad: string;
   email: string | null;
   telefono: string | null;
+  website: string | null;
+  tamano_empresa: TamanoEmpresa | null;
   condicion_pago_id: string;
   condicion_pago: CondicionResumen;
   notas: string | null;
@@ -53,6 +56,8 @@ export interface ClienteInput {
   ciudad: string;
   email?: string | null;
   telefono?: string | null;
+  website?: string | null;
+  tamano_empresa?: TamanoEmpresa | null;
   condicion_pago_id: string;
   notas?: string | null;
 }
