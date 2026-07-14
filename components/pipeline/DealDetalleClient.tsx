@@ -17,7 +17,7 @@ import Markdown from "@/components/ui/Markdown";
 import MarkdownEditor from "@/components/ui/MarkdownEditor";
 import { formatCompacto, formatFechaHora } from "@/lib/utils";
 import { MAX_CONTENIDO } from "@/lib/actividad";
-import { ahoraInput, fechaInput } from "@/lib/tz";
+import { fechaInput } from "@/lib/tz";
 import { TIPO_ACTIVIDAD_META, TIPOS_CREABLES } from "@/lib/actividad-tipos";
 import InputFechaHora from "@/components/ui/InputFechaHora";
 import { esTareaPendiente, estaVencida } from "@/lib/tareas";
@@ -117,14 +117,10 @@ export default function DealDetalleClient({
   const [contactoSel, setContactoSel] = useState(deal.contactos[0]?.id ?? "");
   const [fechaEvento, setFechaEvento] = useState("");
   // "Ahora" en ms, seteado tras el montaje: evita llamar Date.now() en el render
-  // (mismatch de hidratación). Alimenta cuandoFutura y seguimientoVencido.
+  // (mismatch de hidratación). Alimenta cuandoFutura, seguimientoVencido y el sello
+  // "se registra ahora" del compositor.
   const [nowTs, setNowTs] = useState<number | null>(null);
-  // Precargar "¿Cuándo?" con ahora en CDMX (editable). En useEffect para evitar
-  // mismatch de hidratación (la hora difiere entre server y cliente). (SOL-03)
-  useEffect(() => {
-    setFechaEvento(ahoraInput());
-    setNowTs(Date.now());
-  }, []);
+  useEffect(() => setNowTs(Date.now()), []);
   const [exitosa, setExitosa] = useState(true);
   // Un solo campo de fecha ("¿Cuándo?" = fechaEvento). Si la fecha es futura y se pide
   // recordatorio, se guarda como tarea (fecha_tarea); si no, como registro (fecha_evento).
@@ -136,10 +132,13 @@ export default function DealDetalleClient({
   // contenido (progressive disclosure — evita saturar la vista con opcionales).
   const [composerFocus, setComposerFocus] = useState(false);
   const composerAbierto = composerFocus || Boolean(texto.trim() || enlace.trim());
+  // "Registrar fecha" es opcional: solo cuenta si está completa (fecha + hora). Un valor
+  // parcial (al limpiar un lado) se trata como vacío para no guardar una fecha inválida.
+  const fechaValida = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(fechaEvento);
   // ¿La fecha elegida es futura? Se compara contra nowTs (montado) para no llamar
   // Date.now() en render. Antes de montar → false (no hay fecha elegida aún).
   const cuandoFutura =
-    fechaEvento && nowTs != null ? new Date(fechaEvento).getTime() > nowTs : false;
+    fechaValida && nowTs != null ? new Date(fechaEvento).getTime() > nowTs : false;
   // El compositor está colapsado por defecto (la bitácora ocupa toda la altura); se
   // abre al tocar "Registrar actividad" y se cierra al guardar o con Cancelar/✕.
   const [registrando, setRegistrando] = useState(false);
@@ -343,7 +342,7 @@ export default function DealDetalleClient({
   function resetCompositor() {
     setTexto("");
     setContactoSel(deal.contactos[0]?.id ?? "");
-    setFechaEvento(ahoraInput());
+    setFechaEvento(""); // "Registrar fecha" es opcional → nace vacío
     setExitosa(true);
     setRecordatorio(false);
     setResultadoSel("");
@@ -365,10 +364,11 @@ export default function DealDetalleClient({
     setTipoNueva(a.tipo);
     setResultadoSel(a.resultado?.id ?? "");
     setExitosa(a.exitosa ?? true);
-    // ¿Cuándo?: si es tarea agendada refleja fecha_tarea (+recordatorio); si es registro,
-    // fecha_evento (o created_at si la nota no tenía fecha).
+    // Registrar fecha: si es tarea agendada refleja fecha_tarea (+recordatorio); si es
+    // registro, fecha_evento. Si la entrada no tenía fecha, el campo queda vacío (opcional).
     setRecordatorio(a.es_tarea);
-    setFechaEvento(fechaInput(a.fecha_tarea ?? a.fecha_evento ?? a.created_at));
+    const cuando = a.fecha_tarea ?? a.fecha_evento;
+    setFechaEvento(cuando ? fechaInput(cuando) : "");
     setComposerFocus(true);
     setRegistrando(true);
     requestAnimationFrame(() => composerRef.current?.scrollIntoView({ behavior: "smooth", block: "center" }));
@@ -389,7 +389,7 @@ export default function DealDetalleClient({
       tipo: tipoNueva,
       contenido: texto.trim(),
       contacto_id: contactoSel || undefined,
-      fecha_evento: cuandoFutura && recordatorio ? undefined : fechaEvento || undefined,
+      fecha_evento: cuandoFutura && recordatorio ? undefined : fechaValida ? fechaEvento : undefined,
       exitosa: tipoNueva === "LLAMADA" ? exitosa : undefined,
       fecha_tarea: cuandoFutura && recordatorio ? fechaEvento : undefined,
       tipo_accion_id: tipoAccionSel?.id || undefined,
@@ -744,13 +744,22 @@ export default function DealDetalleClient({
                 </div>
               )}
 
-              {/* ¿Cuándo? — un solo campo para todos los tipos. Si es futura y se pide
-                  recordatorio, se agenda como pendiente (fecha_tarea); si no, es registro. */}
+              {/* Registrar fecha (opcional) — para fechar el evento en el pasado o agendar
+                  a futuro. Vacío = solo se registra ahora. Si es futura y se pide
+                  recordatorio, se agenda como pendiente (fecha_tarea). */}
               <div className="mb-3">
                 <label className="flex flex-col gap-1 text-[11px] font-medium text-gray-500">
-                  ¿Cuándo?
+                  <span>
+                    Registrar fecha <span className="font-normal text-gray-400">(opcional)</span>
+                  </span>
                   <InputFechaHora value={fechaEvento} onChange={setFechaEvento} className="w-fit" />
                 </label>
+                {/* Sello de creación: cuándo se está registrando. No editable, solo informativo. */}
+                {!editandoId && nowTs != null && (
+                  <p className="mt-1.5 flex items-center gap-1 text-[11px] text-gray-400">
+                    <CalendarClock size={12} /> Se registra ahora · {formatFechaHora(new Date(nowTs).toISOString())}
+                  </p>
+                )}
                 {cuandoFutura && (
                   <label className="mt-2 flex w-fit items-center gap-2 text-xs font-medium text-navy">
                     <input
