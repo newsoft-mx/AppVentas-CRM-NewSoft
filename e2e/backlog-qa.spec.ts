@@ -208,4 +208,15 @@ test.describe("QA lote SOL-14..20", () => {
     await db.deal.update({ where: { id: deal.id }, data: { orden_id: null } });
     await db.ordenVenta.delete({ where: { id: orden.id } });
   });
+
+  test("B · PDFs concurrentes no colisionan (perfil único por render)", async ({ request }) => {
+    const orden = await db.ordenVenta.findFirst({ select: { id: true } });
+    test.skip(!orden, "no hay órdenes para probar el PDF");
+    // Con el userDataDir fijo anterior, el 2º/3º render simultáneo fallaba (SingletonLock).
+    const reqs = await Promise.all([1, 2, 3].map(() => request.get(`/api/pdf/${orden!.id}`)));
+    for (const r of reqs) {
+      expect(r.status()).toBe(200);
+      expect(r.headers()["content-type"]).toContain("application/pdf");
+    }
+  });
 });

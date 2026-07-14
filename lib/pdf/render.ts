@@ -1,4 +1,4 @@
-import { existsSync } from "node:fs";
+import { existsSync, mkdtempSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import os from "node:os";
 import puppeteer from "puppeteer-core";
@@ -54,10 +54,13 @@ async function resolveChromium(): Promise<{ executablePath: string; args: string
 
 export async function renderHtmlToPdf(html: string): Promise<Buffer> {
   const { executablePath, args } = await resolveChromium();
+  // Perfil temporal ÚNICO por invocación (Bloque B): un userDataDir fijo compartido
+  // rompe con requests concurrentes (Chromium toma un SingletonLock del perfil, así
+  // que el 2º PDF simultáneo fallaba). Se crea y se borra por render.
+  const userDataDir = mkdtempSync(join(os.tmpdir(), "chromium-pdf-"));
   const browser = await puppeteer.launch({
     executablePath,
-    // Perfil temporal cross-platform (antes /tmp/chromium fijo, roto en Windows).
-    userDataDir: join(os.tmpdir(), "chromium-pdf"),
+    userDataDir,
     args,
     headless: true,
   });
@@ -68,5 +71,11 @@ export async function renderHtmlToPdf(html: string): Promise<Buffer> {
     return Buffer.from(pdf);
   } finally {
     await browser.close();
+    // Limpiar el perfil temporal (best-effort; no romper el response si falla).
+    try {
+      rmSync(userDataDir, { recursive: true, force: true });
+    } catch {
+      /* noop */
+    }
   }
 }

@@ -5,6 +5,7 @@
  */
 import type { SessionPayload } from "@/lib/session";
 import { scopeDealWhere } from "@/lib/access-control";
+import { limiteDiaNegocio } from "@/lib/tz";
 
 export type Periodo = "semana" | "mes" | "semestre";
 const PERIODOS: Periodo[] = ["semana", "mes", "semestre"];
@@ -35,11 +36,12 @@ export function rangoFechas(
 ): { desde: Date; hasta: Date | null } {
   const desdeStr = sp.get("desde");
   if (desdeStr) {
-    const desde = new Date(`${desdeStr}T00:00:00`);
-    if (!Number.isNaN(desde.getTime())) {
+    // Límites de día en la TZ del negocio (no la del server/UTC). Bloque B.
+    const desde = limiteDiaNegocio(desdeStr, "inicio");
+    if (desde) {
       const hastaStr = sp.get("hasta");
-      const hasta = hastaStr ? new Date(`${hastaStr}T23:59:59`) : null;
-      return { desde, hasta: hasta && !Number.isNaN(hasta.getTime()) ? hasta : null };
+      const hasta = hastaStr ? limiteDiaNegocio(hastaStr, "fin") : null;
+      return { desde, hasta };
     }
   }
   return { desde: desdePeriodo(normalizarPeriodo(sp.get("periodo")), ahora), hasta: null };

@@ -5,7 +5,8 @@
   "scripts": {
     "postinstall": "prisma generate",
     "dev": "next dev",
-    "build": "prisma generate && prisma migrate deploy && next build --webpack",
+    "build": "prisma generate && node scripts/guard-migrations.mjs && prisma migrate deploy && next build --webpack",
+    "guard:migrations": "node scripts/guard-migrations.mjs",
     "start": "next start",
     "lint": "eslint .",
     "db:generate": "prisma generate",
