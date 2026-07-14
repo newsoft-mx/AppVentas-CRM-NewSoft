@@ -3,6 +3,7 @@ import { getServerSession } from "@/lib/server-session";
 import { canWrite } from "@/lib/session";
 import { scopeDealWhere } from "@/lib/access-control";
 import { estadoAtencion } from "@/lib/atencion";
+import { WHERE_TAREA_PENDIENTE } from "@/lib/tareas";
 import { getScoringContext, dealScoreView } from "@/lib/deal-score";
 import PipelineKanban from "@/components/pipeline/PipelineKanban";
 import { parsePipelineFiltros } from "@/lib/pipeline-filtros";
@@ -45,7 +46,7 @@ export default async function PipelinePage({
         _count: { select: { actividades: true } },
         // Próximo seguimiento pendiente (tarea agendada más cercana)
         actividades: {
-          where: { es_tarea: true, completada: false, fecha_tarea: { not: null }, eliminada: false },
+          where: WHERE_TAREA_PENDIENTE,
           orderBy: { fecha_tarea: "asc" },
           take: 1,
           select: { fecha_tarea: true },

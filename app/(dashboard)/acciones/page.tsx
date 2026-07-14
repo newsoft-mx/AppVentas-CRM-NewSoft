@@ -4,6 +4,7 @@ import { scopeDealWhere } from "@/lib/access-control";
 import { getScoringContext, dealScoreView } from "@/lib/deal-score";
 import AccionesInbox from "@/components/pipeline/AccionesInbox";
 import { parseAccionesFiltros } from "@/lib/acciones-filtros";
+import { WHERE_TAREA_PENDIENTE } from "@/lib/tareas";
 import type { Metadata } from "next";
 import type { AccionItem, Temperatura } from "@/types/crm";
 
@@ -24,13 +25,7 @@ export default async function AccionesPage({
 
   const [tareas, vendedores] = await Promise.all([
     prisma.dealActividad.findMany({
-      where: {
-        es_tarea: true,
-        completada: false,
-        fecha_tarea: { not: null },
-        eliminada: false,
-        deal: dealScope,
-      },
+      where: { ...WHERE_TAREA_PENDIENTE, deal: dealScope },
       include: {
         contacto: { select: { contacto: { select: { nombre: true } } } },
         deal: {

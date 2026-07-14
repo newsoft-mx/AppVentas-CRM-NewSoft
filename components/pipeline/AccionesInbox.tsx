@@ -16,6 +16,7 @@ import InputFechaHora from "@/components/ui/InputFechaHora";
 import { formatCompacto, formatFechaHora } from "@/lib/utils";
 import { useUrlFilters } from "@/hooks/useUrlFilters";
 import { serializeAccionesFiltros, type AccionesFiltros } from "@/lib/acciones-filtros";
+import { grupoUrgencia } from "@/lib/tareas";
 
 const TIPO_ICON: Record<TipoActividad, typeof Phone> = {
   NOTA: StickyNote,
@@ -32,17 +33,6 @@ function toLocalInput(iso: string): string {
   const d = new Date(iso);
   const off = d.getTimezoneOffset() * 60_000;
   return new Date(d.getTime() - off).toISOString().slice(0, 16);
-}
-
-function grupoDe(iso: string | null, ahora: Date): GrupoUrgencia {
-  if (!iso) return "DESPUES";
-  const t = new Date(iso).getTime();
-  const inicioHoy = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate()).getTime();
-  const finHoy = inicioHoy + 86_400_000;
-  if (t < inicioHoy) return "VENCIDAS";
-  if (t < finHoy) return "HOY";
-  if (t < inicioHoy + 7 * 86_400_000) return "SEMANA";
-  return "DESPUES";
 }
 
 export default function AccionesInbox({
@@ -90,7 +80,7 @@ export default function AccionesInbox({
   );
 
   const vencidas = useMemo(
-    () => filtered.filter((a) => grupoDe(a.fecha_tarea, ahora) === "VENCIDAS").length,
+    () => filtered.filter((a) => grupoUrgencia(a.fecha_tarea, ahora) === "VENCIDAS").length,
     [filtered, ahora]
   );
 
@@ -237,7 +227,7 @@ export default function AccionesInbox({
         )}
 
         {ORDEN_GRUPOS.map((g) => {
-          const grupo = filtered.filter((a) => grupoDe(a.fecha_tarea, ahora) === g);
+          const grupo = filtered.filter((a) => grupoUrgencia(a.fecha_tarea, ahora) === g);
           if (grupo.length === 0) return null;
           const vencido = g === "VENCIDAS";
           return (

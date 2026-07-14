@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Bold, Italic, Heading2, List, Link2, Eye, Pencil } from "lucide-react";
+import { Bold, Italic, Heading2, List, Link2, Eye, Pencil, Maximize2, Minimize2 } from "lucide-react";
 import { MAX_CONTENIDO } from "@/lib/actividad";
 import Markdown from "./Markdown";
 
@@ -10,6 +10,10 @@ import Markdown from "./Markdown";
 // el texto sea corto/medio.
 const MIN_H = 96; // ~6rem (base)
 const MAX_H = 208; // ~13rem (≈ doble); luego scrollea
+// Modo expandido (toggle manual): más altura mínima para escribir/leer textos largos y
+// un tope alto (≈60% del viewport) antes de scrollear. Fallback si no hay window (SSR).
+const MIN_H_EXP = 240;
+const MAX_H_EXP_FALLBACK = 480;
 
 // Editor de texto básico con Markdown (SOL-16): toolbar que envuelve la
 // selección + pestaña de vista previa. Controlado (value/onChange). Reutilizable
@@ -29,14 +33,23 @@ export default function MarkdownEditor({
 }) {
   const ref = useRef<HTMLTextAreaElement>(null);
   const [preview, setPreview] = useState(false);
+  const [expandido, setExpandido] = useState(false);
+  // Tope expandido ≈60% del viewport, medido en cliente (evita usar window en SSR).
+  const [maxExp, setMaxExp] = useState(MAX_H_EXP_FALLBACK);
+  useEffect(() => {
+    setMaxExp(Math.max(360, Math.round(window.innerHeight * 0.6)));
+  }, []);
 
-  // Auto-crecer con el contenido (hasta MAX_H; después, scroll interno).
+  const minH = expandido ? MIN_H_EXP : MIN_H;
+  const maxH = expandido ? maxExp : MAX_H;
+
+  // Auto-crecer con el contenido (hasta maxH; después, scroll interno).
   useEffect(() => {
     const ta = ref.current;
     if (!ta || preview) return;
     ta.style.height = "auto";
-    ta.style.height = `${Math.min(Math.max(ta.scrollHeight, MIN_H), MAX_H)}px`;
-  }, [value, preview]);
+    ta.style.height = `${Math.min(Math.max(ta.scrollHeight, minH), maxH)}px`;
+  }, [value, preview, minH, maxH]);
 
   // Envuelve la selección con marcadores (negrita/cursiva/enlace)
   function envolver(antes: string, despues: string = antes) {
@@ -95,10 +108,19 @@ export default function MarkdownEditor({
           {preview ? <Pencil size={12} /> : <Eye size={12} />}
           {preview ? "Escribir" : "Vista previa"}
         </button>
+        <button
+          type="button"
+          onClick={() => setExpandido((x) => !x)}
+          title={expandido ? "Contraer editor" : "Expandir editor"}
+          aria-pressed={expandido}
+          className={btn}
+        >
+          {expandido ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
+        </button>
       </div>
 
       {preview ? (
-        <div className="min-h-[4.5rem] px-3.5 py-2.5">
+        <div className="overflow-y-auto px-3.5 py-2.5" style={{ minHeight: minH, maxHeight: maxH }}>
           {value.trim() ? (
             <Markdown>{value}</Markdown>
           ) : (
