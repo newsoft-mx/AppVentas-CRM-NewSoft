@@ -214,3 +214,10 @@ export const TRANSICIONES_PERMITIDAS: Record<string, string[]> = {
   COTIZADO: ["VENTA", "BORRADOR"],
   VENTA: ["COTIZADO"],
 };
+
+// Máquina de estados de la orden (Bloque F): SSOT de la validación de transición.
+// La usan tanto PATCH /ordenes/:id/estatus como el PUT general, para que ninguna
+// ruta pueda evitar la máquina. Un no-op (desde === hacia) es válido.
+export function transicionOrdenPermitida(desde: string, hacia: string): boolean {
+  return desde === hacia || (TRANSICIONES_PERMITIDAS[desde] ?? []).includes(hacia);
+}

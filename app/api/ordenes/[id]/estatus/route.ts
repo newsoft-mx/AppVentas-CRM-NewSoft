@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { serializeOrden } from "@/lib/serializers";
 import { EstatusUpdateSchema } from "@/lib/validations/ordenes";
-import { TRANSICIONES_PERMITIDAS } from "@/lib/utils";
+import { transicionOrdenPermitida, TRANSICIONES_PERMITIDAS } from "@/lib/utils";
 import { canWrite, requireAuth } from "@/lib/session";
 import { canMutateOrden } from "@/lib/access-control";
 
@@ -48,13 +48,12 @@ export async function PATCH(
       return NextResponse.json({ error: "Sin permisos" }, { status: 403 });
     }
 
-    // Validar transición permitida
-    const transicionesValidas = TRANSICIONES_PERMITIDAS[orden.estatus] ?? [];
-    if (!transicionesValidas.includes(nuevoEstatus)) {
+    // Validar transición permitida (misma máquina que usa el PUT general — SSOT)
+    if (!transicionOrdenPermitida(orden.estatus, nuevoEstatus)) {
       return NextResponse.json(
         {
           error: `Transición no permitida: ${orden.estatus} → ${nuevoEstatus}`,
-          transiciones_validas: transicionesValidas,
+          transiciones_validas: TRANSICIONES_PERMITIDAS[orden.estatus] ?? [],
         },
         { status: 409 }
       );

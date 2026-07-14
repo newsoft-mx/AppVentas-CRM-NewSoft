@@ -143,4 +143,48 @@ test.describe("QA lote SOL-14..20", () => {
       expect(["violacion", "informativo"]).toContain(c.tipo);
     }
   });
+
+  test("F · una orden VENTA no se puede borrar en duro (409)", async ({ request }) => {
+    const venta = await db.ordenVenta.findFirst({ where: { estatus: "VENTA" }, select: { id: true } });
+    test.skip(!venta, "no hay orden VENTA en la BD para probar el guard");
+    const res = await request.delete(`/api/ordenes/${venta!.id}`);
+    expect(res.status()).toBe(409);
+  });
+
+  test("F · transición de orden ilegal es rechazada por la máquina (409)", async ({ request }) => {
+    const venta = await db.ordenVenta.findFirst({ where: { estatus: "VENTA" }, select: { id: true } });
+    test.skip(!venta, "no hay orden VENTA");
+    // VENTA solo puede volver a COTIZADO; VENTA→BORRADOR es ilegal
+    const res = await request.patch(`/api/ordenes/${venta!.id}/estatus`, { data: { estatus: "BORRADOR" } });
+    expect(res.status()).toBe(409);
+  });
+
+  test("T · orden creada desde un deal ganado queda vinculada (orden_id)", async ({ request }) => {
+    const deal = await crearDealAPI(request, {
+      nombre: `E2E Tlink ${Date.now()}`,
+      cliente_id: cat.clienteActivo!.id,
+      stage_id: stageDeOrden(cat, 1).id,
+    });
+    await request.post(`/api/crm/deals/${deal.id}/ganar`);
+    const [tipo, cond, vend] = await Promise.all([
+      db.tipoCotizacion.findFirst({ where: { activo: true }, select: { id: true } }),
+      db.condicionComercial.findFirst({ where: { activo: true }, select: { id: true } }),
+      db.vendedor.findFirst({ where: { activo: true }, select: { id: true } }),
+    ]);
+    const ord = await request.post("/api/ordenes", {
+      data: {
+        cliente_id: cat.clienteActivo!.id, tipo_cotizacion_id: tipo!.id, condicion_pago_id: cond!.id,
+        vendedor_id: vend!.id, descripcion: "E2E Tlink orden", estatus: "BORRADOR", moneda: "MXN",
+        aplica_iva: true, tasa_iva: 16, deal_id: deal.id,
+        partidas: [{ descripcion: "item", cantidad: 1, precio_unitario: 1000, orden_display: 1 }],
+      },
+    });
+    expect(ord.status()).toBe(201);
+    const orden = await ord.json();
+    const dealDb = await db.deal.findUnique({ where: { id: deal.id }, select: { orden_id: true } });
+    expect(dealDb?.orden_id).toBe(orden.id);
+    // cleanup: desvincular + borrar la orden (el deal E2E lo limpia el afterAll)
+    await db.deal.update({ where: { id: deal.id }, data: { orden_id: null } });
+    await db.ordenVenta.delete({ where: { id: orden.id } });
+  });
 });
