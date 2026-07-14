@@ -1301,7 +1301,28 @@
       dropdown.innerHTML = '<div class="saved-empty">Error al cargar casos guardados.</div>';
     }
   }
-  loadDeals();
+  // Deep-link desde el detalle del deal (Fase 2): ?caso=<id> abre y carga ese caso;
+  // ?deal=<id> arranca un caso en blanco ya vinculado a ese deal.
+  async function abrirDesdeUrl(){
+    const params = new URLSearchParams(location.search);
+    const casoId = params.get('caso');
+    const dealId = params.get('deal');
+    await loadDeals();
+    if(casoId){
+      try{
+        const caso = await api.load(casoId);
+        if(caso && caso.datos){
+          applyState(caso.datos);
+          $('dealLink').value = caso.deal_id || '';
+          setStatus('Caso "' + (caso.nombre || caso.datos.name || '') + '" cargado.', 'ok');
+        } else { setStatus('No se encontró el caso solicitado.', 'err'); }
+      }catch(e){ setStatus('Error al cargar el caso.', 'err'); }
+    } else if(dealId){
+      $('dealLink').value = dealId;
+      if($('dealLink').value !== dealId){ /* el deal no está en la lista accesible: se ignora */ }
+    }
+  }
+  abrirDesdeUrl();
 
   $('btnOpenSaved').addEventListener('click', () => {
     dropdownOpen = !dropdownOpen;
