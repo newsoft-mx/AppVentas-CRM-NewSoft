@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { canWrite, requireAuth } from "@/lib/session";
 import { getScoringContext, dealScoreView } from "@/lib/deal-score";
-import { crearContactoPrincipal, crearOEncontrarContacto } from "@/lib/contactos";
+import { crearDealTx, HttpError } from "@/lib/deals";
 import { logger } from "@/lib/logger";
 import { TAMANOS_EMPRESA, type DealResumen, type TamanoEmpresa } from "@/types/crm";
 import type { RolContacto } from "@prisma/client";
@@ -13,13 +13,6 @@ function num(v: unknown): number | null {
   if (v === null || v === undefined || v === "") return null;
   const n = Number(v);
   return Number.isFinite(n) ? n : null;
-}
-
-// Error de validación dentro de la transacción de alta → se traduce a 422 con campo.
-class HttpError extends Error {
-  constructor(public status: number, message: string, public campo?: string) {
-    super(message);
-  }
 }
 
 // ── POST /api/crm/deals ─────────────────────────────────────────
@@ -91,74 +84,31 @@ export async function POST(req: NextRequest) {
     const fechaCierre = typeof body.fecha_cierre_estimada === "string" && body.fecha_cierre_estimada
       ? new Date(body.fecha_cierre_estimada) : null;
 
-    // Todo el alta es atómica: prospecto (si aplica) + su contacto principal +
-    // deal + link al contacto. El contacto es dueño del cliente (Bloque C).
-    const deal = await prisma.$transaction(async (tx) => {
-      // Crear el prospecto si corresponde (datos mínimos; condición = primera activa)
-      if (!cliente_id && prospectoNombre) {
-        const cond = await tx.condicionComercial.findFirst({
-          where: { activo: true },
-          orderBy: { dias_credito: "asc" },
-          select: { id: true },
-        });
-        if (!cond) throw new HttpError(422, "No hay condiciones de pago configuradas");
-        const prospecto = await tx.cliente.create({
-          data: {
-            nombre: prospectoNombre,
-            contacto: contactoNombre,
-            ciudad: "",
-            email: contactoEmail,
-            telefono: contactoTel,
-            website: prospectoWebsite,
-            tamano_empresa: prospectoTamano,
-            condicion_pago_id: cond.id,
-            estatus: "PROSPECTO",
-          },
-          select: { id: true },
-        });
-        cliente_id = prospecto.id;
-      }
-
-      const cliente = await tx.cliente.findFirst({ where: { id: cliente_id, activo: true }, select: { id: true } });
-      if (!cliente) throw new HttpError(422, "Cliente inválido", "cliente_id");
-
-      // El contacto del deal: para un prospecto nuevo es su PRINCIPAL; para un
-      // cliente existente se reutiliza (o crea) sin duplicar al principal.
-      const existePrincipal = await tx.contacto.count({ where: { cliente_id, es_principal: true, activo: true } });
-      const contacto =
-        existePrincipal === 0
-          ? await crearContactoPrincipal(tx, cliente_id, contactoDatos)
-          : await crearOEncontrarContacto(tx, cliente_id, contactoDatos);
-
-      return tx.deal.create({
-        data: {
-          nombre,
-          cliente_id,
-          stage_id,
-          vendedor_id: typeof body.vendedor_id === "string" && body.vendedor_id ? body.vendedor_id : null,
-          tipo_cotizacion_id: typeof body.tipo_cotizacion_id === "string" && body.tipo_cotizacion_id ? body.tipo_cotizacion_id : null,
-          // temperatura/probabilidad se DERIVAN del score (dealScoreView); no se persisten.
-          moneda: body.moneda === "USD" ? "USD" : "MXN",
-          valor: num(body.valor) ?? 0,
-          setup: num(body.setup),
-          mensualidad: num(body.mensualidad),
-          meses: num(body.meses) != null ? Math.round(num(body.meses)!) : null,
-          canal_id: typeof body.canal_id === "string" && body.canal_id ? body.canal_id : null,
-          origen_id: typeof body.origen_id === "string" && body.origen_id ? body.origen_id : null,
-          fecha_cierre_estimada: fechaCierre,
-          // Link al contacto (obligatorio) — un deal nace con al menos un contacto
-          contactos: { create: [{ contacto_id: contacto.id, rol: contactoRol as RolContacto }] },
-          // Evento de alta: entrada a la primera etapa (from_stage null) — inicia el embudo
-          stage_events: { create: [{ to_stage_id: stage_id }] },
-        },
-        include: {
-          cliente: { select: { id: true, nombre: true } },
-          vendedor: { select: { id: true, nombre: true } },
-          tipo_cotizacion: { select: { id: true, nombre: true } },
-          contactos: { select: { contacto: { select: { nombre: true } } } },
-        },
-      });
-    });
+    // Alta atómica vía el servicio compartido (SSOT — lo reusa el intake público web).
+    const deal = await prisma.$transaction((tx) =>
+      crearDealTx(tx, {
+        nombre,
+        cliente_id: cliente_id || undefined,
+        prospecto:
+          !cliente_id && prospectoNombre
+            ? { nombre: prospectoNombre, website: prospectoWebsite, tamano_empresa: prospectoTamano }
+            : undefined,
+        contacto: contactoDatos,
+        contactoRol: contactoRol as RolContacto,
+        stage_id,
+        vendedor_id: typeof body.vendedor_id === "string" && body.vendedor_id ? body.vendedor_id : null,
+        tipo_cotizacion_id:
+          typeof body.tipo_cotizacion_id === "string" && body.tipo_cotizacion_id ? body.tipo_cotizacion_id : null,
+        moneda: body.moneda === "USD" ? "USD" : "MXN",
+        valor: num(body.valor) ?? 0,
+        setup: num(body.setup),
+        mensualidad: num(body.mensualidad),
+        meses: num(body.meses),
+        canal_id: typeof body.canal_id === "string" && body.canal_id ? body.canal_id : null,
+        origen_id: typeof body.origen_id === "string" && body.origen_id ? body.origen_id : null,
+        fecha_cierre_estimada: fechaCierre,
+      })
+    );
 
     // Score derivado del deal recién creado (sin actividades → score inicial) vía el SSOT
     const ctx = await getScoringContext();

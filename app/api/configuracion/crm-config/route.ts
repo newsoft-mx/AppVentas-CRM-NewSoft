@@ -10,8 +10,15 @@ export async function GET(req: NextRequest) {
   if (!session) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   if (!isAdmin(session)) return NextResponse.json({ error: "Sin permisos" }, { status: 403 });
   const scoring = await getScoringConfig();
-  const row = await prisma.crmConfig.findUnique({ where: { id: "crm" }, select: { avance_modo: true } });
-  return NextResponse.json({ ...scoring, avance_modo: row?.avance_modo ?? "SUGERIR" });
+  const row = await prisma.crmConfig.findUnique({
+    where: { id: "crm" },
+    select: { avance_modo: true, vendedor_leads_web_id: true },
+  });
+  return NextResponse.json({
+    ...scoring,
+    avance_modo: row?.avance_modo ?? "SUGERIR",
+    vendedor_leads_web_id: row?.vendedor_leads_web_id ?? null,
+  });
 }
 
 // PUT /api/configuracion/crm-config — actualizar parámetros del scoring (upsert del singleton)
@@ -26,6 +33,11 @@ export async function PUT(req: NextRequest) {
     const data: any = {};
 
     if (body.avance_modo === "SUGERIR" || body.avance_modo === "AUTOMATICO") data.avance_modo = body.avance_modo;
+    // Buzón de leads web: vendedor_id o null (sin asignar).
+    if (body.vendedor_leads_web_id !== undefined) {
+      const v = body.vendedor_leads_web_id;
+      data.vendedor_leads_web_id = typeof v === "string" && v ? v : null;
+    }
     if (Number.isFinite(Number(body.umbral_inactividad_dias)))
       data.umbral_inactividad_dias = Math.max(1, Math.round(Number(body.umbral_inactividad_dias)));
     if (Number.isFinite(Number(body.score_inicial)))
@@ -48,8 +60,15 @@ export async function PUT(req: NextRequest) {
 
     await prisma.crmConfig.upsert({ where: { id: "crm" }, update: data, create: { id: "crm", ...data } });
     const scoring = await getScoringConfig();
-    const row = await prisma.crmConfig.findUnique({ where: { id: "crm" }, select: { avance_modo: true } });
-    return NextResponse.json({ ...scoring, avance_modo: row?.avance_modo ?? "SUGERIR" });
+    const row = await prisma.crmConfig.findUnique({
+      where: { id: "crm" },
+      select: { avance_modo: true, vendedor_leads_web_id: true },
+    });
+    return NextResponse.json({
+      ...scoring,
+      avance_modo: row?.avance_modo ?? "SUGERIR",
+      vendedor_leads_web_id: row?.vendedor_leads_web_id ?? null,
+    });
   } catch {
     return NextResponse.json({ error: "Error al actualizar la configuración" }, { status: 500 });
   }
