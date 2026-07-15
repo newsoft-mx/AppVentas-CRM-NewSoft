@@ -6,16 +6,17 @@ Este documento define cómo trabajamos cambios en este repositorio para no rompe
 
 **Nunca se trabaja ni se hace push directo a `main`.** La rama `main` está protegida:
 cada push a `main` despliega automáticamente a **producción en Vercel**
-(`app-ventas-new-soft.vercel.app`) y ejecuta las migraciones de Prisma contra la base
-de datos real. Todo cambio entra por Pull Request.
+(`crm-newsoft.vercel.app`) y ejecuta las migraciones de Prisma contra la base de datos
+real (Supabase). Todo cambio entra por Pull Request.
 
 ## Dónde despliega
 
 | Entorno | Plataforma | Cómo se actualiza |
 |---------|-----------|-------------------|
-| **Producción** | Vercel (`app-ventas-new-soft.vercel.app`) | Automático al mergear a `main` |
+| **Producción** | Vercel (`crm-newsoft.vercel.app`) + Supabase | Automático al mergear a `main` |
 | **Preview** | Vercel | Automático en cada rama/PR (URL propia para probar) |
-| AWS Lightsail | `infra/lightsail/` (Terraform) | Preparado pero **no en uso** — despliegue manual |
+
+> Infra: **solo Vercel + Supabase**. (AWS Lightsail quedó descartado; ignorar `infra/lightsail/` si existe.)
 
 ## Ciclo de un cambio
 
