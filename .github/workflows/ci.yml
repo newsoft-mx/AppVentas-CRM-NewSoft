@@ -1,0 +1,47 @@
+name: CI
+
+# Corre en cada PR hacia main y en los push a main. Es la red de seguridad que hoy
+# hacíamos a mano: typecheck + tests. Ver docs/FLUJO-GIT.md y CLAUDE.md.
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+# Cancelar runs viejos de la misma rama/PR cuando llega un push nuevo (ahorra minutos).
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Typecheck + Tests
+    runs-on: ubuntu-latest
+    # Los tests jest mockean Prisma (no tocan la BD); estas URLs son dummy solo para que
+    # `prisma generate` no se queje por env faltante. NO se conecta a ninguna BD real.
+    env:
+      POSTGRES_PRISMA_URL: postgresql://ci:ci@localhost:5432/ci?schema=public
+      POSTGRES_URL_NON_POOLING: postgresql://ci:ci@localhost:5432/ci?schema=public
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      # `npm ci` dispara el postinstall (`prisma generate`) → deja el client listo.
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: Typecheck (tsc)
+        run: npx tsc --noEmit
+
+      - name: Tests (jest)
+        run: npm test
+
+      # Lint informativo: hoy hay deuda (regla react-hooks/refs) que no bloquea el merge.
+      # Cuando se limpie, quitar continue-on-error para volverlo gate.
+      - name: Lint (informativo)
+        run: npm run lint
+        continue-on-error: true
