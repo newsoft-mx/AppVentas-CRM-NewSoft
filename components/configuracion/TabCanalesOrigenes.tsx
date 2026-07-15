@@ -61,8 +61,10 @@ function ListaCatalogo({ tipo, titulo, initial }: { tipo: TipoCatalogo; titulo: 
       body: JSON.stringify({ nombre }),
     });
     const data = await res.json();
-    if (res.ok) setOpciones((o) => o.map((x) => (x.id === id ? data : x)));
+    if (!res.ok) return setError(data.error ?? "No se pudo guardar el cambio");
+    setOpciones((o) => o.map((x) => (x.id === id ? data : x)));
     setEditId(null);
+    setError("");
   }
 
   async function toggleActivo(op: OpcionCatalogo) {

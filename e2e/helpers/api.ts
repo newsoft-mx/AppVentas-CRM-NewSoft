@@ -54,8 +54,6 @@ export async function crearDealAPI(
       valor: opts.valor ?? "100000",
       setup: "",
       mensualidad: "",
-      canal: "",
-      origen: "",
       fecha_cierre_estimada: "",
       contacto: { nombre: "E2E Contacto", rol: "DECISOR", email: "", telefono: "", whatsapp: "" },
     },

@@ -28,6 +28,17 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   if (typeof b.orden === "number") data.orden = b.orden;
   if (Object.keys(data).length === 0) return NextResponse.json({ error: "Nada para actualizar" }, { status: 422 });
 
+  // Chequeo de nombre duplicado dentro del mismo tipo (evita que el índice único
+  // (tipo, nombre) reviente y el catch lo reporte como un 404 engañoso).
+  if (data.nombre !== undefined) {
+    const actual = await prisma.catalogoDeal.findUnique({ where: { id }, select: { tipo: true } });
+    if (!actual) return NextResponse.json({ error: "Opción no encontrada" }, { status: 404 });
+    const dup = await prisma.catalogoDeal.findFirst({
+      where: { tipo: actual.tipo, nombre: { equals: data.nombre, mode: "insensitive" }, id: { not: id } },
+    });
+    if (dup) return NextResponse.json({ error: "Ya existe una opción con ese nombre" }, { status: 409 });
+  }
+
   try {
     const upd = await prisma.catalogoDeal.update({ where: { id }, data });
     return NextResponse.json(upd);
