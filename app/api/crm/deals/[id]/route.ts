@@ -31,12 +31,6 @@ export async function PATCH(
   const data: Record<string, unknown> = {};
   const errores: string[] = [];
 
-  // String opcional: vacío → null
-  const strOpc = (k: string) => {
-    if (b[k] === undefined) return;
-    const v = typeof b[k] === "string" ? (b[k] as string).trim() : "";
-    data[k] = v || null;
-  };
   // Numérico ≥0: opcional admite null; no-opcional rechaza vacío
   const num = (k: string, opcional: boolean) => {
     if (b[k] === undefined) return;
@@ -83,8 +77,9 @@ export async function PATCH(
     }
   }
   if (b.moneda !== undefined) data.moneda = b.moneda === "USD" ? "USD" : "MXN";
-  strOpc("canal");
-  strOpc("origen");
+  // Canal/Origen → FK al catálogo (CatalogoDeal). Vacío → null.
+  if (b.canal_id !== undefined) data.canal_id = typeof b.canal_id === "string" && b.canal_id ? b.canal_id : null;
+  if (b.origen_id !== undefined) data.origen_id = typeof b.origen_id === "string" && b.origen_id ? b.origen_id : null;
 
   // Datos de EMPRESA (website/tamaño): viven en el Cliente vinculado, no en el Deal.
   // Se editan desde el modal del deal por comodidad y se aplican a ese cliente.

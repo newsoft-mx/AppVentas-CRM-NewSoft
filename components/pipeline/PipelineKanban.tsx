@@ -39,6 +39,8 @@ interface Props {
   vendedores: { id: string; nombre: string }[];
   clientes: { id: string; nombre: string }[];
   tipos: { id: string; nombre: string }[];
+  canales: { id: string; nombre: string }[];
+  origenes: { id: string; nombre: string }[];
   canWrite: boolean;
   altas: { hoy: number; semana: number; mes: number };
 }
@@ -48,7 +50,7 @@ interface Props {
 const ESTADOS_ORDEN: DealResultado[] = ["ABIERTO", "SUSPENDIDO", "GANADO", "PERDIDO"];
 
 export default function PipelineKanban({
-  initialFiltros, stages, deals, vendedores, clientes, tipos, canWrite, altas,
+  initialFiltros, stages, deals, vendedores, clientes, tipos, canales, origenes, canWrite, altas,
 }: Props) {
   const router = useRouter();
   const [items, setItems] = useState<DealResumen[]>(deals);
@@ -601,6 +603,8 @@ export default function PipelineKanban({
           vendedores={vendedores}
           clientes={clientes}
           tipos={tipos}
+          canales={canales}
+          origenes={origenes}
           onClose={() => setModalOpen(false)}
           onCreated={(deal) => {
             setItems((cur) => [deal, ...cur]);

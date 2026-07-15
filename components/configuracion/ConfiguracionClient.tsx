@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Building2, Tag, CreditCard, UserRound, Users, Workflow, XCircle, Gauge } from "lucide-react";
+import { Building2, Tag, CreditCard, UserRound, Users, Workflow, XCircle, Gauge, Route } from "lucide-react";
 import TabEmpresa from "./TabEmpresa";
 import TabTipos from "./TabTipos";
 import TabCondiciones from "./TabCondiciones";
@@ -9,6 +9,7 @@ import TabVendedores from "./TabVendedores";
 import TabUsuarios from "./TabUsuarios";
 import TabPipelineStages from "./TabPipelineStages";
 import TabMotivosPerdida from "./TabMotivosPerdida";
+import TabCanalesOrigenes, { type OpcionCatalogo } from "./TabCanalesOrigenes";
 import TabScoring from "./TabScoring";
 import type { Empresa, TipoCotizacion, CondicionComercial, Vendedor, Usuario, PipelineStageConfig } from "@/types/configuracion";
 
@@ -24,6 +25,7 @@ interface ConfiguracionClientProps {
   initialUsuarios: Usuario[];
   initialStages: PipelineStageConfig[];
   initialMotivos: MotivoPerdida[];
+  initialCatalogoDeal: OpcionCatalogo[];
   initialTiposAccion: TipoAccionCfg[];
   initialResultados: ResultadoAccionCfg[];
 }
@@ -36,6 +38,7 @@ const TABS = [
   { id: "usuarios", label: "Usuarios", icon: Users },
   { id: "pipeline", label: "Etapas del Pipeline", icon: Workflow },
   { id: "motivos", label: "Motivos de pérdida", icon: XCircle },
+  { id: "canales", label: "Canales y Orígenes", icon: Route },
   { id: "scoring", label: "Scoring", icon: Gauge },
 ] as const;
 
@@ -49,6 +52,7 @@ export default function ConfiguracionClient({
   initialUsuarios,
   initialStages,
   initialMotivos,
+  initialCatalogoDeal,
   initialTiposAccion,
   initialResultados,
 }: ConfiguracionClientProps) {
@@ -128,6 +132,10 @@ export default function ConfiguracionClient({
 
           {activeTab === "motivos" && (
             <TabMotivosPerdida initialMotivos={initialMotivos} />
+          )}
+
+          {activeTab === "canales" && (
+            <TabCanalesOrigenes initial={initialCatalogoDeal} />
           )}
 
           {activeTab === "scoring" && (

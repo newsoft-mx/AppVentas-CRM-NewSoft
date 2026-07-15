@@ -23,8 +23,8 @@ export interface DealEditInitial {
   setup: number | null;
   mensualidad: number | null;
   meses: number | null;
-  canal: string | null;
-  origen: string | null;
+  canal_id: string | null;
+  origen_id: string | null;
   fecha_cierre_estimada: string | null; // YYYY-MM-DD
   fecha_ingreso: string; // YYYY-MM-DD (fecha de registro del lead)
   cliente_website: string | null;
@@ -36,6 +36,8 @@ interface Props {
   vendedores: { id: string; nombre: string }[];
   clientes: { id: string; nombre: string }[];
   tipos: { id: string; nombre: string }[];
+  canales: { id: string; nombre: string }[];
+  origenes: { id: string; nombre: string }[];
   onClose: () => void;
   onCreated?: (deal: DealResumen) => void;
   deal?: DealEditInitial; // si viene → modo edición
@@ -43,7 +45,9 @@ interface Props {
 }
 
 
-export default function NuevoDealModal({ stages, vendedores, clientes, tipos, onClose, onCreated, deal, onSaved }: Props) {
+export default function NuevoDealModal({
+  stages, vendedores, clientes, tipos, canales, origenes, onClose, onCreated, deal, onSaved,
+}: Props) {
   const editando = !!deal;
   // Modo de cliente: existente o nuevo prospecto (REQ-02). En edición: siempre existente.
   const [modoCliente, setModoCliente] = useState<"existente" | "prospecto">("existente");
@@ -62,8 +66,8 @@ export default function NuevoDealModal({ stages, vendedores, clientes, tipos, on
     setup: deal?.setup != null ? String(deal.setup) : "",
     mensualidad: deal?.mensualidad != null ? String(deal.mensualidad) : "",
     meses: deal?.meses != null ? String(deal.meses) : "",
-    canal: deal?.canal ?? "",
-    origen: deal?.origen ?? "",
+    canal_id: deal?.canal_id ?? "",
+    origen_id: deal?.origen_id ?? "",
     fecha_cierre_estimada: deal?.fecha_cierre_estimada ?? "",
     fecha_ingreso: deal?.fecha_ingreso ?? "",
     edit_website: deal?.cliente_website ?? "",
@@ -104,8 +108,8 @@ export default function NuevoDealModal({ stages, vendedores, clientes, tipos, on
             setup: form.setup,
             mensualidad: form.mensualidad,
             meses: form.meses,
-            canal: form.canal,
-            origen: form.origen,
+            canal_id: form.canal_id || null,
+            origen_id: form.origen_id || null,
             fecha_cierre_estimada: form.fecha_cierre_estimada,
             fecha_ingreso: form.fecha_ingreso,
             website: form.edit_website,
@@ -279,10 +283,22 @@ export default function NuevoDealModal({ stages, vendedores, clientes, tipos, on
           />
         </Campo>
         <Campo label="Canal">
-          <input className={inputCls} value={form.canal} onChange={(e) => set("canal", e.target.value)} placeholder="Ej. WhatsApp API" />
+          <SearchableSelect
+            options={canales.map((c) => ({ id: c.id, label: c.nombre }))}
+            value={form.canal_id}
+            onChange={(v) => set("canal_id", v)}
+            placeholder="— Selecciona canal —"
+            searchPlaceholder="Buscar canal…"
+          />
         </Campo>
         <Campo label="Origen">
-          <input className={inputCls} value={form.origen} onChange={(e) => set("origen", e.target.value)} placeholder="Ej. Referido" />
+          <SearchableSelect
+            options={origenes.map((o) => ({ id: o.id, label: o.nombre }))}
+            value={form.origen_id}
+            onChange={(v) => set("origen_id", v)}
+            placeholder="— Selecciona origen —"
+            searchPlaceholder="Buscar origen…"
+          />
         </Campo>
         <Campo label="Cierre estimado">
           <input type="date" className={inputCls} value={form.fecha_cierre_estimada} onChange={(e) => set("fecha_cierre_estimada", e.target.value)} />

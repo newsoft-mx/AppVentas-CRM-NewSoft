@@ -29,7 +29,7 @@ export default async function PipelinePage({
   const initialFiltros = parsePipelineFiltros(await searchParams);
 
   // Scoping por vendedor: el VENDEDOR solo ve SUS deals; ADMIN/GERENTE ven todos.
-  const [stages, deals, vendedores, clientes, tipos] = await Promise.all([
+  const [stages, deals, vendedores, clientes, tipos, catalogoDeal] = await Promise.all([
     prisma.pipelineStage.findMany({
       where: { activo: true },
       orderBy: { orden: "asc" },
@@ -70,7 +70,14 @@ export default async function PipelinePage({
       select: { id: true, nombre: true },
       orderBy: { nombre: "asc" },
     }),
+    prisma.catalogoDeal.findMany({
+      where: { activo: true },
+      orderBy: [{ orden: "asc" }, { nombre: "asc" }],
+      select: { id: true, nombre: true, tipo: true },
+    }),
   ]);
+  const canales = catalogoDeal.filter((c) => c.tipo === "CANAL").map(({ id, nombre }) => ({ id, nombre }));
+  const origenes = catalogoDeal.filter((c) => c.tipo === "ORIGEN").map(({ id, nombre }) => ({ id, nombre }));
 
   // KPIs de altas por período (REQ-04): nuevos deals hoy / esta semana / este mes
   const ahora = new Date();
@@ -157,6 +164,8 @@ export default async function PipelinePage({
       vendedores={vendedores}
       clientes={clientes}
       tipos={tipos}
+      canales={canales}
+      origenes={origenes}
       canWrite={canWrite(session)}
       altas={{ hoy: nuevosHoy, semana: nuevosSemana, mes: nuevosMes }}
     />

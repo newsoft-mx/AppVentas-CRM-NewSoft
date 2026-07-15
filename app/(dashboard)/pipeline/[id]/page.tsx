@@ -31,6 +31,8 @@ export default async function DealDetallePage({
       cliente: { select: { id: true, nombre: true, estatus: true, website: true, tamano_empresa: true } },
       vendedor: { select: { id: true, nombre: true } },
       tipo_cotizacion: { select: { id: true, nombre: true } },
+      canal: { select: { id: true, nombre: true } },
+      origen: { select: { id: true, nombre: true } },
       contactos: {
         orderBy: { created_at: "asc" },
         include: { contacto: true },
@@ -50,7 +52,9 @@ export default async function DealDetallePage({
 
   if (!deal) notFound();
 
-  const [stages, historial, vendedores, clientes, tipos, motivos, tiposAccion, resultadosAccion] = await Promise.all([
+  const [
+    stages, historial, vendedores, clientes, tipos, motivos, tiposAccion, resultadosAccion, catalogoDeal,
+  ] = await Promise.all([
     prisma.pipelineStage.findMany({
       where: { activo: true },
       orderBy: { orden: "asc" },
@@ -82,7 +86,15 @@ export default async function DealDetallePage({
       orderBy: { orden: "asc" },
       select: { id: true, nombre: true, efecto: true, sugiere_reagendar: true },
     }),
+    // Catálogo de canales/orígenes activos (para los selects del modal)
+    prisma.catalogoDeal.findMany({
+      where: { activo: true },
+      orderBy: [{ orden: "asc" }, { nombre: "asc" }],
+      select: { id: true, nombre: true, tipo: true },
+    }),
   ]);
+  const canales = catalogoDeal.filter((c) => c.tipo === "CANAL").map(({ id, nombre }) => ({ id, nombre }));
+  const origenes = catalogoDeal.filter((c) => c.tipo === "ORIGEN").map(({ id, nombre }) => ({ id, nombre }));
 
   const ganadas = historial.filter((o) => o.estatus === "VENTA");
   const totalFacturado = ganadas.reduce((s, o) => s + Number(o.total_mxn), 0);
@@ -179,6 +191,8 @@ export default async function DealDetallePage({
       vendedores={vendedores}
       clientes={clientes}
       tipos={tipos}
+      canales={canales}
+      origenes={origenes}
       motivos={motivos.map((m) => m.nombre)}
       tiposAccion={tiposAccion}
       resultadosAccion={resultadosAccion}

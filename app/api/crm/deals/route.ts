@@ -143,8 +143,8 @@ export async function POST(req: NextRequest) {
           setup: num(body.setup),
           mensualidad: num(body.mensualidad),
           meses: num(body.meses) != null ? Math.round(num(body.meses)!) : null,
-          canal: typeof body.canal === "string" && body.canal.trim() ? body.canal.trim() : null,
-          origen: typeof body.origen === "string" && body.origen.trim() ? body.origen.trim() : null,
+          canal_id: typeof body.canal_id === "string" && body.canal_id ? body.canal_id : null,
+          origen_id: typeof body.origen_id === "string" && body.origen_id ? body.origen_id : null,
           fecha_cierre_estimada: fechaCierre,
           // Link al contacto (obligatorio) — un deal nace con al menos un contacto
           contactos: { create: [{ contacto_id: contacto.id, rol: contactoRol as RolContacto }] },
