@@ -121,6 +121,30 @@ model MotivoPerdida {
   @@map("motivo_perdida")
 }
 
+// Catálogo administrable de Canal y Origen del deal (un solo modelo con discriminador
+// `tipo` para no duplicar API/tab). El nombre es único por tipo.
+enum TipoCatalogoDeal {
+  CANAL
+  ORIGEN
+
+  @@map("tipo_catalogo_deal")
+}
+
+model CatalogoDeal {
+  id         String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tipo       TipoCatalogoDeal
+  nombre     String           @db.VarChar(100)
+  orden      Int              @default(0)
+  activo     Boolean          @default(true)
+  created_at DateTime         @default(now()) @db.Timestamptz(6)
+
+  deals_canal  Deal[] @relation("DealCanal")
+  deals_origen Deal[] @relation("DealOrigen")
+
+  @@unique([tipo, nombre])
+  @@map("catalogo_deal")
+}
+
 // ============================================================
 // VENDEDOR
 // Catálogo comercial independiente de usuarios del sistema.
@@ -556,9 +580,14 @@ model Deal {
   mensualidad Decimal? @db.Decimal(12, 2)
   meses       Int?
 
-  // Origen / canal
-  canal  String? @db.VarChar(100)
-  origen String? @db.VarChar(100)
+  // Origen / canal → catálogo administrable (CatalogoDeal). Los text legacy conservan
+  // la columna original vía @map (sin rename en BD); se dropean en un contract futuro.
+  canal_legacy  String? @map("canal") @db.VarChar(100)
+  origen_legacy String? @map("origen") @db.VarChar(100)
+  canal_id  String?       @db.Uuid
+  canal     CatalogoDeal? @relation("DealCanal", fields: [canal_id], references: [id], onDelete: SetNull)
+  origen_id String?       @db.Uuid
+  origen    CatalogoDeal? @relation("DealOrigen", fields: [origen_id], references: [id], onDelete: SetNull)
 
   // Fechas
   fecha_cierre_estimada DateTime? @db.Date

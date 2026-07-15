@@ -199,8 +199,8 @@ export interface DealDetalle {
   score: number; // 0-100, derivado (dealScoreView)
   temperatura: Temperatura;
   probabilidad: number | null;
-  canal: string | null;
-  origen: string | null;
+  canal: { id: string; nombre: string } | null;
+  origen: { id: string; nombre: string } | null;
   resultado: DealResultado;
   fecha_cierre_estimada: string | null;
   dias_abierto: number;

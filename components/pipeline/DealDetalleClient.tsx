@@ -53,6 +53,8 @@ interface Props {
   vendedores?: { id: string; nombre: string }[];
   clientes?: { id: string; nombre: string }[];
   tipos?: { id: string; nombre: string }[];
+  canales?: { id: string; nombre: string }[];
+  origenes?: { id: string; nombre: string }[];
   motivos?: string[]; // catálogo de motivos de pérdida (SOL-10)
   /** Catálogo de tipos de acción (SOL-04): pills del composer */
   tiposAccion?: TipoAccionOpcion[];
@@ -101,7 +103,7 @@ interface FiltroBitacora {
 
 export default function DealDetalleClient({
   deal, stages, canWrite,
-  vendedores = [], clientes = [], tipos = [], motivos = [],
+  vendedores = [], clientes = [], tipos = [], canales = [], origenes = [], motivos = [],
   tiposAccion = [], resultadosAccion = [], sugerirAvanceInicial = false,
 }: Props) {
   const router = useRouter();
@@ -603,8 +605,8 @@ export default function DealDetalleClient({
             <Field label="Tipo" value={deal.tipo?.nombre ?? "—"} tag />
             {deal.setup != null && <Field label="Setup" value={`${fmtFull(deal.setup)} ${deal.moneda}`} />}
             {deal.mensualidad != null && <Field label="Mensualidad" value={`${fmtFull(deal.mensualidad)} / mes`} />}
-            {deal.canal && <Field label="Canal" value={deal.canal} />}
-            {deal.origen && <Field label="Origen" value={deal.origen} />}
+            {deal.canal && <Field label="Canal" value={deal.canal.nombre} />}
+            {deal.origen && <Field label="Origen" value={deal.origen.nombre} />}
             {deal.cliente?.tamano_empresa && (
               <Field label="Tamaño empresa" value={TAMANO_EMPRESA_LABEL[deal.cliente.tamano_empresa]} />
             )}
@@ -1016,6 +1018,8 @@ export default function DealDetalleClient({
           vendedores={vendedores}
           clientes={clientes}
           tipos={tipos}
+          canales={canales}
+          origenes={origenes}
           deal={{
             id: deal.id,
             nombre: deal.nombre,
@@ -1029,8 +1033,8 @@ export default function DealDetalleClient({
             setup: deal.setup,
             mensualidad: deal.mensualidad,
             meses: deal.meses,
-            canal: deal.canal,
-            origen: deal.origen,
+            canal_id: deal.canal?.id ?? null,
+            origen_id: deal.origen?.id ?? null,
             fecha_cierre_estimada: deal.fecha_cierre_estimada ? deal.fecha_cierre_estimada.slice(0, 10) : null,
             fecha_ingreso: deal.fecha_ingreso.slice(0, 10),
             cliente_website: deal.cliente?.website ?? null,

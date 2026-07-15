@@ -637,6 +637,19 @@ async function main() {
     { id: "60000000-0000-0000-0000-000000000006", nombre: "ERP Manufactura (en pausa)", cliente: "30000000-0000-0000-0000-000000000003", stage: 5, vend: 1, tipo: "10000000-0000-0000-0000-000000000001", temp: "MUY_FRIO", valor: 1800000, setup: 1800000, mensualidad: 0, prob: 10, dias: 45, canal: "Llamada", origen: "Prospección" },
   ];
 
+  // Catálogo de Canal/Origen (SSOT): opciones distintas de los deals demo.
+  const canalesSet = [...new Set(dealsDef.map((d) => d.canal))];
+  const origenesSet = [...new Set(dealsDef.map((d) => d.origen))];
+  await prisma.catalogoDeal.createMany({
+    data: [
+      ...canalesSet.map((nombre, orden) => ({ tipo: "CANAL" as const, nombre, orden })),
+      ...origenesSet.map((nombre, orden) => ({ tipo: "ORIGEN" as const, nombre, orden })),
+    ],
+  });
+  const catRows = await prisma.catalogoDeal.findMany({ select: { id: true, tipo: true, nombre: true } });
+  const canalId = (n: string) => catRows.find((c) => c.tipo === "CANAL" && c.nombre === n)?.id ?? null;
+  const origenId = (n: string) => catRows.find((c) => c.tipo === "ORIGEN" && c.nombre === n)?.id ?? null;
+
   const deals = await Promise.all(
     dealsDef.map((d) =>
       prisma.deal.upsert({
@@ -655,8 +668,8 @@ async function main() {
           setup: d.setup || null,
           mensualidad: d.mensualidad || null,
           meses: d.mensualidad ? 12 : null,
-          canal: d.canal,
-          origen: d.origen,
+          canal_id: canalId(d.canal),
+          origen_id: origenId(d.origen),
           fecha_cierre_estimada: new Date("2026-06-30"),
           fecha_entrada_stage: hace(d.dias),
           resultado: "ABIERTO",
