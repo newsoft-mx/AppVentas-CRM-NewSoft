@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { canWrite, requireAuth } from "@/lib/session";
 import { scopeDealWhere } from "@/lib/access-control";
 import { logger } from "@/lib/logger";
+import { TAMANOS_EMPRESA, type TamanoEmpresa } from "@/types/crm";
 
 export const dynamic = "force-dynamic";
 
@@ -72,8 +73,30 @@ export async function PATCH(
   num("valor", false);
   num("setup", true);
   num("mensualidad", true);
+  if (b.meses !== undefined) {
+    const raw = b.meses;
+    if (raw === "" || raw === null) data.meses = null;
+    else {
+      const n = Number(raw);
+      if (Number.isFinite(n) && n >= 0) data.meses = Math.round(n);
+      else errores.push("meses inválido");
+    }
+  }
+  if (b.moneda !== undefined) data.moneda = b.moneda === "USD" ? "USD" : "MXN";
   strOpc("canal");
   strOpc("origen");
+
+  // Datos de EMPRESA (website/tamaño): viven en el Cliente vinculado, no en el Deal.
+  // Se editan desde el modal del deal por comodidad y se aplican a ese cliente.
+  const clienteData: Record<string, unknown> = {};
+  if (b.website !== undefined) {
+    const w = typeof b.website === "string" ? b.website.trim() : "";
+    clienteData.website = w ? (/^https?:\/\//i.test(w) ? w : `https://${w}`).slice(0, 255) : null;
+  }
+  if (b.tamano_empresa !== undefined) {
+    const t = typeof b.tamano_empresa === "string" ? b.tamano_empresa : "";
+    clienteData.tamano_empresa = TAMANOS_EMPRESA.includes(t as TamanoEmpresa) ? (t as TamanoEmpresa) : null;
+  }
   if (b.notas !== undefined) {
     const n = typeof b.notas === "string" ? b.notas.trim() : "";
     if (n.length > 2000) errores.push("La descripción es demasiado larga (máx. 2000)");
@@ -101,13 +124,15 @@ export async function PATCH(
   }
 
   if (errores.length) return NextResponse.json({ error: errores.join("; ") }, { status: 422 });
-  if (Object.keys(data).length === 0) return NextResponse.json({ error: "Nada para actualizar" }, { status: 422 });
+  const hayDeal = Object.keys(data).length > 0;
+  const hayCliente = Object.keys(clienteData).length > 0;
+  if (!hayDeal && !hayCliente) return NextResponse.json({ error: "Nada para actualizar" }, { status: 422 });
 
   try {
     // Scoping por vendedor (evita IDOR): un VENDEDOR solo edita sus propios deals.
     const deal = await prisma.deal.findFirst({
       where: scopeDealWhere(session, { id }),
-      select: { id: true, stage_id: true },
+      select: { id: true, stage_id: true, cliente_id: true },
     });
     if (!deal) return NextResponse.json({ error: "Deal no encontrado" }, { status: 404 });
 
@@ -115,20 +140,26 @@ export async function PATCH(
     // DealStageEvent igual que /stage. El funnel reconstruye la etapa alcanzada
     // desde ese historial; un cambio de stage_id sin evento lo hace divergir del
     // pipeline real. Se hace en UNA transacción con el update y se reinicia
-    // fecha_entrada_stage (tiempo en etapa).
-    const cambiaStage =
-      typeof data.stage_id === "string" && data.stage_id !== deal.stage_id;
+    // fecha_entrada_stage (tiempo en etapa). Los datos de empresa (website/tamaño)
+    // se aplican al cliente vinculado (nuevo si cambió, o el actual) en la misma tx.
+    const cambiaStage = typeof data.stage_id === "string" && data.stage_id !== deal.stage_id;
+    if (cambiaStage) data.fecha_entrada_stage = new Date();
+    const targetClienteId = (data.cliente_id as string) || deal.cliente_id;
+
+    const ops: Prisma.PrismaPromise<unknown>[] = [];
+    if (hayDeal) ops.push(prisma.deal.update({ where: { id }, data: data as Prisma.DealUpdateInput }));
     if (cambiaStage) {
-      data.fecha_entrada_stage = new Date();
-      await prisma.$transaction([
-        prisma.deal.update({ where: { id }, data: data as Prisma.DealUpdateInput }),
-        prisma.dealStageEvent.create({
-          data: { deal_id: id, from_stage_id: deal.stage_id, to_stage_id: data.stage_id as string },
-        }),
-      ]);
-    } else {
-      await prisma.deal.update({ where: { id }, data: data as Prisma.DealUpdateInput });
+      ops.push(prisma.dealStageEvent.create({
+        data: { deal_id: id, from_stage_id: deal.stage_id, to_stage_id: data.stage_id as string },
+      }));
     }
+    if (hayCliente && targetClienteId) {
+      ops.push(prisma.cliente.update({
+        where: { id: targetClienteId },
+        data: clienteData as Prisma.ClienteUpdateInput,
+      }));
+    }
+    await prisma.$transaction(ops);
     return NextResponse.json({ ok: true });
   } catch (err) {
     logger.error("Error al actualizar el deal", "PATCH /api/crm/deals/:id", err);
