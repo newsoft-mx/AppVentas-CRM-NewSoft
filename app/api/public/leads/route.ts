@@ -1,16 +1,15 @@
 export const dynamic = "force-dynamic";
 
 import { NextRequest, NextResponse } from "next/server";
-import type { TipoCatalogoDeal } from "@prisma/client";
-import { prisma } from "@/lib/prisma";
-import { crearDealTx, HttpError } from "@/lib/deals";
+import { HttpError } from "@/lib/deals";
+import { registrarLead } from "@/lib/leads-intake";
 import { leadWebSchema } from "@/lib/validations/leads";
 import { logger } from "@/lib/logger";
 
-// Intake público de leads desde el formulario del sitio web.
-// POST /api/public/leads  (SIN sesión). Crea un prospecto + contacto + deal en la
-// primera etapa, canal "Web" / origen "Formulario web", asignado al buzón fijo
-// (CrmConfig.vendedor_leads_web_id) o sin asignar. Defensa: API key + honeypot + CORS.
+// Adaptador de intake para el FORMULARIO WEB propio.
+// POST /api/public/leads  (SIN sesión). Valida el payload web y delega en registrarLead
+// (lib/leads-intake) con la fuente Web. Defensa: API key + honeypot + CORS.
+// Otras fuentes (Meta, etc.) son otro adaptador que llama al mismo registrarLead.
 
 // Allowlist de orígenes (CORS) por env, coma-separada. Vacío → se refleja el Origin
 // que llega (la API key sigue siendo el gate real).
@@ -33,15 +32,6 @@ export async function OPTIONS(req: NextRequest) {
   return new NextResponse(null, { status: 204, headers: corsHeaders(req.headers.get("origin")) });
 }
 
-async function getOrCreateCatalogo(tipo: TipoCatalogoDeal, nombre: string) {
-  return prisma.catalogoDeal.upsert({
-    where: { tipo_nombre: { tipo, nombre } },
-    create: { tipo, nombre },
-    update: {},
-    select: { id: true },
-  });
-}
-
 export async function POST(req: NextRequest) {
   const cors = corsHeaders(req.headers.get("origin"));
   const json = (body: unknown, status: number) => NextResponse.json(body, { status, headers: cors });
@@ -59,49 +49,15 @@ export async function POST(req: NextRequest) {
     return json({ ok: true }, 201);
   }
 
-  // 3) Validación del payload.
+  // 3) Validación del payload web.
   const parsed = leadWebSchema.safeParse(body);
   if (!parsed.success) {
     const details = parsed.error.errors.map((e) => ({ campo: e.path.join("."), mensaje: e.message }));
     return json({ error: "Datos inválidos", details }, 422);
   }
-  const d = parsed.data;
 
   try {
-    // Primera etapa del pipeline (por orden) = donde entra un lead nuevo.
-    const stage = await prisma.pipelineStage.findFirst({
-      where: { activo: true },
-      orderBy: { orden: "asc" },
-      select: { id: true },
-    });
-    if (!stage) return json({ error: "Pipeline sin etapas configuradas" }, 503);
-
-    const [cfg, canal, origen] = await Promise.all([
-      prisma.crmConfig.findUnique({ where: { id: "crm" }, select: { vendedor_leads_web_id: true } }),
-      getOrCreateCatalogo("CANAL", "Web"),
-      getOrCreateCatalogo("ORIGEN", "Formulario web"),
-    ]);
-
-    // Empresa: la del form o, si no vino, el nombre del contacto (para no dejar el prospecto sin nombre).
-    const empresa = d.empresa || d.nombre;
-    const website = d.website
-      ? (/^https?:\/\//i.test(d.website) ? d.website : `https://${d.website}`).slice(0, 255)
-      : null;
-
-    await prisma.$transaction((tx) =>
-      crearDealTx(tx, {
-        nombre: `Lead web — ${empresa}`,
-        prospecto: { nombre: empresa, website },
-        contacto: { nombre: d.nombre, email: d.email, telefono: d.telefono },
-        contactoRol: "OTRO",
-        stage_id: stage.id,
-        vendedor_id: cfg?.vendedor_leads_web_id ?? null,
-        canal_id: canal.id,
-        origen_id: origen.id,
-        notas: d.mensaje,
-      })
-    );
-
+    await registrarLead(parsed.data, { canal: "Web", origen: "Formulario web" });
     return json({ ok: true }, 201);
   } catch (err) {
     if (err instanceof HttpError) return json({ error: err.message }, err.status);

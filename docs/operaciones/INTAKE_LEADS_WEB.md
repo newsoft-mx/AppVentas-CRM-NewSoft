@@ -67,3 +67,18 @@ curl -X POST https://crm-newsoft.vercel.app/api/public/leads \
   expone. El sitio recibe su form y hace el POST desde su servidor.
 - **Navegador directo → este endpoint**: la key queda expuesta en el front → sumar
   `LEADS_ALLOWED_ORIGINS` + honeypot + (a futuro) rate limit / CAPTCHA.
+
+## Multi-fuente (arquitectura)
+
+El core de alta (`lib/leads-intake.ts → registrarLead(input, { canal, origen })`) es común a
+todas las fuentes. Cada fuente es un **adaptador** delgado que normaliza su payload a
+`LeadIntakeInput` y llama a `registrarLead` con su canal/origen:
+
+- **Web** (este endpoint): `/api/public/leads`, fuente `{ canal: "Web", origen: "Formulario web" }`.
+- **Meta Lead Ads** (a futuro): un adaptador `/api/public/leads/meta` que maneja el webhook de
+  Meta (handshake `hub.challenge` + firma `X-Hub-Signature-256` + fetch al Graph API para traer
+  los campos) → normaliza → `registrarLead(..., { canal: "Meta", origen: "Facebook Lead Ads" })`.
+  Alternativa sin código propio: un middleware (Zapier/Make) que pega al endpoint web genérico.
+- **Otras** (Typeform, otro CRM, etc.): mismo patrón, un adaptador por fuente.
+
+Sumar una fuente **no toca** `registrarLead` ni el core del CRM.
