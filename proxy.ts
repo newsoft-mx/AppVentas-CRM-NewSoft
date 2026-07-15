@@ -4,6 +4,7 @@ import { verifySession, SESSION_COOKIE } from "@/lib/session";
 const PUBLIC_PREFIXES = [
   "/login",
   "/api/auth",
+  "/api/public", // intake público (leads web): protegido por API key, no por sesión
   "/_next",
   "/newsoft-logo.png",
   "/newsoft-favicon.png",

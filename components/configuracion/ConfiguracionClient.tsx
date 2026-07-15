@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Building2, Tag, CreditCard, UserRound, Users, Workflow, XCircle, Gauge, Route } from "lucide-react";
+import { Building2, Tag, CreditCard, UserRound, Users, Workflow, XCircle, Gauge, Route, Globe } from "lucide-react";
 import TabEmpresa from "./TabEmpresa";
 import TabTipos from "./TabTipos";
 import TabCondiciones from "./TabCondiciones";
@@ -10,6 +10,7 @@ import TabUsuarios from "./TabUsuarios";
 import TabPipelineStages from "./TabPipelineStages";
 import TabMotivosPerdida from "./TabMotivosPerdida";
 import TabCanalesOrigenes, { type OpcionCatalogo } from "./TabCanalesOrigenes";
+import TabLeadsWeb from "./TabLeadsWeb";
 import TabScoring from "./TabScoring";
 import type { Empresa, TipoCotizacion, CondicionComercial, Vendedor, Usuario, PipelineStageConfig } from "@/types/configuracion";
 
@@ -39,6 +40,7 @@ const TABS = [
   { id: "pipeline", label: "Etapas del Pipeline", icon: Workflow },
   { id: "motivos", label: "Motivos de pérdida", icon: XCircle },
   { id: "canales", label: "Canales y Orígenes", icon: Route },
+  { id: "leads-web", label: "Leads web", icon: Globe },
   { id: "scoring", label: "Scoring", icon: Gauge },
 ] as const;
 
@@ -136,6 +138,10 @@ export default function ConfiguracionClient({
 
           {activeTab === "canales" && (
             <TabCanalesOrigenes initial={initialCatalogoDeal} />
+          )}
+
+          {activeTab === "leads-web" && (
+            <TabLeadsWeb vendedores={initialVendedores} />
           )}
 
           {activeTab === "scoring" && (
