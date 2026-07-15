@@ -131,6 +131,25 @@ export async function PATCH(
     });
     if (!deal) return NextResponse.json({ error: "Deal no encontrado" }, { status: 404 });
 
+    // Validar los FK de catálogo: un id inexistente o de tipo equivocado (p.ej. la opción
+    // se borró con el modal abierto) se ignora → null, en vez de romper todo el guardado
+    // con una violación de FK (500). Consistente con onDelete: SetNull.
+    const fkPedidos = (
+      [
+        ["canal_id", "CANAL"],
+        ["origen_id", "ORIGEN"],
+      ] as const
+    ).filter(([campo]) => typeof data[campo] === "string");
+    if (fkPedidos.length) {
+      const validas = await prisma.catalogoDeal.findMany({
+        where: { id: { in: fkPedidos.map(([campo]) => data[campo] as string) } },
+        select: { id: true, tipo: true },
+      });
+      for (const [campo, tipo] of fkPedidos) {
+        if (!validas.some((v) => v.id === data[campo] && v.tipo === tipo)) data[campo] = null;
+      }
+    }
+
     // Bloque E: si esta edición mueve el deal de etapa, hay que registrar el
     // DealStageEvent igual que /stage. El funnel reconstruye la etapa alcanzada
     // desde ese historial; un cambio de stage_id sin evento lo hace divergir del

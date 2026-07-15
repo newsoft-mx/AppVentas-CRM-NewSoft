@@ -640,12 +640,15 @@ async function main() {
   // Catálogo de Canal/Origen (SSOT): opciones distintas de los deals demo.
   const canalesSet = [...new Set(dealsDef.map((d) => d.canal))];
   const origenesSet = [...new Set(dealsDef.map((d) => d.origen))];
-  await prisma.catalogoDeal.createMany({
-    data: [
-      ...canalesSet.map((nombre, orden) => ({ tipo: "CANAL" as const, nombre, orden })),
-      ...origenesSet.map((nombre, orden) => ({ tipo: "ORIGEN" as const, nombre, orden })),
-    ],
-  });
+  // Idempotente (como los demás catálogos): solo sembrar si está vacío.
+  if ((await prisma.catalogoDeal.count()) === 0) {
+    await prisma.catalogoDeal.createMany({
+      data: [
+        ...canalesSet.map((nombre, orden) => ({ tipo: "CANAL" as const, nombre, orden })),
+        ...origenesSet.map((nombre, orden) => ({ tipo: "ORIGEN" as const, nombre, orden })),
+      ],
+    });
+  }
   const catRows = await prisma.catalogoDeal.findMany({ select: { id: true, tipo: true, nombre: true } });
   const canalId = (n: string) => catRows.find((c) => c.tipo === "CANAL" && c.nombre === n)?.id ?? null;
   const origenId = (n: string) => catRows.find((c) => c.tipo === "ORIGEN" && c.nombre === n)?.id ?? null;
