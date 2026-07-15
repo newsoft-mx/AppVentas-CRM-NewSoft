@@ -1024,12 +1024,17 @@ export default function DealDetalleClient({
             stage_id: deal.stage.id,
             tipo_cotizacion_id: deal.tipo?.id ?? null,
             temperatura: deal.temperatura,
+            moneda: deal.moneda,
             valor: deal.valor,
             setup: deal.setup,
             mensualidad: deal.mensualidad,
+            meses: deal.meses,
             canal: deal.canal,
             origen: deal.origen,
             fecha_cierre_estimada: deal.fecha_cierre_estimada ? deal.fecha_cierre_estimada.slice(0, 10) : null,
+            fecha_ingreso: deal.fecha_ingreso.slice(0, 10),
+            cliente_website: deal.cliente?.website ?? null,
+            cliente_tamano: deal.cliente?.tamano_empresa ?? null,
           }}
           onClose={() => setEditOpen(false)}
           onSaved={() => { setEditOpen(false); router.refresh(); }}

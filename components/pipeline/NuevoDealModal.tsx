@@ -19,11 +19,16 @@ export interface DealEditInitial {
   tipo_cotizacion_id: string | null;
   temperatura: Temperatura;
   valor: number;
+  moneda: string;
   setup: number | null;
   mensualidad: number | null;
+  meses: number | null;
   canal: string | null;
   origen: string | null;
   fecha_cierre_estimada: string | null; // YYYY-MM-DD
+  fecha_ingreso: string; // YYYY-MM-DD (fecha de registro del lead)
+  cliente_website: string | null;
+  cliente_tamano: TamanoEmpresa | null;
 }
 
 interface Props {
@@ -52,12 +57,17 @@ export default function NuevoDealModal({ stages, vendedores, clientes, tipos, on
     stage_id: deal?.stage_id ?? stages[0]?.id ?? "",
     tipo_cotizacion_id: deal?.tipo_cotizacion_id ?? "",
     temperatura: deal?.temperatura ?? ("TIBIO" as Temperatura),
+    moneda: deal?.moneda ?? "MXN",
     valor: deal?.valor != null ? String(deal.valor) : "",
     setup: deal?.setup != null ? String(deal.setup) : "",
     mensualidad: deal?.mensualidad != null ? String(deal.mensualidad) : "",
+    meses: deal?.meses != null ? String(deal.meses) : "",
     canal: deal?.canal ?? "",
     origen: deal?.origen ?? "",
     fecha_cierre_estimada: deal?.fecha_cierre_estimada ?? "",
+    fecha_ingreso: deal?.fecha_ingreso ?? "",
+    edit_website: deal?.cliente_website ?? "",
+    edit_tamano: (deal?.cliente_tamano ?? "") as "" | TamanoEmpresa,
     contacto_nombre: "",
     contacto_rol: "DECISOR" as RolContacto,
     contacto_email: "",
@@ -89,12 +99,17 @@ export default function NuevoDealModal({ stages, vendedores, clientes, tipos, on
             stage_id: form.stage_id,
             tipo_cotizacion_id: form.tipo_cotizacion_id || null,
             temperatura: form.temperatura,
+            moneda: form.moneda,
             valor: form.valor,
             setup: form.setup,
             mensualidad: form.mensualidad,
+            meses: form.meses,
             canal: form.canal,
             origen: form.origen,
             fecha_cierre_estimada: form.fecha_cierre_estimada,
+            fecha_ingreso: form.fecha_ingreso,
+            website: form.edit_website,
+            tamano_empresa: form.edit_tamano || null,
           }),
         });
         const data = await res.json();
@@ -242,7 +257,13 @@ export default function NuevoDealModal({ stages, vendedores, clientes, tipos, on
             {TEMPERATURAS.map((t) => <option key={t} value={t}>{TEMPERATURA_META[t].label}</option>)}
           </select>
         </Campo>
-        <Campo label="Valor total (MXN)">
+        <Campo label="Moneda">
+          <select className={inputCls} value={form.moneda} onChange={(e) => set("moneda", e.target.value)}>
+            <option value="MXN">MXN</option>
+            <option value="USD">USD</option>
+          </select>
+        </Campo>
+        <Campo label={`Valor total (${form.moneda})`}>
           <input type="number" min={0} className={inputCls} value={form.valor} onChange={(e) => set("valor", e.target.value)} placeholder="0" />
         </Campo>
         <Campo label="Setup">
@@ -250,6 +271,12 @@ export default function NuevoDealModal({ stages, vendedores, clientes, tipos, on
         </Campo>
         <Campo label="Mensualidad">
           <input type="number" min={0} className={inputCls} value={form.mensualidad} onChange={(e) => set("mensualidad", e.target.value)} placeholder="Opcional" />
+        </Campo>
+        <Campo label="Meses">
+          <input
+            type="number" min={0} className={inputCls}
+            value={form.meses} onChange={(e) => set("meses", e.target.value)} placeholder="Opcional"
+          />
         </Campo>
         <Campo label="Canal">
           <input className={inputCls} value={form.canal} onChange={(e) => set("canal", e.target.value)} placeholder="Ej. WhatsApp API" />
@@ -260,6 +287,33 @@ export default function NuevoDealModal({ stages, vendedores, clientes, tipos, on
         <Campo label="Cierre estimado">
           <input type="date" className={inputCls} value={form.fecha_cierre_estimada} onChange={(e) => set("fecha_cierre_estimada", e.target.value)} />
         </Campo>
+
+        {/* Datos editables solo en edición: fecha de registro (Deal) + empresa (Cliente). */}
+        {editando && (
+          <>
+            <Campo label="Fecha de registro">
+              <input
+                type="date" className={inputCls}
+                value={form.fecha_ingreso} onChange={(e) => set("fecha_ingreso", e.target.value)}
+              />
+            </Campo>
+            <Campo label="Website de la empresa">
+              <input
+                className={inputCls} value={form.edit_website}
+                onChange={(e) => set("edit_website", e.target.value)} placeholder="empresa.com"
+              />
+            </Campo>
+            <Campo label="Tamaño de empresa">
+              <select
+                className={inputCls} value={form.edit_tamano}
+                onChange={(e) => set("edit_tamano", e.target.value as "" | TamanoEmpresa)}
+              >
+                <option value="">— Sin especificar —</option>
+                {TAMANOS_EMPRESA.map((t) => <option key={t} value={t}>{TAMANO_EMPRESA_LABEL[t]}</option>)}
+              </select>
+            </Campo>
+          </>
+        )}
       </div>
 
       {/* Contacto principal (obligatorio en alta; en edición se gestiona en la ficha) */}
