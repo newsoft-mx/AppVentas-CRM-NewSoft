@@ -165,6 +165,7 @@ export default async function DealDetallePage({
       deal={detalle}
       stages={stagesSerialized}
       canWrite={canWrite(session)}
+      esAdmin={session?.rol === "ADMIN"}
       vendedores={vendedores}
       clientes={clientes}
       tipos={tipos}
