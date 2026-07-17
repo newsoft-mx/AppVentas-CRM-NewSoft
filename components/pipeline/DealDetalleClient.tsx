@@ -654,12 +654,17 @@ export default function DealDetalleClient({
                 const Icon = meta.icon;
                 // Estado derivado (SOL-21/23): solo las agendadas tienen Pendiente/Listo.
                 const estadoT = estadoTarea(a);
-                // SOL-21: la nota es opcional → sin cuerpo no se dibuja la caja (antes
-                // quedaba un recuadro vacío). La caja existe si hay algo que mostrar.
-                const tieneCuerpo =
-                  a.contenido.trim() !== "" || Boolean(a.enlace_url) || Boolean(a.es_tarea && a.fecha_tarea);
+                const vencida = Boolean(
+                  a.es_tarea && !a.completada && a.fecha_tarea && nowTs != null && estaVencida(a.fecha_tarea, nowTs)
+                );
+                // SOL-21: la nota es opcional → sin nota ni enlace no se dibuja la caja
+                // (antes quedaba un recuadro vacío). El "cuándo" ya vive en el encabezado.
+                const tieneCuerpo = a.contenido.trim() !== "" || Boolean(a.enlace_url);
+                // Fecha de la derecha: de una tarea importa CUÁNDO vence, no cuándo se anotó
+                // (eso queda en el title); de un registro, cuándo ocurrió.
+                const fechaDer = a.es_tarea && a.fecha_tarea ? a.fecha_tarea : (a.fecha_evento ?? a.created_at);
                 return (
-                  <div key={a.id} className="flex gap-3">
+                  <div key={a.id} className="group flex gap-2.5">
                     {/* Columna izquierda: en las agendadas, checkbox para completar de un
                         clic (el gesto de Gaby en Pipedrive); en los registros, el ícono. */}
                     {canWrite && estadoT ? (
@@ -667,39 +672,43 @@ export default function DealDetalleClient({
                         onClick={() => alternarEstado(a)}
                         title={a.completada ? "Marcar como Pendiente" : "Marcar como Listo"}
                         aria-label={a.completada ? "Marcar como Pendiente" : "Marcar como Listo"}
-                        className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full
-                                    border-2 transition-colors ${
+                        className={`mt-0.5 flex h-[17px] w-[17px] shrink-0 items-center justify-center
+                                    rounded-full border transition-colors ${
                                       a.completada
-                                        ? "border-emerald-600 bg-emerald-600 text-white"
-                                        : `border-gray-300 text-transparent hover:border-emerald-600
-                                           hover:text-emerald-600`
+                                        ? "border-emerald-500 bg-emerald-500 text-white"
+                                        : `border-gray-300 text-transparent hover:border-emerald-500
+                                           hover:bg-emerald-50 hover:text-emerald-500`
                                     }`}
                       >
-                        <Check size={14} strokeWidth={3} />
+                        <Check size={11} strokeWidth={3.5} />
                       </button>
                     ) : (
                       <div
-                        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full"
+                        className="mt-0.5 flex h-[17px] w-[17px] shrink-0 items-center justify-center rounded-full"
                         style={{ background: meta.bg, color: meta.color }}
                       >
-                        <Icon size={13} />
+                        <Icon size={10} />
                       </div>
                     )}
                     <div className="min-w-0 flex-1">
-                      <div className="flex flex-wrap items-center gap-2 text-xs">
-                        <span className="font-semibold text-navy">{a.autor}</span>
-                        {a.contacto_nombre && <span className="text-gray-400">· con {a.contacto_nombre}</span>}
-                        {/* Modelo de actividad (SOL-04): tipo del catálogo (color), estado y resultado */}
+                      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
+                        {/* Tipo del catálogo (SOL-04): punto de color + nombre, sin recuadro. */}
                         {a.tipo_accion && (
                           <span
-                            className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-semibold"
-                            style={{ background: a.tipo_accion.color + "1A", color: a.tipo_accion.color }}
+                            className="flex shrink-0 items-center gap-1.5 font-semibold"
+                            style={{ color: a.tipo_accion.color }}
                           >
                             <span className="h-1.5 w-1.5 rounded-full" style={{ background: a.tipo_accion.color }} />
                             {a.tipo_accion.nombre}
                           </span>
                         )}
-                        {estadoT && (
+                        <span className="truncate text-gray-500">
+                          {a.autor}
+                          {a.contacto_nombre && <span className="text-gray-400"> · con {a.contacto_nombre}</span>}
+                        </span>
+                        {/* El estado NO se repite en chip: ya lo dice el checkbox. Solo se
+                            muestra a quien no puede tocarlo (y por eso no tiene checkbox). */}
+                        {estadoT && !canWrite && (
                           <span
                             className={`rounded px-1.5 py-0.5 text-[10px] font-semibold
                                         ${ESTADO_TAREA_META[estadoT].chip}`}
@@ -708,51 +717,92 @@ export default function DealDetalleClient({
                           </span>
                         )}
                         {a.resultado && (
-                          <span className={`flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-semibold ${EFECTO_META[a.resultado.efecto].chip}`}>
+                          <span
+                            className={`flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px]
+                                        font-semibold ${EFECTO_META[a.resultado.efecto].chip}`}
+                          >
                             {EFECTO_META[a.resultado.efecto].arrow && (
                               <span>{EFECTO_META[a.resultado.efecto].arrow}</span>
                             )}
                             {a.resultado.nombre}
                           </span>
                         )}
-                        {canWrite && (
-                          <button
-                            onClick={() => toggleDestacar(a)}
-                            title={a.destacada ? "Quitar destacado" : "Destacar"}
-                            className="text-gray-300 hover:text-amber-500"
-                          >
-                            <Star
-                              size={13}
-                              fill={a.destacada ? "#F5A623" : "none"}
-                              color={a.destacada ? "#F5A623" : "currentColor"}
-                            />
-                          </button>
-                        )}
-                        {canWrite && a.tipo !== "SISTEMA" && (
-                          <>
-                            <button onClick={() => iniciarEdicion(a)} title="Editar" className="text-gray-300 hover:text-navy">
-                              <Pencil size={12} />
+
+                        {/* Acciones + fecha viajan juntas a la derecha: sueltas, al no entrar
+                            en la línea, la fecha se caía sola al renglón de abajo. */}
+                        <span className="ml-auto flex shrink-0 items-center gap-2">
+                        {/* Acciones: aparecen al pasar el mouse o al enfocar con teclado.
+                            Encendidas en cada fila eran ruido. La estrella se queda si está
+                            destacada: ahí sí dice algo. */}
+                        <span
+                          className={`flex shrink-0 items-center gap-1.5 transition-opacity
+                                      focus-within:opacity-100 group-hover:opacity-100 ${
+                                        a.destacada ? "" : "opacity-0"
+                                      }`}
+                        >
+                          {canWrite && (
+                            <button
+                              onClick={() => toggleDestacar(a)}
+                              title={a.destacada ? "Quitar destacado" : "Destacar"}
+                              className="text-gray-300 hover:text-amber-500"
+                            >
+                              <Star
+                                size={13}
+                                fill={a.destacada ? "#F5A623" : "none"}
+                                color={a.destacada ? "#F5A623" : "currentColor"}
+                              />
                             </button>
-                            <button onClick={() => eliminarActividad(a)} title="Eliminar" className="text-gray-300 hover:text-red-500">
-                              <Trash2 size={12} />
-                            </button>
-                          </>
-                        )}
-                        <span className="ml-auto text-[11px] text-gray-400">
-                          {a.editada && <span className="mr-1 italic text-gray-300">editado ·</span>}
-                          {formatFechaHora(a.fecha_evento ?? a.created_at)}
+                          )}
+                          {canWrite && a.tipo !== "SISTEMA" && (
+                            <>
+                              <button
+                                onClick={() => iniciarEdicion(a)}
+                                title="Editar"
+                                className="text-gray-300 hover:text-navy"
+                              >
+                                <Pencil size={12} />
+                              </button>
+                              <button
+                                onClick={() => eliminarActividad(a)}
+                                title="Eliminar"
+                                className="text-gray-300 hover:text-red-500"
+                              >
+                                <Trash2 size={12} />
+                              </button>
+                            </>
+                          )}
+                        </span>
+
+                        {/* Fecha: la de vencimiento si es tarea (roja si ya pasó, tachada si
+                            se completó); la del hecho si es un registro. */}
+                        <span
+                          className={`flex shrink-0 items-center gap-1 text-[11px] ${
+                            a.completada
+                              ? "text-gray-400 line-through"
+                              : a.es_tarea
+                                ? vencida
+                                  ? "font-semibold text-red-600"
+                                  : "font-medium text-blue-700"
+                                : "text-gray-400"
+                          }`}
+                          title={`Registrado el ${formatFechaHora(a.created_at)}`}
+                        >
+                          {a.editada && <span className="mr-0.5 italic text-gray-300">editado ·</span>}
+                          {a.es_tarea && <CalendarClock size={12} />}
+                          {formatFechaHora(fechaDer)}
+                        </span>
                         </span>
                       </div>
                       {tieneCuerpo && (
                         <div
-                          className={`mt-1 flex flex-col items-start gap-1.5 rounded-lg border border-surface-border
-                                      bg-white px-3 py-2 text-sm leading-relaxed text-gray-700 ${
+                          className={`mt-1 flex flex-col items-start gap-1.5 rounded-md bg-surface/70 px-2.5 py-1.5
+                                      text-sm leading-relaxed text-gray-700 ${
                                         editando?.id === a.id ? "ring-2 ring-orange/40" : ""
                                       }`}
-                          style={{ borderLeftWidth: 3, borderLeftColor: a.destacada ? "#F5A623" : meta.color }}
+                          style={{ borderLeftWidth: 2, borderLeftColor: a.destacada ? "#F5A623" : meta.color }}
                         >
                           {a.contenido.trim() !== "" && (
-                            <div className="w-full">
+                            <div className={`w-full ${a.completada ? "text-gray-500" : ""}`}>
                               <Markdown>{a.contenido}</Markdown>
                             </div>
                           )}
@@ -766,17 +816,6 @@ export default function DealDetalleClient({
                             >
                               <Link2 size={12} /> Ver enlace
                             </a>
-                          )}
-                          {/* El estado ya lo dice el checkbox de la izquierda + el chip de
-                              arriba; acá solo el "cuándo" del seguimiento. */}
-                          {a.es_tarea && a.fecha_tarea && (
-                            <span
-                              className={`flex items-center gap-1 text-[11px] font-semibold ${
-                                a.completada ? "text-gray-400 line-through" : "text-blue-700"
-                              }`}
-                            >
-                              <CalendarClock size={12} /> Seguimiento: {formatFechaHora(a.fecha_tarea)}
-                            </span>
                           )}
                         </div>
                       )}
