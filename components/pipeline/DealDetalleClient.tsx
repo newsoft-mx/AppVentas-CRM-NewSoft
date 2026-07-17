@@ -26,7 +26,7 @@ import ActividadCompositor, {
   type TipoAccionOpcion, type ResultadoAccionOpcion, type RespuestaGuardado,
 } from "@/components/pipeline/ActividadCompositor";
 import { formatCompacto, formatFechaHora } from "@/lib/utils";
-import { TIPO_ACTIVIDAD_META } from "@/lib/actividad-tipos";
+import { TIPO_ACTIVIDAD_META, tipoMovimiento } from "@/lib/actividad-tipos";
 import { esTareaPendiente, estaVencida, estadoTarea } from "@/lib/tareas";
 import {
   TEMPERATURA_META,
@@ -274,27 +274,18 @@ export default function DealDetalleClient({
   // Filtros "Ver" derivados del contenido: Todas + tipos de movimiento presentes +
   // facetas con resultados. Con contador; se auto-mantienen con lo que hay en la bitácora.
   const filtrosBitacora = useMemo<FiltroBitacora[]>(() => {
+    // Se agrupa por el TIPO (tipoMovimiento), no por la fuente del dato. Agrupando por
+    // fuente, una nota con tipo del catálogo y otra sin él daban dos chips —"Nota" y
+    // "Notas"— para lo mismo, y encima uno singular y otro plural.
     const tipos = new Map<string, FiltroBitacora>();
     for (const a of actividades) {
-      if (a.tipo_accion) {
-        const key = `acc:${a.tipo_accion.id}`;
-        const found = tipos.get(key);
-        if (found) { found.count++; continue; }
-        const accId = a.tipo_accion.id;
-        tipos.set(key, {
-          key, label: a.tipo_accion.nombre, color: a.tipo_accion.color, count: 1,
-          match: (x) => x.tipo_accion?.id === accId,
-        });
-      } else {
-        const key = `leg:${a.tipo}`;
-        const found = tipos.get(key);
-        if (found) { found.count++; continue; }
-        const leg = a.tipo;
-        tipos.set(key, {
-          key, label: TIPO_ACTIVIDAD_META[leg].labelPlural, color: TIPO_ACTIVIDAD_META[leg].color, count: 1,
-          match: (x) => !x.tipo_accion && x.tipo === leg,
-        });
-      }
+      const { nombre, color } = tipoMovimiento(a);
+      const found = tipos.get(nombre);
+      if (found) { found.count++; continue; }
+      tipos.set(nombre, {
+        key: `tipo:${nombre}`, label: nombre, color, count: 1,
+        match: (x) => tipoMovimiento(x).nombre === nombre,
+      });
     }
     const facetas: FiltroBitacora[] = [
       { key: "fav", label: "Favoritas", icon: Star, count: actividades.filter((a) => a.destacada).length, match: (a) => a.destacada },
@@ -669,8 +660,7 @@ export default function DealDetalleClient({
                 // El tipo se nombra UNA vez: si no hay nota, el título ya es el tipo y la
                 // meta no lo repite. Del catálogo si lo tiene (SOL-04); si no, el tipo base.
                 const hayNota = a.contenido.trim() !== "";
-                const tipoNombre = a.tipo_accion?.nombre ?? meta.label;
-                const tipoColor = a.tipo_accion?.color ?? meta.color;
+                const { nombre: tipoNombre, color: tipoColor } = tipoMovimiento(a);
                 // Fecha: de una tarea importa CUÁNDO vence, no cuándo se anotó (eso queda en
                 // el title); de un registro, cuándo ocurrió.
                 const fechaDer = a.es_tarea && a.fecha_tarea ? a.fecha_tarea : (a.fecha_evento ?? a.created_at);

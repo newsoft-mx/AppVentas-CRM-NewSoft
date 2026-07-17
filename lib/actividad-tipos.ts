@@ -52,6 +52,24 @@ export const TIPOS_CREABLES: TipoActividad[] = (
 ).filter((t) => TIPO_ACTIVIDAD_META[t].creable);
 
 /**
+ * Qué tipo de movimiento es, para mostrarlo y para agrupar (SSOT).
+ *
+ * Hay dos fuentes: el catálogo (TipoAccion, configurable) y el tipo base del enum, para lo
+ * cargado sin catálogo. La regla de cuál gana estaba repetida en cada consumidor, y el
+ * filtro "Ver" tenía su propia versión que además agrupaba por la FUENTE del dato en vez
+ * de por el tipo: una nota con catálogo y otra sin él caían en chips distintos ("Nota" y
+ * "Notas"), aunque para quien lee son lo mismo. Con una sola regla, agrupan juntas.
+ */
+export function tipoMovimiento(a: {
+  tipo: TipoActividad;
+  tipo_accion?: { nombre: string; color: string } | null;
+}): { nombre: string; color: string } {
+  if (a.tipo_accion) return { nombre: a.tipo_accion.nombre, color: a.tipo_accion.color };
+  const meta = TIPO_ACTIVIDAD_META[a.tipo];
+  return { nombre: meta.label, color: meta.color };
+}
+
+/**
  * Cómo se titula un movimiento en una lista (SSOT).
  *
  * Desde SOL-21 la nota es opcional, así que quien la usaba de título se quedaba sin nada
