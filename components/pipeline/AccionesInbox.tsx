@@ -7,10 +7,11 @@ import {
   ListChecks, CalendarClock, ChevronRight, LayoutList, CalendarDays, Plus,
 } from "lucide-react";
 import {
-  TEMPERATURA_META, ESTADO_TAREA_META, GRUPO_URGENCIA_META,
+  TEMPERATURA_META, GRUPO_URGENCIA_META,
   type AccionItem, type TipoActividad, type GrupoUrgencia,
 } from "@/types/crm";
 import CalendarioAcciones from "@/components/pipeline/CalendarioAcciones";
+import CheckTarea from "@/components/pipeline/CheckTarea";
 import ActividadCompositor, {
   type DealCompositor, type TipoAccionOpcion, type ResultadoAccionOpcion,
 } from "@/components/pipeline/ActividadCompositor";
@@ -18,8 +19,8 @@ import InputFechaHora from "@/components/ui/InputFechaHora";
 import { formatCompacto, formatFechaHora } from "@/lib/utils";
 import { useUrlFilters } from "@/hooks/useUrlFilters";
 import { serializeAccionesFiltros, type AccionesFiltros } from "@/lib/acciones-filtros";
-import { grupoUrgencia, estadoTarea } from "@/lib/tareas";
-import { TIPO_ACTIVIDAD_META } from "@/lib/actividad-tipos";
+import { grupoUrgencia } from "@/lib/tareas";
+import { TIPO_ACTIVIDAD_META, tituloActividad } from "@/lib/actividad-tipos";
 
 const ORDEN_GRUPOS: GrupoUrgencia[] = ["VENCIDAS", "HOY", "SEMANA", "DESPUES"];
 
@@ -272,26 +273,25 @@ export default function AccionesInbox({
                 {grupo.map((a) => {
                   const temp = TEMPERATURA_META[a.deal.temperatura];
                   const Icon = TIPO_ACTIVIDAD_META[a.tipo].icon;
-                  const estado = ESTADO_TAREA_META[estadoTarea(a) ?? "PENDIENTE"];
                   return (
                     <div
                       key={a.id}
                       className="flex items-start gap-3 rounded-xl border border-surface-border bg-white px-4 py-3 transition-shadow hover:shadow-sm"
                     >
-                      <button
-                        onClick={() => marcarListo(a)}
-                        title={`${estado.label} — clic para marcar Listo`}
-                        className="mt-0.5 flex shrink-0 items-center gap-1.5 rounded-full px-2 py-1 text-[10px] font-bold uppercase transition-colors hover:opacity-80"
-                        style={{ backgroundColor: estado.dot + "22", color: estado.dot }}
-                      >
-                        <span className="h-2 w-2 rounded-full" style={{ background: estado.dot }} />
-                        {estado.label}
-                      </button>
+                      {/* Mismo control que la bitácora. La pastilla "PENDIENTE" que había acá
+                          se leía como etiqueta, no como botón: nadie adivinaba que marcaba
+                          Listo. Además el listado ya son todos pendientes — el rótulo no
+                          agregaba nada. */}
+                      <CheckTarea completada={a.completada} onToggle={() => marcarListo(a)} />
                       <div
                         className="min-w-0 flex-1 cursor-pointer"
                         onClick={() => router.push(`/pipeline/${a.deal.id}`)}
                       >
-                        <div className="text-sm font-semibold leading-snug text-navy">{a.contenido}</div>
+                        {/* SOL-21: la nota es opcional → sin ella la tarjeta quedaba sin
+                            título. La regla del título vive en lib/actividad-tipos. */}
+                        <div className="text-sm font-semibold leading-snug text-navy">
+                          {tituloActividad(a)}
+                        </div>
                         <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px] text-gray-500">
                           <span className="h-1.5 w-1.5 rounded-full" style={{ background: temp.color }} />
                           <span className="rounded bg-surface px-1.5 py-0.5">{a.deal.nombre}</span>

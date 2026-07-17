@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { TEMPERATURA_META, type AccionItem } from "@/types/crm";
-import { TIPO_ACTIVIDAD_META } from "@/lib/actividad-tipos";
+import { TIPO_ACTIVIDAD_META, tituloActividad } from "@/lib/actividad-tipos";
 
 const DIAS = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
 const MESES = [
@@ -144,7 +144,7 @@ export default function CalendarioAcciones({
                     <button
                       key={a.id}
                       onClick={() => onAbrir(a.deal.id)}
-                      title={`${hora(a.fecha_tarea!)} · ${a.deal.nombre} — ${a.contenido}`}
+                      title={`${hora(a.fecha_tarea!)} · ${a.deal.nombre} — ${tituloActividad(a)}`}
                       className={`flex w-full items-center gap-1 rounded px-1 py-0.5 text-left text-[10px] transition-colors hover:bg-surface ${
                         vencido && !esHoy ? "bg-red-50" : "bg-surface/70"
                       }`}

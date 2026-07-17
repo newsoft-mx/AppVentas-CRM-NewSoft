@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import {
   ArrowLeft, Building2, Trophy, ChevronDown, XCircle, PauseCircle, Play, CalendarClock,
   Star, Link2, ArrowUpCircle, ChevronRight, UserPlus, Pencil, Trash2, Plus, X,
-  Globe, AlertTriangle, Check,
+  Globe, AlertTriangle,
   type LucideIcon,
 } from "lucide-react";
 import Modal from "@/components/ui/Modal";
@@ -17,6 +17,7 @@ import CasosNegocioDeal from "@/components/pipeline/CasosNegocioDeal";
 import NuevoDealModal from "@/components/pipeline/NuevoDealModal";
 import Markdown from "@/components/ui/Markdown";
 import MarkdownEditor from "@/components/ui/MarkdownEditor";
+import CheckTarea from "@/components/pipeline/CheckTarea";
 import ActividadCompositor, {
   type TipoAccionOpcion, type ResultadoAccionOpcion, type RespuestaGuardado,
 } from "@/components/pipeline/ActividadCompositor";
@@ -24,7 +25,7 @@ import { formatCompacto, formatFechaHora } from "@/lib/utils";
 import { TIPO_ACTIVIDAD_META } from "@/lib/actividad-tipos";
 import { esTareaPendiente, estaVencida, estadoTarea } from "@/lib/tareas";
 import {
-  TEMPERATURA_META, ESTADO_TAREA_META,
+  TEMPERATURA_META,
   EFECTO_META, TAMANO_EMPRESA_LABEL,
   type DealDetalle, type DealActividadItem, type StageResumen, type TipoActividad,
   type Temperatura,
@@ -667,21 +668,12 @@ export default function DealDetalleClient({
                   <div key={a.id} className="group flex gap-2.5">
                     {/* Columna izquierda: en las agendadas, checkbox para completar de un
                         clic (el gesto de Gaby en Pipedrive); en los registros, el ícono. */}
-                    {canWrite && estadoT ? (
-                      <button
-                        onClick={() => alternarEstado(a)}
-                        title={a.completada ? "Marcar como Pendiente" : "Marcar como Listo"}
-                        aria-label={a.completada ? "Marcar como Pendiente" : "Marcar como Listo"}
-                        className={`mt-0.5 flex h-[17px] w-[17px] shrink-0 items-center justify-center
-                                    rounded-full border transition-colors ${
-                                      a.completada
-                                        ? "border-emerald-500 bg-emerald-500 text-white"
-                                        : `border-gray-300 text-transparent hover:border-emerald-500
-                                           hover:bg-emerald-50 hover:text-emerald-500`
-                                    }`}
-                      >
-                        <Check size={11} strokeWidth={3.5} />
-                      </button>
+                    {estadoT ? (
+                      <CheckTarea
+                        completada={a.completada}
+                        onToggle={() => alternarEstado(a)}
+                        disabled={!canWrite}
+                      />
                     ) : (
                       <div
                         className="mt-0.5 flex h-[17px] w-[17px] shrink-0 items-center justify-center rounded-full"
@@ -692,8 +684,11 @@ export default function DealDetalleClient({
                     )}
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
-                        {/* Tipo del catálogo (SOL-04): punto de color + nombre, sin recuadro. */}
-                        {a.tipo_accion && (
+                        {/* Qué movimiento es. Siempre visible: en las tareas el check ocupa
+                            el lugar del ícono, así que sin esto una fila sin nota no decía
+                            si fue llamada, mail o visita. Del catálogo si lo tiene (SOL-04);
+                            si no, el tipo base con su ícono. */}
+                        {a.tipo_accion ? (
                           <span
                             className="flex shrink-0 items-center gap-1.5 font-semibold"
                             style={{ color: a.tipo_accion.color }}
@@ -701,21 +696,22 @@ export default function DealDetalleClient({
                             <span className="h-1.5 w-1.5 rounded-full" style={{ background: a.tipo_accion.color }} />
                             {a.tipo_accion.nombre}
                           </span>
-                        )}
-                        <span className="truncate text-gray-500">
-                          {a.autor}
-                          {a.contacto_nombre && <span className="text-gray-400"> · con {a.contacto_nombre}</span>}
-                        </span>
-                        {/* El estado NO se repite en chip: ya lo dice el checkbox. Solo se
-                            muestra a quien no puede tocarlo (y por eso no tiene checkbox). */}
-                        {estadoT && !canWrite && (
+                        ) : (
                           <span
-                            className={`rounded px-1.5 py-0.5 text-[10px] font-semibold
-                                        ${ESTADO_TAREA_META[estadoT].chip}`}
+                            className="flex shrink-0 items-center gap-1 font-semibold"
+                            style={{ color: meta.color }}
                           >
-                            {ESTADO_TAREA_META[estadoT].label}
+                            <Icon size={11} /> {meta.label}
                           </span>
                         )}
+                        <span className="truncate font-semibold text-navy">
+                          {a.autor}
+                          {a.contacto_nombre && (
+                            <span className="font-normal text-gray-400"> · con {a.contacto_nombre}</span>
+                          )}
+                        </span>
+                        {/* El estado no se repite en chip: ya lo dice el check (apagado si
+                            no se puede tocar). */}
                         {a.resultado && (
                           <span
                             className={`flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px]
@@ -795,11 +791,11 @@ export default function DealDetalleClient({
                       </div>
                       {tieneCuerpo && (
                         <div
-                          className={`mt-1 flex flex-col items-start gap-1.5 rounded-md bg-surface/70 px-2.5 py-1.5
-                                      text-sm leading-relaxed text-gray-700 ${
+                          className={`mt-1 flex flex-col items-start gap-1.5 rounded-lg border border-surface-border
+                                      bg-white px-3 py-2 text-sm leading-relaxed text-gray-700 ${
                                         editando?.id === a.id ? "ring-2 ring-orange/40" : ""
                                       }`}
-                          style={{ borderLeftWidth: 2, borderLeftColor: a.destacada ? "#F5A623" : meta.color }}
+                          style={{ borderLeftWidth: 3, borderLeftColor: a.destacada ? "#F5A623" : meta.color }}
                         >
                           {a.contenido.trim() !== "" && (
                             <div className={`w-full ${a.completada ? "text-gray-500" : ""}`}>

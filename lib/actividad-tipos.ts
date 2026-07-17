@@ -50,3 +50,15 @@ export const TIPO_ACTIVIDAD_META: Record<TipoActividad, TipoActividadMeta> = {
 export const TIPOS_CREABLES: TipoActividad[] = (
   Object.keys(TIPO_ACTIVIDAD_META) as TipoActividad[]
 ).filter((t) => TIPO_ACTIVIDAD_META[t].creable);
+
+/**
+ * Cómo se titula un movimiento en una lista (SSOT).
+ *
+ * Desde SOL-21 la nota es opcional, así que quien la usaba de título se quedaba sin nada
+ * (tarjetas descabezadas en la agenda, tooltips cortados). Sin nota, el tipo ES el
+ * movimiento: "Llamada", "Reunión". La regla vive acá una vez porque ya la necesitan la
+ * bitácora, la agenda y el calendario.
+ */
+export function tituloActividad(a: { contenido: string; tipo: TipoActividad }): string {
+  return a.contenido.trim() || TIPO_ACTIVIDAD_META[a.tipo].label;
+}
