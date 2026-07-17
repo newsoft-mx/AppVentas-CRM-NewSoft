@@ -20,6 +20,7 @@ import MarkdownEditor from "@/components/ui/MarkdownEditor";
 import CheckTarea from "@/components/pipeline/CheckTarea";
 import ActividadFila, { ControlVacio, TipoMovimiento } from "@/components/pipeline/ActividadFila";
 import AccionesActividad from "@/components/pipeline/AccionesActividad";
+import FechaActividad from "@/components/pipeline/FechaActividad";
 import { patchActividad, borrarActividad } from "@/lib/actividad-cliente";
 import ActividadCompositor, {
   type TipoAccionOpcion, type ResultadoAccionOpcion, type RespuestaGuardado,
@@ -211,15 +212,18 @@ export default function DealDetalleClient({
   }
 
   // Eliminar (soft-delete) una entrada de la bitácora (SOL-02)
-  // Reprogramar un pendiente sin abrir el compositor: mismo gesto que en la agenda.
-  async function reprogramar(a: DealActividadItem, iso: string) {
+  // Reagendar un pendiente desde su fecha, sin abrir el compositor. `hora_definida` viaja
+  // con la fecha: reagendar puede quitarle la hora (o ponérsela).
+  async function reagendar(a: DealActividadItem, iso: string, horaDefinida: boolean) {
     const prev = actividades;
-    setActividades((cur) => cur.map((x) => (x.id === a.id ? { ...x, fecha_tarea: iso } : x)));
+    setActividades((cur) =>
+      cur.map((x) => (x.id === a.id ? { ...x, fecha_tarea: iso, hora_definida: horaDefinida } : x))
+    );
     try {
-      await patchActividad(a.id, { fecha_tarea: iso });
+      await patchActividad(a.id, { fecha_tarea: iso, hora_definida: horaDefinida });
     } catch {
       setActividades(prev);
-      setToast({ type: "error", message: "No se pudo reprogramar." });
+      setToast({ type: "error", message: "No se pudo reagendar." });
     }
   }
 
@@ -716,33 +720,31 @@ export default function DealDetalleClient({
                       </>
                     }
                     fecha={
-                      <span
-                        className={`flex shrink-0 items-center gap-1 text-[11px] ${
-                          a.completada
-                            ? "text-gray-400 line-through"
-                            : a.es_tarea
-                              ? vencida
-                                ? "font-semibold text-red-600"
-                                : "font-medium text-blue-700"
-                              : "text-gray-400"
-                        }`}
-                        title={`Registrado el ${formatFechaHora(a.created_at)}`}
-                      >
-                        {a.editada && <span className="mr-0.5 italic text-gray-300">editado ·</span>}
-                        {a.es_tarea && <CalendarClock size={12} />}
-                        {formatFechaHora(fechaDer)}
-                      </span>
+                      <FechaActividad
+                        cuando={fechaDer}
+                        horaDefinida={a.hora_definida}
+                        esTarea={a.es_tarea}
+                        completada={a.completada}
+                        vencida={vencida}
+                        editada={a.editada}
+                        createdAt={a.created_at}
+                        /* Solo se reagenda un pendiente: un registro ya pasó y una tarea
+                           completada no se mueve. */
+                        onReagendar={
+                          canWrite && a.es_tarea && !a.completada
+                            ? (iso, conHora) => reagendar(a, iso, conHora)
+                            : null
+                        }
+                      />
                     }
                     acciones={
                       <AccionesActividad
                         destacada={a.destacada}
                         canWrite={canWrite}
                         editable={a.tipo !== "SISTEMA"}
-                        fechaTarea={a.completada ? null : a.fecha_tarea}
                         onDestacar={() => toggleDestacar(a)}
                         onEditar={() => iniciarEdicion(a)}
                         onEliminar={() => eliminarActividad(a)}
-                        onReprogramar={(iso) => reprogramar(a, iso)}
                       />
                     }
                   />

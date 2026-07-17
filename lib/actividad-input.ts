@@ -5,7 +5,7 @@
 // tipo válido, contenido obligatorio, enlace http/https, contacto que pertenece al deal,
 // tipo/resultado del catálogo, y la derivación de fecha_evento/fecha_tarea/estado_plan.
 import { prisma } from "@/lib/prisma";
-import { inputAUtc } from "@/lib/tz";
+import { inputAUtc, ahoraInput } from "@/lib/tz";
 import { MAX_CONTENIDO, MSG_CONTENIDO_LARGO } from "@/lib/actividad";
 import type { DealActividadItem, TipoActividad, EfectoTermometro } from "@/types/crm";
 
@@ -21,13 +21,20 @@ export interface ActividadResuelta {
   fecha_evento: Date | null;
   es_tarea: boolean;
   fecha_tarea: Date | null;
+  /** ¿La hora la eligió el usuario? Si no, la UI muestra solo la fecha. */
+  hora_definida: boolean;
   tipo_accion_id: string | null;
   resultado_id: string | null;
 }
 
-// Hora por defecto cuando se agenda sin especificarla (SOL-21: la hora es opcional y no
-// debe impedir que el pendiente se agende).
-const HORA_DEFAULT = "09:00";
+// Sin hora, el "cuándo" es el FIN del día (hora de pared CDMX).
+//
+// La hora es opcional (SOL-21/22) pero fecha_tarea es un instante: hay que guardar alguno.
+// Antes se inventaba 09:00 y se mostraba como si el usuario la hubiera elegido. Ahora el
+// dato viaja en `hora_definida` y la UI muestra solo la fecha; el instante es el final del
+// día porque así "vencida" y el agrupamiento (Hoy / Esta semana) salen solos: un pendiente
+// sin hora vence recién cuando termina su día, no a las 09:01.
+const FIN_DEL_DIA = "23:59";
 
 export type ResolveActividad =
   | { ok: false; error: string; campo?: string; status: number }
@@ -95,12 +102,17 @@ export async function resolveActividadInput(body: unknown, dealId: string): Prom
   //                             con o sin hora. Sin desenlace: aún no ocurrió.
   //   hoy/pasada             → registro de algo que ya ocurrió (fecha_evento), y ahí sí
   //                             admite desenlace (opcional).
-  const horaUsada = /^\d{2}:\d{2}$/.test(hora ?? "") ? (hora as string) : HORA_DEFAULT;
+  const horaDefinida = /^\d{2}:\d{2}$/.test(hora ?? "");
+  const horaUsada = horaDefinida ? (hora as string) : FIN_DEL_DIA;
   const cuando = inputAUtc(`${fecha}T${horaUsada}`) ?? new Date(`${fecha}T${horaUsada}`);
   if (Number.isNaN(cuando.getTime())) {
     return { ok: false, error: "Fecha inválida", campo: "fecha", status: 422 };
   }
-  const esFutura = cuando.getTime() > Date.now();
+  // Sin hora, "futuro" es un DÍA posterior, no un instante: comparar contra el reloj haría
+  // que "hoy sin hora" fuera tarea a la mañana y registro a la tarde. Con hora, el instante
+  // manda.
+  const hoy = ahoraInput().slice(0, 10); // "YYYY-MM-DD" en hora de pared CDMX
+  const esFutura = horaDefinida ? cuando.getTime() > Date.now() : fecha > hoy;
   const esTarea = esFutura && agendable;
 
   // Desenlace (SOL-23): solo tiene sentido en lo que YA ocurrió. Al agendar se ignora.
@@ -125,6 +137,7 @@ export async function resolveActividadInput(body: unknown, dealId: string): Prom
       fecha_evento: esTarea ? null : cuando,
       es_tarea: esTarea,
       fecha_tarea: esTarea ? cuando : null,
+      hora_definida: horaDefinida,
       tipo_accion_id: tipoAccionId,
       resultado_id: resultadoId,
     },
@@ -145,6 +158,7 @@ export interface ActividadConRelaciones {
   enlace_url: string | null;
   fecha_evento: Date | null;
   fecha_tarea: Date | null;
+  hora_definida: boolean;
   created_at: Date;
   contacto: { contacto: { nombre: string } } | null;
   tipo_accion: { id: string; nombre: string; color: string } | null;
@@ -167,6 +181,7 @@ export function serializeActividad(a: ActividadConRelaciones): DealActividadItem
     editada: a.editada,
     enlace_url: a.enlace_url,
     fecha_tarea: a.fecha_tarea ? a.fecha_tarea.toISOString() : null,
+    hora_definida: a.hora_definida,
     created_at: a.created_at.toISOString(),
     tipo_accion: a.tipo_accion
       ? { id: a.tipo_accion.id, nombre: a.tipo_accion.nombre, color: a.tipo_accion.color }

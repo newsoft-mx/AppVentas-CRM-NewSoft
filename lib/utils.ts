@@ -76,6 +76,22 @@ export function formatFechaHora(iso: string | Date): string {
   });
 }
 
+/**
+ * El "cuándo" de una actividad (SSOT de cómo se muestra).
+ *
+ * La hora es opcional (SOL-22): sin ella, el instante guardado es el fin del día — un
+ * detalle interno, no algo que el usuario eligió — así que se muestra solo la fecha.
+ * Mostrarlo con hora sería inventarle un dato que no dio.
+ */
+export function formatCuando(iso: string | Date, horaDefinida: boolean): string {
+  if (horaDefinida) return formatFechaHora(iso);
+  return new Date(iso).toLocaleDateString("es-MX", {
+    day: "2-digit",
+    month: "short",
+    timeZone: TZ_NEGOCIO,
+  });
+}
+
 // ── Cálculos de orden (se usan en el backend) ────────────────
 
 export interface CalculoOrden {
