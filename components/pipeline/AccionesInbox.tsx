@@ -12,6 +12,7 @@ import {
 } from "@/types/crm";
 import CalendarioAcciones from "@/components/pipeline/CalendarioAcciones";
 import CheckTarea from "@/components/pipeline/CheckTarea";
+import ActividadFila, { TipoMovimiento } from "@/components/pipeline/ActividadFila";
 import ActividadCompositor, {
   type DealCompositor, type TipoAccionOpcion, type ResultadoAccionOpcion,
 } from "@/components/pipeline/ActividadCompositor";
@@ -272,70 +273,78 @@ export default function AccionesInbox({
               <div className="space-y-1.5">
                 {grupo.map((a) => {
                   const temp = TEMPERATURA_META[a.deal.temperatura];
-                  const Icon = TIPO_ACTIVIDAD_META[a.tipo].icon;
+                  // El tipo se nombra UNA vez: si no hay nota, el título ya es el tipo
+                  // (antes convivían el ícono junto a la fecha y "Nota" de título).
+                  const hayNota = a.contenido.trim() !== "";
+                  const tipoMeta = TIPO_ACTIVIDAD_META[a.tipo];
                   return (
-                    <div
+                    <ActividadFila
                       key={a.id}
-                      className="flex items-start gap-3 rounded-xl border border-surface-border bg-white px-4 py-3 transition-shadow hover:shadow-sm"
-                    >
-                      {/* Mismo control que la bitácora. La pastilla "PENDIENTE" que había acá
-                          se leía como etiqueta, no como botón: nadie adivinaba que marcaba
-                          Listo. Además el listado ya son todos pendientes — el rótulo no
-                          agregaba nada. */}
-                      <CheckTarea completada={a.completada} onToggle={() => marcarListo(a)} />
-                      <div
-                        className="min-w-0 flex-1 cursor-pointer"
-                        onClick={() => router.push(`/pipeline/${a.deal.id}`)}
-                      >
-                        {/* SOL-21: la nota es opcional → sin ella la tarjeta quedaba sin
-                            título. La regla del título vive en lib/actividad-tipos. */}
-                        <div className="text-sm font-semibold leading-snug text-navy">
-                          {tituloActividad(a)}
-                        </div>
-                        <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px] text-gray-500">
-                          <span className="h-1.5 w-1.5 rounded-full" style={{ background: temp.color }} />
-                          <span className="rounded bg-surface px-1.5 py-0.5">{a.deal.nombre}</span>
+                      onAbrir={() => router.push(`/pipeline/${a.deal.id}`)}
+                      /* Mismo control que la bitácora. La pastilla "PENDIENTE" que había acá
+                         se leía como etiqueta, no como botón: nadie adivinaba que marcaba
+                         Listo. Y el listado ya son todos pendientes: el rótulo no decía nada. */
+                      control={<CheckTarea completada={a.completada} onToggle={() => marcarListo(a)} />}
+                      titulo={tituloActividad(a)}
+                      meta={
+                        <>
+                          {hayNota && <TipoMovimiento nombre={tipoMeta.label} color={tipoMeta.color} />}
+                          {/* El punto de temperatura va DENTRO del chip del deal: es del
+                              deal. Suelto al lado del punto del tipo, eran dos bolitas
+                              seguidas sin saber cuál es cuál. */}
+                          <span
+                            className="flex items-center gap-1 rounded bg-surface px-1.5 py-0.5"
+                            title={`Termómetro: ${temp.label}`}
+                          >
+                            <span className="h-1.5 w-1.5 rounded-full" style={{ background: temp.color }} />
+                            {a.deal.nombre}
+                          </span>
                           <span className="font-bold text-navy">{formatCompacto(a.deal.valor)}</span>
                           {a.contacto_nombre && <span className="text-gray-400">· {a.contacto_nombre}</span>}
                           {a.deal.vendedor && <span className="text-gray-400">· {a.deal.vendedor.nombre}</span>}
-                        </div>
-                      </div>
-                      <div className="flex shrink-0 flex-col items-end gap-1.5">
-                        <span className="flex items-center gap-1 text-[11px] font-semibold text-gray-500">
-                          <Icon size={12} className="text-gray-400" />
+                        </>
+                      }
+                      fecha={
+                        <span className="flex items-center gap-1 text-[11px] font-medium text-blue-700">
+                          <CalendarClock size={12} />
                           {a.fecha_tarea ? formatFechaHora(a.fecha_tarea) : "Sin fecha"}
                         </span>
-                        {reprogramando === a.id ? (
-                          <span className="flex items-center gap-1.5">
-                            <InputFechaHora autoFocus value={reprogValue} onChange={setReprogValue} />
+                      }
+                      acciones={
+                        <>
+                          {reprogramando === a.id ? (
+                            <span className="flex items-center gap-1.5">
+                              <InputFechaHora autoFocus value={reprogValue} onChange={setReprogValue} />
+                              <button
+                                onClick={() => reprogramar(a, reprogValue)}
+                                disabled={!reprogValue.includes("T") || !reprogValue.split("T")[1]}
+                                className="rounded bg-navy px-2 py-1 text-[11px] font-semibold
+                                  text-white disabled:opacity-40"
+                              >
+                                Guardar
+                              </button>
+                            </span>
+                          ) : (
                             <button
-                              onClick={() => reprogramar(a, reprogValue)}
-                              disabled={!reprogValue.includes("T") || !reprogValue.split("T")[1]}
-                              className="rounded bg-navy px-2 py-1 text-[11px] font-semibold
-                                text-white disabled:opacity-40"
+                              onClick={() => {
+                                setReprogValue(a.fecha_tarea ? toLocalInput(a.fecha_tarea) : "");
+                                setReprogramando(a.id);
+                              }}
+                              className="flex items-center gap-1 text-[10px] font-semibold
+                                         text-gray-400 hover:text-orange"
                             >
-                              Guardar
+                              <CalendarClock size={11} /> Reprogramar
                             </button>
-                          </span>
-                        ) : (
+                          )}
                           <button
-                            onClick={() => {
-                              setReprogValue(a.fecha_tarea ? toLocalInput(a.fecha_tarea) : "");
-                              setReprogramando(a.id);
-                            }}
-                            className="flex items-center gap-1 text-[10px] font-semibold text-gray-400 hover:text-orange"
+                            onClick={() => router.push(`/pipeline/${a.deal.id}`)}
+                            className="flex items-center gap-0.5 text-[10px] font-semibold text-navy hover:text-orange"
                           >
-                            <CalendarClock size={11} /> Reprogramar
+                            Abrir deal <ChevronRight size={11} />
                           </button>
-                        )}
-                        <button
-                          onClick={() => router.push(`/pipeline/${a.deal.id}`)}
-                          className="flex items-center gap-0.5 text-[10px] font-semibold text-navy hover:text-orange"
-                        >
-                          Abrir deal <ChevronRight size={11} />
-                        </button>
-                      </div>
-                    </div>
+                        </>
+                      }
+                    />
                   );
                 })}
               </div>

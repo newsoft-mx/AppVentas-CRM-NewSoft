@@ -18,6 +18,7 @@ import NuevoDealModal from "@/components/pipeline/NuevoDealModal";
 import Markdown from "@/components/ui/Markdown";
 import MarkdownEditor from "@/components/ui/MarkdownEditor";
 import CheckTarea from "@/components/pipeline/CheckTarea";
+import ActividadFila, { ControlVacio, TipoMovimiento } from "@/components/pipeline/ActividadFila";
 import ActividadCompositor, {
   type TipoAccionOpcion, type ResultadoAccionOpcion, type RespuestaGuardado,
 } from "@/components/pipeline/ActividadCompositor";
@@ -658,60 +659,36 @@ export default function DealDetalleClient({
                 const vencida = Boolean(
                   a.es_tarea && !a.completada && a.fecha_tarea && nowTs != null && estaVencida(a.fecha_tarea, nowTs)
                 );
-                // SOL-21: la nota es opcional → sin nota ni enlace no se dibuja la caja
-                // (antes quedaba un recuadro vacío). El "cuándo" ya vive en el encabezado.
-                const tieneCuerpo = a.contenido.trim() !== "" || Boolean(a.enlace_url);
-                // Fecha de la derecha: de una tarea importa CUÁNDO vence, no cuándo se anotó
-                // (eso queda en el title); de un registro, cuándo ocurrió.
+                // El tipo se nombra UNA vez: si no hay nota, el título ya es el tipo y la
+                // meta no lo repite. Del catálogo si lo tiene (SOL-04); si no, el tipo base.
+                const hayNota = a.contenido.trim() !== "";
+                const tipoNombre = a.tipo_accion?.nombre ?? meta.label;
+                const tipoColor = a.tipo_accion?.color ?? meta.color;
+                // Fecha: de una tarea importa CUÁNDO vence, no cuándo se anotó (eso queda en
+                // el title); de un registro, cuándo ocurrió.
                 const fechaDer = a.es_tarea && a.fecha_tarea ? a.fecha_tarea : (a.fecha_evento ?? a.created_at);
                 return (
-                  <div key={a.id} className="group flex gap-2.5">
-                    {/* Columna izquierda: en las agendadas, checkbox para completar de un
-                        clic (el gesto de Gaby en Pipedrive); en los registros, el ícono. */}
-                    {estadoT ? (
-                      <CheckTarea
-                        completada={a.completada}
-                        onToggle={() => alternarEstado(a)}
-                        disabled={!canWrite}
-                      />
-                    ) : (
-                      <div
-                        className="mt-0.5 flex h-[17px] w-[17px] shrink-0 items-center justify-center rounded-full"
-                        style={{ background: meta.bg, color: meta.color }}
-                      >
-                        <Icon size={10} />
-                      </div>
-                    )}
-                    <div className="min-w-0 flex-1">
-                      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
-                        {/* Qué movimiento es. Siempre visible: en las tareas el check ocupa
-                            el lugar del ícono, así que sin esto una fila sin nota no decía
-                            si fue llamada, mail o visita. Del catálogo si lo tiene (SOL-04);
-                            si no, el tipo base con su ícono. */}
-                        {a.tipo_accion ? (
-                          <span
-                            className="flex shrink-0 items-center gap-1.5 font-semibold"
-                            style={{ color: a.tipo_accion.color }}
-                          >
-                            <span className="h-1.5 w-1.5 rounded-full" style={{ background: a.tipo_accion.color }} />
-                            {a.tipo_accion.nombre}
-                          </span>
-                        ) : (
-                          <span
-                            className="flex shrink-0 items-center gap-1 font-semibold"
-                            style={{ color: meta.color }}
-                          >
-                            <Icon size={11} /> {meta.label}
-                          </span>
-                        )}
-                        <span className="truncate font-semibold text-navy">
-                          {a.autor}
-                          {a.contacto_nombre && (
-                            <span className="font-normal text-gray-400"> · con {a.contacto_nombre}</span>
-                          )}
-                        </span>
-                        {/* El estado no se repite en chip: ya lo dice el check (apagado si
-                            no se puede tocar). */}
+                  <ActividadFila
+                    key={a.id}
+                    destacada={a.destacada}
+                    resaltada={editando?.id === a.id}
+                    control={
+                      estadoT ? (
+                        <CheckTarea
+                          completada={a.completada}
+                          onToggle={() => alternarEstado(a)}
+                          disabled={!canWrite}
+                        />
+                      ) : (
+                        <ControlVacio />
+                      )
+                    }
+                    titulo={hayNota ? <Markdown>{a.contenido}</Markdown> : tipoNombre}
+                    meta={
+                      <>
+                        {hayNota && <TipoMovimiento nombre={tipoNombre} color={tipoColor} />}
+                        <span className="truncate">{a.autor}</span>
+                        {a.contacto_nombre && <span className="text-gray-400">· con {a.contacto_nombre}</span>}
                         {a.resultado && (
                           <span
                             className={`flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px]
@@ -723,100 +700,79 @@ export default function DealDetalleClient({
                             {a.resultado.nombre}
                           </span>
                         )}
-
-                        {/* Acciones + fecha viajan juntas a la derecha: sueltas, al no entrar
-                            en la línea, la fecha se caía sola al renglón de abajo. */}
-                        <span className="ml-auto flex shrink-0 items-center gap-2">
-                        {/* Acciones: aparecen al pasar el mouse o al enfocar con teclado.
-                            Encendidas en cada fila eran ruido. La estrella se queda si está
-                            destacada: ahí sí dice algo. */}
-                        <span
-                          className={`flex shrink-0 items-center gap-1.5 transition-opacity
-                                      focus-within:opacity-100 group-hover:opacity-100 ${
-                                        a.destacada ? "" : "opacity-0"
-                                      }`}
-                        >
-                          {canWrite && (
+                        {a.enlace_url && /^https?:\/\//i.test(a.enlace_url) && (
+                          <a
+                            href={a.enlace_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-1 font-semibold text-blue-600 hover:underline"
+                          >
+                            <Link2 size={12} /> Ver enlace
+                          </a>
+                        )}
+                      </>
+                    }
+                    fecha={
+                      <span
+                        className={`flex shrink-0 items-center gap-1 text-[11px] ${
+                          a.completada
+                            ? "text-gray-400 line-through"
+                            : a.es_tarea
+                              ? vencida
+                                ? "font-semibold text-red-600"
+                                : "font-medium text-blue-700"
+                              : "text-gray-400"
+                        }`}
+                        title={`Registrado el ${formatFechaHora(a.created_at)}`}
+                      >
+                        {a.editada && <span className="mr-0.5 italic text-gray-300">editado ·</span>}
+                        {a.es_tarea && <CalendarClock size={12} />}
+                        {formatFechaHora(fechaDer)}
+                      </span>
+                    }
+                    acciones={
+                      /* Aparecen al pasar el mouse o al enfocar con teclado: encendidas en
+                         cada fila eran ruido. La estrella se queda si está destacada. */
+                      <span
+                        className={`flex items-center gap-1.5 transition-opacity
+                                    focus-within:opacity-100 group-hover:opacity-100 ${
+                                      a.destacada ? "" : "opacity-0"
+                                    }`}
+                      >
+                        {canWrite && (
+                          <button
+                            onClick={() => toggleDestacar(a)}
+                            title={a.destacada ? "Quitar destacado" : "Destacar"}
+                            className="text-gray-300 hover:text-amber-500"
+                          >
+                            <Star
+                              size={13}
+                              fill={a.destacada ? "#F5A623" : "none"}
+                              color={a.destacada ? "#F5A623" : "currentColor"}
+                            />
+                          </button>
+                        )}
+                        {canWrite && a.tipo !== "SISTEMA" && (
+                          <>
                             <button
-                              onClick={() => toggleDestacar(a)}
-                              title={a.destacada ? "Quitar destacado" : "Destacar"}
-                              className="text-gray-300 hover:text-amber-500"
+                              onClick={() => iniciarEdicion(a)}
+                              title="Editar"
+                              className="text-gray-300 hover:text-navy"
                             >
-                              <Star
-                                size={13}
-                                fill={a.destacada ? "#F5A623" : "none"}
-                                color={a.destacada ? "#F5A623" : "currentColor"}
-                              />
+                              <Pencil size={12} />
                             </button>
-                          )}
-                          {canWrite && a.tipo !== "SISTEMA" && (
-                            <>
-                              <button
-                                onClick={() => iniciarEdicion(a)}
-                                title="Editar"
-                                className="text-gray-300 hover:text-navy"
-                              >
-                                <Pencil size={12} />
-                              </button>
-                              <button
-                                onClick={() => eliminarActividad(a)}
-                                title="Eliminar"
-                                className="text-gray-300 hover:text-red-500"
-                              >
-                                <Trash2 size={12} />
-                              </button>
-                            </>
-                          )}
-                        </span>
-
-                        {/* Fecha: la de vencimiento si es tarea (roja si ya pasó, tachada si
-                            se completó); la del hecho si es un registro. */}
-                        <span
-                          className={`flex shrink-0 items-center gap-1 text-[11px] ${
-                            a.completada
-                              ? "text-gray-400 line-through"
-                              : a.es_tarea
-                                ? vencida
-                                  ? "font-semibold text-red-600"
-                                  : "font-medium text-blue-700"
-                                : "text-gray-400"
-                          }`}
-                          title={`Registrado el ${formatFechaHora(a.created_at)}`}
-                        >
-                          {a.editada && <span className="mr-0.5 italic text-gray-300">editado ·</span>}
-                          {a.es_tarea && <CalendarClock size={12} />}
-                          {formatFechaHora(fechaDer)}
-                        </span>
-                        </span>
-                      </div>
-                      {tieneCuerpo && (
-                        <div
-                          className={`mt-1 flex flex-col items-start gap-1.5 rounded-lg border border-surface-border
-                                      bg-white px-3 py-2 text-sm leading-relaxed text-gray-700 ${
-                                        editando?.id === a.id ? "ring-2 ring-orange/40" : ""
-                                      }`}
-                          style={{ borderLeftWidth: 3, borderLeftColor: a.destacada ? "#F5A623" : meta.color }}
-                        >
-                          {a.contenido.trim() !== "" && (
-                            <div className={`w-full ${a.completada ? "text-gray-500" : ""}`}>
-                              <Markdown>{a.contenido}</Markdown>
-                            </div>
-                          )}
-                          {a.enlace_url && /^https?:\/\//i.test(a.enlace_url) && (
-                            <a
-                              href={a.enlace_url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="flex items-center gap-1 text-[11px] font-semibold
-                                         text-blue-600 hover:underline"
+                            <button
+                              onClick={() => eliminarActividad(a)}
+                              title="Eliminar"
+                              className="text-gray-300 hover:text-red-500"
                             >
-                              <Link2 size={12} /> Ver enlace
-                            </a>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  </div>
+                              <Trash2 size={12} />
+                            </button>
+                          </>
+                        )}
+                      </span>
+                    }
+                  />
                 );
               })}
             </div>
