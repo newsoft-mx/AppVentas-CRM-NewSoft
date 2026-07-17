@@ -7,15 +7,15 @@ import {
   ListChecks, CalendarClock, ChevronRight, LayoutList, CalendarDays,
 } from "lucide-react";
 import {
-  TEMPERATURA_META, ESTADO_ACCION_META, ESTADO_ACCION_CICLO, GRUPO_URGENCIA_META,
-  type AccionItem, type TipoActividad, type EstadoAccion, type GrupoUrgencia,
+  TEMPERATURA_META, ESTADO_TAREA_META, GRUPO_URGENCIA_META,
+  type AccionItem, type TipoActividad, type GrupoUrgencia,
 } from "@/types/crm";
 import CalendarioAcciones from "@/components/pipeline/CalendarioAcciones";
 import InputFechaHora from "@/components/ui/InputFechaHora";
 import { formatCompacto, formatFechaHora } from "@/lib/utils";
 import { useUrlFilters } from "@/hooks/useUrlFilters";
 import { serializeAccionesFiltros, type AccionesFiltros } from "@/lib/acciones-filtros";
-import { grupoUrgencia } from "@/lib/tareas";
+import { grupoUrgencia, estadoTarea } from "@/lib/tareas";
 import { TIPO_ACTIVIDAD_META } from "@/lib/actividad-tipos";
 
 const ORDEN_GRUPOS: GrupoUrgencia[] = ["VENCIDAS", "HOY", "SEMANA", "DESPUES"];
@@ -43,11 +43,10 @@ export default function AccionesInbox({
 
   // Filtros persistentes en la URL (mecanismo compartido — pilar 3)
   const [filtros, setFiltros] = useUrlFilters(initialFiltros, serializeAccionesFiltros);
-  const { vista, vendedor: vendedorFiltro, tipo: tipoFiltro, estado: estadoFiltro } = filtros;
+  const { vista, vendedor: vendedorFiltro, tipo: tipoFiltro } = filtros;
   const setVista = (v: "lista" | "calendario") => setFiltros((f) => ({ ...f, vista: v }));
   const setVendedorFiltro = (v: string) => setFiltros((f) => ({ ...f, vendedor: v }));
   const setTipoFiltro = (v: "todos" | TipoActividad) => setFiltros((f) => ({ ...f, tipo: v }));
-  const setEstadoFiltro = (v: "todos" | EstadoAccion) => setFiltros((f) => ({ ...f, estado: v }));
 
   const [reprogramando, setReprogramando] = useState<string | null>(null);
   const [reprogValue, setReprogValue] = useState(""); // "YYYY-MM-DDTHH:mm" del reprogramar
@@ -65,10 +64,9 @@ export default function AccionesInbox({
       items.filter((a) => {
         if (vendedorFiltro !== "todos" && a.deal.vendedor?.id !== vendedorFiltro) return false;
         if (tipoFiltro !== "todos" && a.tipo !== tipoFiltro) return false;
-        if (estadoFiltro !== "todos" && a.estado_accion !== estadoFiltro) return false;
         return true;
       }),
-    [items, vendedorFiltro, tipoFiltro, estadoFiltro]
+    [items, vendedorFiltro, tipoFiltro]
   );
 
   const vencidas = useMemo(
@@ -76,21 +74,16 @@ export default function AccionesInbox({
     [filtered, ahora]
   );
 
-  // Cicla el estado: PENDIENTE → EN_PROCESO → TERMINADO. Al terminar, sale del listado.
-  async function ciclarEstado(a: AccionItem) {
-    const idx = ESTADO_ACCION_CICLO.indexOf(a.estado_accion);
-    const siguiente = ESTADO_ACCION_CICLO[(idx + 1) % ESTADO_ACCION_CICLO.length];
+  // Estado (SOL-21/23): solo Pendiente → Listo. Este inbox solo carga pendientes, así que
+  // marcarla la saca del listado. El desenlace se pide desde el detalle del deal.
+  async function marcarListo(a: AccionItem) {
     const prev = items;
-    setItems((cur) =>
-      siguiente === "TERMINADO"
-        ? cur.filter((x) => x.id !== a.id)
-        : cur.map((x) => (x.id === a.id ? { ...x, estado_accion: siguiente } : x))
-    );
+    setItems((cur) => cur.filter((x) => x.id !== a.id));
     try {
       const res = await fetch(`/api/crm/actividades/${a.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ estado_accion: siguiente }),
+        body: JSON.stringify({ completada: true }),
       });
       if (!res.ok) throw new Error();
     } catch {
@@ -125,11 +118,6 @@ export default function AccionesInbox({
     { key: "WHATSAPP", label: "WhatsApp" },
     { key: "NOTA", label: "Notas" },
   ];
-  const FILTROS_ESTADO: { key: typeof estadoFiltro; label: string }[] = [
-    { key: "todos", label: "Todos los estados" },
-    { key: "PENDIENTE", label: "Pendiente" },
-    { key: "EN_PROCESO", label: "En proceso" },
-  ];
 
   return (
     <div className="flex h-full flex-col">
@@ -160,15 +148,6 @@ export default function AccionesInbox({
               </button>
             ))}
           </div>
-          <select
-            value={estadoFiltro}
-            onChange={(e) => setEstadoFiltro(e.target.value as typeof estadoFiltro)}
-            className="rounded-lg border border-surface-border bg-white px-3 py-1.5 text-sm font-medium text-navy outline-none"
-          >
-            {FILTROS_ESTADO.map((f) => (
-              <option key={f.key} value={f.key}>{f.label}</option>
-            ))}
-          </select>
           {mostrarFiltroVendedor && (
             <select
               value={vendedorFiltro}
@@ -237,15 +216,15 @@ export default function AccionesInbox({
                 {grupo.map((a) => {
                   const temp = TEMPERATURA_META[a.deal.temperatura];
                   const Icon = TIPO_ACTIVIDAD_META[a.tipo].icon;
-                  const estado = ESTADO_ACCION_META[a.estado_accion];
+                  const estado = ESTADO_TAREA_META[estadoTarea(a) ?? "PENDIENTE"];
                   return (
                     <div
                       key={a.id}
                       className="flex items-start gap-3 rounded-xl border border-surface-border bg-white px-4 py-3 transition-shadow hover:shadow-sm"
                     >
                       <button
-                        onClick={() => ciclarEstado(a)}
-                        title={`${estado.label} — clic para avanzar`}
+                        onClick={() => marcarListo(a)}
+                        title={`${estado.label} — clic para marcar Listo`}
                         className="mt-0.5 flex shrink-0 items-center gap-1.5 rounded-full px-2 py-1 text-[10px] font-bold uppercase transition-colors hover:opacity-80"
                         style={{ backgroundColor: estado.dot + "22", color: estado.dot }}
                       >

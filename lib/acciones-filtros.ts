@@ -1,21 +1,24 @@
 /**
  * Contrato de filtros de Próximas Acciones para persistirlos en la URL (pilar 3).
  * Puro; compartido por el server component (hidrata) y el cliente (espeja vía useUrlFilters).
+ *
+ * Nota (SOL-21/23): NO hay filtro de estado. El inbox carga solo tareas pendientes
+ * (WHERE_TAREA_PENDIENTE) y los estados quedaron en dos (Pendiente/Listo) → filtrar por
+ * estado acá sería siempre "Pendiente". El filtro existía para separar Pendiente de
+ * "En proceso", estado que se eliminó por no aplicar.
  */
-import type { TipoActividad, EstadoAccion } from "@/types/crm";
+import type { TipoActividad } from "@/types/crm";
 
 const TIPOS: TipoActividad[] = ["NOTA", "LLAMADA", "EMAIL", "WHATSAPP", "SISTEMA"];
-const ESTADOS: EstadoAccion[] = ["PENDIENTE", "EN_PROCESO", "TERMINADO"];
 
 export interface AccionesFiltros {
   vista: "lista" | "calendario";
   vendedor: string; // "todos" | id
   tipo: "todos" | TipoActividad;
-  estado: "todos" | EstadoAccion;
 }
 
 export function emptyAccionesFiltros(): AccionesFiltros {
-  return { vista: "lista", vendedor: "todos", tipo: "todos", estado: "todos" };
+  return { vista: "lista", vendedor: "todos", tipo: "todos" };
 }
 
 export function serializeAccionesFiltros(f: AccionesFiltros): string {
@@ -23,7 +26,6 @@ export function serializeAccionesFiltros(f: AccionesFiltros): string {
   if (f.vista !== "lista") p.set("vista", f.vista);
   if (f.vendedor !== "todos") p.set("vendedor", f.vendedor);
   if (f.tipo !== "todos") p.set("tipo", f.tipo);
-  if (f.estado !== "todos") p.set("estado", f.estado);
   return p.toString();
 }
 
@@ -32,11 +34,9 @@ const one = (v: string | string[] | undefined): string => (Array.isArray(v) ? v[
 
 export function parseAccionesFiltros(sp: ParamMap): AccionesFiltros {
   const tipo = one(sp.tipo) as TipoActividad;
-  const estado = one(sp.estado) as EstadoAccion;
   return {
     vista: one(sp.vista) === "calendario" ? "calendario" : "lista",
     vendedor: one(sp.vendedor) || "todos",
     tipo: TIPOS.includes(tipo) ? tipo : "todos",
-    estado: ESTADOS.includes(estado) ? estado : "todos",
   };
 }

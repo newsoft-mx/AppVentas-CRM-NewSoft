@@ -94,7 +94,10 @@ export const TEMPERATURAS: Temperatura[] = ["MUY_FRIO", "FRIO", "TIBIO", "CALIEN
 
 export type TipoActividad = "NOTA" | "LLAMADA" | "EMAIL" | "WHATSAPP" | "SISTEMA";
 export type RolContacto = "DECISOR" | "INFLUENCIADOR" | "USUARIO" | "OTRO";
-export type EstadoAccion = "PENDIENTE" | "EN_PROCESO" | "TERMINADO";
+// Estado de una tarea: solo dos (SOL-21/23). DERIVADO de es_tarea+completada — ver
+// lib/tareas → estadoTarea(). Reemplaza a EstadoAccion (EN_PROCESO no aplicaba) y a
+// EstadoPlaneacion (PLANEADA/REALIZADA): eran el mismo concepto por triplicado.
+export type EstadoTarea = "PENDIENTE" | "LISTO";
 export type DealResultado = "ABIERTO" | "GANADO" | "PERDIDO" | "SUSPENDIDO";
 export type EstatusCliente = "PROSPECTO" | "ACTIVO" | "INACTIVO";
 export type TamanoEmpresa = "MICRO" | "PEQUENA" | "MEDIANA" | "GRANDE";
@@ -112,18 +115,12 @@ export const TAMANO_EMPRESA_LABEL: Record<TamanoEmpresa, string> = {
 // esta lista (no re-hardcodean el enum).
 export const RESULTADOS_DEAL: DealResultado[] = ["ABIERTO", "GANADO", "PERDIDO", "SUSPENDIDO"];
 
-// Metadata del estado de la acción (toggle de color liviano, REQ-01)
-export const ESTADO_ACCION_META: Record<
-  EstadoAccion,
-  { label: string; dot: string; chip: string }
-> = {
+// Metadata del estado de una tarea (SOL-21/23). Solo dos: se está por hacer, o ya está.
+// El estado se DERIVA de es_tarea+completada (lib/tareas → estadoTarea), no se almacena.
+export const ESTADO_TAREA_META: Record<EstadoTarea, { label: string; dot: string; chip: string }> = {
   PENDIENTE: { label: "Pendiente", dot: "#9BA5BE", chip: "bg-gray-100 text-gray-600" },
-  EN_PROCESO: { label: "En proceso", dot: "#4A90D9", chip: "bg-blue-50 text-blue-700" },
-  TERMINADO: { label: "Terminado", dot: "#1D9E75", chip: "bg-emerald-50 text-emerald-700" },
+  LISTO: { label: "Listo", dot: "#1D9E75", chip: "bg-emerald-50 text-emerald-700" },
 };
-
-// Orden de ciclado del toggle (un toque avanza al siguiente)
-export const ESTADO_ACCION_CICLO: EstadoAccion[] = ["PENDIENTE", "EN_PROCESO", "TERMINADO"];
 
 export interface DealContactoItem {
   /** id del link deal↔contacto (DealContacto) */
@@ -151,17 +148,11 @@ export interface ContactoCliente {
 
 // Modelo de actividad (SOL-04)
 export type EfectoTermometro = "POSITIVO" | "NEUTRO" | "NEGATIVO";
-export type EstadoPlaneacion = "PLANEADA" | "REALIZADA";
 
 export const EFECTO_META: Record<EfectoTermometro, { label: string; chip: string; arrow: string }> = {
   POSITIVO: { label: "Positivo", chip: "bg-emerald-50 text-emerald-700", arrow: "▲" },
   NEUTRO: { label: "Neutro", chip: "bg-gray-100 text-gray-600", arrow: "" },
   NEGATIVO: { label: "Negativo", chip: "bg-red-50 text-red-700", arrow: "▼" },
-};
-
-export const ESTADO_PLAN_META: Record<EstadoPlaneacion, { label: string; chip: string }> = {
-  PLANEADA: { label: "Planeada", chip: "bg-blue-50 text-blue-700" },
-  REALIZADA: { label: "Realizada", chip: "bg-emerald-50 text-emerald-700" },
 };
 
 export interface DealActividadItem {
@@ -173,17 +164,15 @@ export interface DealActividadItem {
   /** id del DealContacto vinculado (para precargar el compositor al editar) */
   contacto_id: string | null;
   fecha_evento: string | null;
-  exitosa: boolean | null;
+  /** ¿Es una tarea agendada? Con `completada` deriva el estado (lib/tareas → estadoTarea). */
   es_tarea: boolean;
   completada: boolean;
-  estado_accion: EstadoAccion;
   destacada: boolean;
   editada: boolean;
   enlace_url: string | null;
   fecha_tarea: string | null;
   created_at: string;
-  // Modelo de actividad (SOL-04): tipo del catálogo + resultado + estado de planeación
-  estado_plan: EstadoPlaneacion | null;
+  // Modelo de actividad (SOL-04): tipo del catálogo + resultado (desenlace, solo al completar)
   tipo_accion: { id: string; nombre: string; color: string } | null;
   resultado: { id: string; nombre: string; efecto: EfectoTermometro } | null;
 }
@@ -227,7 +216,9 @@ export interface AccionItem {
   tipo: TipoActividad;
   contenido: string;
   fecha_tarea: string | null;
-  estado_accion: EstadoAccion;
+  /** Con `es_tarea` deriva el estado Pendiente/Listo (lib/tareas → estadoTarea). */
+  es_tarea: boolean;
+  completada: boolean;
   contacto_nombre: string | null;
   deal: {
     id: string;

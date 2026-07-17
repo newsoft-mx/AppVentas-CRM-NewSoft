@@ -79,7 +79,8 @@ export default async function AccionesPage({
     tipo: t.tipo,
     contenido: t.contenido,
     fecha_tarea: t.fecha_tarea ? t.fecha_tarea.toISOString() : null,
-    estado_accion: t.estado_accion,
+    es_tarea: t.es_tarea,
+    completada: t.completada,
     contacto_nombre: t.contacto?.contacto?.nombre ?? null,
     deal: {
       id: t.deal.id,

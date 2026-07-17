@@ -7,7 +7,7 @@
  * debían coincidir; ahora viven acá y no pueden desincronizarse.
  */
 import type { Prisma } from "@prisma/client";
-import type { GrupoUrgencia } from "@/types/crm";
+import type { EstadoTarea, GrupoUrgencia } from "@/types/crm";
 
 // Fragmento `where` de Prisma: una actividad es tarea pendiente si está agendada
 // (es_tarea + fecha_tarea), no está terminada y no está eliminada.
@@ -26,6 +26,15 @@ export function esTareaPendiente(a: {
   fecha_tarea: string | Date | null;
 }): boolean {
   return a.es_tarea && !a.completada && a.fecha_tarea != null;
+}
+
+// Estado de una actividad — DERIVADO, no almacenado (SOL-21/23). Solo las agendadas
+// (tareas) tienen estado: Pendiente → Listo. Un registro de algo ya ocurrido no es una
+// tarea y no lleva estado. Reemplaza a estado_accion (3 estados, EN_PROCESO no aplicaba)
+// y estado_plan (PLANEADA/REALIZADA), que eran el MISMO concepto escrito por triplicado.
+export function estadoTarea(a: { es_tarea: boolean; completada: boolean }): EstadoTarea | null {
+  if (!a.es_tarea) return null;
+  return a.completada ? "LISTO" : "PENDIENTE";
 }
 
 // Vencida = su fecha ya pasó, al instante. `ahoraMs` se pasa como parámetro para no

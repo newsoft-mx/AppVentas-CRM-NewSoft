@@ -5,15 +5,14 @@ import { scopeDealWhere } from "@/lib/access-control";
 import { getScoringContext, dealScoreView } from "@/lib/deal-score";
 import { resolveActividadInput, serializeActividad, ACTIVIDAD_INCLUDE } from "@/lib/actividad-input";
 import { MAX_CONTENIDO, MSG_CONTENIDO_LARGO } from "@/lib/actividad";
-import { ESTADO_ACCION_CICLO, type EstadoAccion } from "@/types/crm";
 
 export const dynamic = "force-dynamic";
 
 // ── PATCH /api/crm/actividades/:id ──────────────────────────────
 // Actualiza el estado de una acción/seguimiento de la bitácora.
 // Acepta cualquier combinación de:
-//   - estado_accion: PENDIENTE | EN_PROCESO | TERMINADO (toggle de color)
-//   - completada: boolean (compat; se mantiene en sync con estado_accion)
+//   - completada: boolean — ÚNICO campo de estado (Pendiente ⇄ Listo, SOL-21/23)
+//   - resultado_id: id del catálogo | null — desenlace, se pide al marcar Listo (SOL-23)
 //   - fecha_tarea: ISO datetime | null (reprogramar)
 export async function PATCH(
   req: NextRequest,
@@ -76,19 +75,20 @@ export async function PATCH(
       });
     }
 
-    // ── Actualización parcial: estado / completada / fecha_tarea / destacada / contenido.
-    const { estado_accion, completada, fecha_tarea, destacada, contenido } = bodyObj as {
-      estado_accion?: unknown; completada?: unknown; fecha_tarea?: unknown; destacada?: unknown; contenido?: unknown;
+    // ── Actualización parcial: completada / resultado / fecha_tarea / destacada / contenido.
+    const { completada, resultado_id, fecha_tarea, destacada, contenido } = bodyObj as {
+      completada?: unknown; resultado_id?: unknown; fecha_tarea?: unknown;
+      destacada?: unknown; contenido?: unknown;
     };
     const data: {
-      estado_accion?: EstadoAccion; completada?: boolean; fecha_tarea?: Date | null;
+      completada?: boolean; resultado_id?: string | null; fecha_tarea?: Date | null;
       destacada?: boolean; contenido?: string; editada?: boolean; editada_at?: Date;
     } = {};
 
-    // Editar solo el contenido (compat) → deja marca "editada"
+    // Editar solo el contenido (compat) → deja marca "editada". La nota puede quedar
+    // vacía (SOL-21: nunca bloquea).
     if (contenido !== undefined) {
       const c = typeof contenido === "string" ? contenido.trim() : "";
-      if (!c) return NextResponse.json({ error: "El contenido no puede estar vacío" }, { status: 422 });
       if (c.length > MAX_CONTENIDO) return NextResponse.json({ error: MSG_CONTENIDO_LARGO }, { status: 422 });
       data.contenido = c;
       data.editada = true;
@@ -101,19 +101,26 @@ export async function PATCH(
       }
       data.destacada = destacada;
     }
-    // Estado de acción (fuente de verdad); sincroniza completada
-    if (estado_accion !== undefined) {
-      if (!ESTADO_ACCION_CICLO.includes(estado_accion as EstadoAccion)) {
-        return NextResponse.json({ error: "estado_accion inválido" }, { status: 422 });
-      }
-      data.estado_accion = estado_accion as EstadoAccion;
-      data.completada = estado_accion === "TERMINADO";
-    } else if (completada !== undefined) {
+    // Estado (SOL-21/23): Pendiente ⇄ Listo. `completada` es el ÚNICO campo de estado;
+    // el resto (Pendiente/Listo) se DERIVA con es_tarea (lib/tareas → estadoTarea).
+    if (completada !== undefined) {
       if (typeof completada !== "boolean") {
         return NextResponse.json({ error: "completada (boolean) requerido" }, { status: 422 });
       }
       data.completada = completada;
-      data.estado_accion = completada ? "TERMINADO" : "PENDIENTE";
+    }
+    // Desenlace (SOL-23): se pide al marcar Listo, nunca al agendar. Valida contra el catálogo.
+    if (resultado_id !== undefined) {
+      if (resultado_id === null || resultado_id === "") {
+        data.resultado_id = null;
+      } else {
+        const r = await prisma.resultadoAccion.findFirst({
+          where: { id: String(resultado_id), activo: true },
+          select: { id: true },
+        });
+        if (!r) return NextResponse.json({ error: "Desenlace inválido", campo: "resultado_id" }, { status: 422 });
+        data.resultado_id = r.id;
+      }
     }
     // Reprogramar
     if (fecha_tarea !== undefined) {
