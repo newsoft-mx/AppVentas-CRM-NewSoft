@@ -14,6 +14,7 @@ import CalendarioAcciones from "@/components/pipeline/CalendarioAcciones";
 import CheckTarea from "@/components/pipeline/CheckTarea";
 import ActividadFila, { TipoMovimiento } from "@/components/pipeline/ActividadFila";
 import AccionesActividad from "@/components/pipeline/AccionesActividad";
+import FechaActividad from "@/components/pipeline/FechaActividad";
 import { patchActividad, borrarActividad } from "@/lib/actividad-cliente";
 import ActividadCompositor, {
   type DealCompositor, type TipoAccionOpcion, type ResultadoAccionOpcion,
@@ -109,14 +110,17 @@ export default function AccionesInbox({
     }
   }
 
-  async function reprogramar(a: AccionItem, iso: string) {
+  // `hora_definida` viaja con la fecha: reagendar puede quitarle la hora (o ponérsela).
+  async function reagendar(a: AccionItem, iso: string, horaDefinida: boolean) {
     const prev = items;
-    setItems((cur) => cur.map((x) => (x.id === a.id ? { ...x, fecha_tarea: iso } : x)));
+    setItems((cur) =>
+      cur.map((x) => (x.id === a.id ? { ...x, fecha_tarea: iso, hora_definida: horaDefinida } : x))
+    );
     try {
-      await patchActividad(a.id, { fecha_tarea: iso });
+      await patchActividad(a.id, { fecha_tarea: iso, hora_definida: horaDefinida });
     } catch {
       setItems(prev);
-      setToast({ type: "error", message: "No se pudo reprogramar." });
+      setToast({ type: "error", message: "No se pudo reagendar." });
     }
   }
 
@@ -354,27 +358,31 @@ export default function AccionesInbox({
                         </>
                       }
                       fecha={
-                        <span
-                          className={`flex items-center gap-1 text-[11px] ${
-                            vencido ? "font-semibold text-red-600" : "font-medium text-blue-700"
-                          }`}
-                          title={`Registrado el ${formatFechaHora(a.created_at)}`}
-                        >
-                          {a.editada && <span className="mr-0.5 italic text-gray-300">editado ·</span>}
-                          <CalendarClock size={12} />
-                          {a.fecha_tarea ? formatFechaHora(a.fecha_tarea) : "Sin fecha"}
-                        </span>
+                        /* La fecha ES el control: clic para reagendar (SOL-22). Este inbox
+                           solo carga pendientes, así que siempre se puede. */
+                        a.fecha_tarea ? (
+                          <FechaActividad
+                            cuando={a.fecha_tarea}
+                            horaDefinida={a.hora_definida}
+                            esTarea
+                            completada={a.completada}
+                            vencida={vencido}
+                            editada={a.editada}
+                            createdAt={a.created_at}
+                            onReagendar={canWrite ? (iso, conHora) => reagendar(a, iso, conHora) : null}
+                          />
+                        ) : (
+                          <span className="text-[11px] text-gray-400">Sin fecha</span>
+                        )
                       }
                       acciones={
                         <AccionesActividad
                           destacada={a.destacada}
                           canWrite={canWrite}
                           editable={a.tipo !== "SISTEMA"}
-                          fechaTarea={a.completada ? null : a.fecha_tarea}
                           onDestacar={() => toggleDestacar(a)}
                           onEditar={() => iniciarEdicion(a)}
                           onEliminar={() => eliminarActividad(a)}
-                          onReprogramar={(iso) => reprogramar(a, iso)}
                         >
                           <button
                             onClick={() => router.push(`/pipeline/${a.deal.id}`)}

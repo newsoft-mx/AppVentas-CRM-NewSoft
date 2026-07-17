@@ -5,6 +5,7 @@ import { canWrite } from "@/lib/session";
 import { scopeDealWhere } from "@/lib/access-control";
 import DealDetalleClient from "@/components/pipeline/DealDetalleClient";
 import { getScoringContext, dealScoreView } from "@/lib/deal-score";
+import { ACTIVIDAD_INCLUDE, serializeActividad } from "@/lib/actividad-input";
 import type { Metadata } from "next";
 import type { DealDetalle, StageResumen } from "@/types/crm";
 
@@ -40,12 +41,9 @@ export default async function DealDetallePage({
       actividades: {
         where: { eliminada: false },
         orderBy: { created_at: "desc" },
-        include: {
-          contacto: { select: { contacto: { select: { nombre: true } } } },
-          // Modelo de actividad (SOL-04): tipo del catálogo (color) y resultado (efecto)
-          tipo_accion: { select: { id: true, nombre: true, color: true } },
-          resultado: { select: { id: true, nombre: true, efecto: true } },
-        },
+        // Relaciones que necesita serializeActividad (contacto + tipo del catálogo +
+        // resultado). Mismas que usan la agenda y los endpoints: una sola definición.
+        include: ACTIVIDAD_INCLUDE,
       },
     },
   });
@@ -149,31 +147,10 @@ export default async function DealDetallePage({
       cargo: c.contacto.cargo,
       es_principal: c.contacto.es_principal,
     })),
-    actividades: deal.actividades.map((a) => ({
-      id: a.id,
-      tipo: a.tipo,
-      contenido: a.contenido,
-      autor: a.autor,
-      contacto_nombre: a.contacto?.contacto?.nombre ?? null,
-      contacto_id: a.contacto_id,
-      fecha_evento: a.fecha_evento ? a.fecha_evento.toISOString() : null,
-      exitosa: a.exitosa,
-      es_tarea: a.es_tarea,
-      completada: a.completada,
-      estado_accion: a.estado_accion,
-      destacada: a.destacada,
-      editada: a.editada,
-      enlace_url: a.enlace_url,
-      fecha_tarea: a.fecha_tarea ? a.fecha_tarea.toISOString() : null,
-      created_at: a.created_at.toISOString(),
-      estado_plan: a.estado_plan,
-      tipo_accion: a.tipo_accion
-        ? { id: a.tipo_accion.id, nombre: a.tipo_accion.nombre, color: a.tipo_accion.color }
-        : null,
-      resultado: a.resultado
-        ? { id: a.resultado.id, nombre: a.resultado.nombre, efecto: a.resultado.efecto }
-        : null,
-    })),
+    // Mismo serializador que la agenda y los endpoints (lib/actividad-input). Este mapeo
+    // a mano todavía emitía exitosa/estado_accion/estado_plan: campos que ya nadie lee
+    // (SOL-21/23 los reemplazó por es_tarea + completada) y que seguían viajando al front.
+    actividades: deal.actividades.map(serializeActividad),
     historial: {
       ordenes_total: historial.length,
       proyectos_ganados: ganadas.length,

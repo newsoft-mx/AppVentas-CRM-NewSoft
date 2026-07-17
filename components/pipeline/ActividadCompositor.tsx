@@ -121,7 +121,10 @@ function inicial(
   // El "cuándo": si es tarea agendada, fecha_tarea; si es registro, fecha_evento.
   const cuando = editando.fecha_tarea ?? editando.fecha_evento;
   const local = cuando ? fechaInput(cuando) : ""; // "YYYY-MM-DDTHH:mm"
-  const horaGuardada = local ? local.slice(11, 16) : "";
+  // La hora solo se precarga (y se revela) si el usuario la eligió. Si no la eligió, el
+  // instante guardado es el fin del día: mostrarlo sería inventarle una hora que no dio,
+  // y al guardar la edición quedaría fija. Sin hora se edita solo la fecha (SOL-22).
+  const horaGuardada = editando.hora_definida && local ? local.slice(11, 16) : "";
   return {
     tipo: editando.tipo,
     tipoAccion: tiposAccion.find((t) => t.id === editando.tipo_accion?.id) ?? null,
@@ -165,6 +168,17 @@ export default function ActividadCompositor({
   const contactos = dealActivo?.contactos ?? [];
   const revelar = (e: Extra) => setExtras((prev) => (prev.includes(e) ? prev : [...prev, e]));
   const visible = (e: Extra) => extras.includes(e);
+  /**
+   * Quitar un opcional: lo esconde Y borra su valor. Si solo se escondiera, seguiría
+   * viajando en el payload algo que ya no se ve. Hace falta para deshacer: agregaste la
+   * hora por error y no había forma de volver a "sin hora" (SOL-22).
+   */
+  function quitar(e: Extra) {
+    setExtras((prev) => prev.filter((x) => x !== e));
+    if (e === "hora") setHora("");
+    if (e === "contacto") setContactoSel("");
+    if (e === "enlace") setEnlace("");
+  }
 
   // Composer basado en catálogo (SOL-04); fallback a pills fijos si no hay tipos configurados.
   const catalogoTipos = tiposAccion.length > 0;
@@ -172,9 +186,13 @@ export default function ActividadCompositor({
   const mostrarResultado = capturaResultado && resultadosAccion.length > 0;
   // ¿El "cuándo" elegido es futuro? Define si se AGENDA (pendiente, sin desenlace) o es un
   // registro de algo ya ocurrido. Misma regla que el server — acá solo para mostrar/ocultar.
+  // Misma regla que el server (lib/actividad-input): con hora manda el instante; sin hora,
+  // "futuro" es un DÍA posterior — si no, "hoy sin hora" sería tarea a la mañana y
+  // registro a la tarde, según el reloj.
+  const horaDefinida = /^\d{2}:\d{2}$/.test(hora);
   const cuandoFutura =
     /^\d{4}-\d{2}-\d{2}$/.test(fecha) &&
-    new Date(`${fecha}T${/^\d{2}:\d{2}$/.test(hora) ? hora : "09:00"}`).getTime() > nowTs;
+    (horaDefinida ? new Date(`${fecha}T${hora}`).getTime() > nowTs : fecha > hoyISO());
   const extrasDisponibles = (Object.keys(EXTRAS_META) as Extra[]).filter(
     (e) => !visible(e) && (e !== "contacto" || contactos.length > 0)
   );
@@ -311,7 +329,19 @@ export default function ActividadCompositor({
         </label>
         {visible("hora") && (
           <label className="flex flex-col gap-1 text-[11px] font-medium text-gray-500">
-            Hora <span className="font-normal text-gray-400">(opcional)</span>
+            <span className="flex items-center gap-1">
+              Hora <span className="font-normal text-gray-400">(opcional)</span>
+              {/* Quitar la hora: vuelve a "sin hora", que es un estado real (se agenda
+                  para ese día, sin horario). Sin esto, ponerla era irreversible. */}
+              <button
+                type="button"
+                onClick={() => quitar("hora")}
+                title="Quitar la hora (agendar solo para ese día)"
+                className="text-gray-300 hover:text-red-500"
+              >
+                <X size={12} />
+              </button>
+            </span>
             <input
               type="time"
               value={hora}
@@ -341,7 +371,17 @@ export default function ActividadCompositor({
         <div className="mt-2 grid grid-cols-1 gap-3 sm:grid-cols-2">
           {visible("contacto") && (
             <label className="flex flex-col gap-1 text-[11px] font-medium text-gray-500">
-              {tipoNueva === "EMAIL" ? "¿A quién?" : "¿Con quién?"}
+              <span className="flex items-center gap-1">
+                {tipoNueva === "EMAIL" ? "¿A quién?" : "¿Con quién?"}
+                <button
+                  type="button"
+                  onClick={() => quitar("contacto")}
+                  title="Quitar el contacto"
+                  className="text-gray-300 hover:text-red-500"
+                >
+                  <X size={12} />
+                </button>
+              </span>
               <select
                 value={contactoSel}
                 onChange={(e) => setContactoSel(e.target.value)}
@@ -355,7 +395,17 @@ export default function ActividadCompositor({
           )}
           {visible("enlace") && (
             <label className="flex flex-col gap-1 text-[11px] font-medium text-gray-500">
-              Enlace <span className="font-normal text-gray-400">(Drive, propuesta…)</span>
+              <span className="flex items-center gap-1">
+                Enlace <span className="font-normal text-gray-400">(Drive, propuesta…)</span>
+                <button
+                  type="button"
+                  onClick={() => quitar("enlace")}
+                  title="Quitar el enlace"
+                  className="text-gray-300 hover:text-red-500"
+                >
+                  <X size={12} />
+                </button>
+              </span>
               <input
                 type="url"
                 value={enlace}

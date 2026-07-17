@@ -686,6 +686,12 @@ model DealActividad {
   // Seguimiento agendado: próximo paso con fecha y hora (alimenta inbox/IA Fase 2)
   es_tarea     Boolean       @default(false)
   completada   Boolean       @default(false)
+  // ¿La hora la eligió el usuario? (SOL-22) La fecha siempre está; la hora es opcional.
+  // fecha_evento/fecha_tarea son instantes, así que siempre llevan hora: sin este dato
+  // habría que inventarle una y mostrarla como si la hubieran elegido. Cuando es false,
+  // el instante guardado es el FIN del día (23:59 hora de pared CDMX) y la UI muestra
+  // solo la fecha; así "vencida" y el agrupamiento por día siguen saliendo solos.
+  hora_definida Boolean      @default(true)
   // Estado de la acción (3 estados). Se mantiene en sync con completada: TERMINADO ⟺ completada=true
   estado_accion EstadoAccion @default(PENDIENTE)
   fecha_tarea  DateTime?     @db.Timestamptz(6)

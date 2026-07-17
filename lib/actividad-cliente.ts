@@ -17,6 +17,8 @@ export type CamposActividad = {
   completada?: boolean;
   destacada?: boolean;
   fecha_tarea?: string;
+  /** Viaja junto a fecha_tarea: reagendar puede quitar o poner la hora (SOL-22). */
+  hora_definida?: boolean;
   resultado_id?: string;
 };
 

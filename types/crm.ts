@@ -171,6 +171,12 @@ export interface DealActividadItem {
   editada: boolean;
   enlace_url: string | null;
   fecha_tarea: string | null;
+  /**
+   * ¿La hora la eligió el usuario? La fecha siempre está; la hora es opcional (SOL-22).
+   * Si es false, mostrar SOLO la fecha: el instante guardado es el fin del día, no una
+   * hora elegida. Usar formatCuando, que ya aplica la regla.
+   */
+  hora_definida: boolean;
   created_at: string;
   // Modelo de actividad (SOL-04): tipo del catálogo + resultado (desenlace, solo al completar)
   tipo_accion: { id: string; nombre: string; color: string } | null;

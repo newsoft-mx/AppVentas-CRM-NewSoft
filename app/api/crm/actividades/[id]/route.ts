@@ -76,12 +76,13 @@ export async function PATCH(
     }
 
     // ── Actualización parcial: completada / resultado / fecha_tarea / destacada / contenido.
-    const { completada, resultado_id, fecha_tarea, destacada, contenido } = bodyObj as {
-      completada?: unknown; resultado_id?: unknown; fecha_tarea?: unknown;
+    const { completada, resultado_id, fecha_tarea, hora_definida, destacada, contenido } = bodyObj as {
+      completada?: unknown; resultado_id?: unknown; fecha_tarea?: unknown; hora_definida?: unknown;
       destacada?: unknown; contenido?: unknown;
     };
     const data: {
       completada?: boolean; resultado_id?: string | null; fecha_tarea?: Date | null;
+      hora_definida?: boolean;
       destacada?: boolean; contenido?: string; editada?: boolean; editada_at?: Date;
     } = {};
 
@@ -122,7 +123,9 @@ export async function PATCH(
         data.resultado_id = r.id;
       }
     }
-    // Reprogramar
+    // Reprogramar. `hora_definida` viaja con la fecha: reprogramar puede quitarle la hora
+    // a un pendiente (o ponérsela), y sin ese dato el instante guardado —fin del día— se
+    // mostraría como si fuera una hora elegida (SOL-22).
     if (fecha_tarea !== undefined) {
       if (fecha_tarea === null) {
         data.fecha_tarea = null;
@@ -132,6 +135,7 @@ export async function PATCH(
         return NextResponse.json({ error: "fecha_tarea inválida" }, { status: 422 });
       }
     }
+    if (typeof hora_definida === "boolean") data.hora_definida = hora_definida;
 
     if (Object.keys(data).length === 0) {
       return NextResponse.json({ error: "Nada que actualizar" }, { status: 422 });
