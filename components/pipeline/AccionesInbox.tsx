@@ -4,13 +4,16 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Toast, { ToastData } from "@/components/ui/Toast";
 import {
-  ListChecks, CalendarClock, ChevronRight, LayoutList, CalendarDays,
+  ListChecks, CalendarClock, ChevronRight, LayoutList, CalendarDays, Plus,
 } from "lucide-react";
 import {
   TEMPERATURA_META, ESTADO_TAREA_META, GRUPO_URGENCIA_META,
   type AccionItem, type TipoActividad, type GrupoUrgencia,
 } from "@/types/crm";
 import CalendarioAcciones from "@/components/pipeline/CalendarioAcciones";
+import ActividadCompositor, {
+  type DealCompositor, type TipoAccionOpcion, type ResultadoAccionOpcion,
+} from "@/components/pipeline/ActividadCompositor";
 import InputFechaHora from "@/components/ui/InputFechaHora";
 import { formatCompacto, formatFechaHora } from "@/lib/utils";
 import { useUrlFilters } from "@/hooks/useUrlFilters";
@@ -32,14 +35,36 @@ export default function AccionesInbox({
   vendedores,
   initialFiltros,
   mostrarFiltroVendedor = true,
+  canWrite = false,
+  deals = [],
+  tiposAccion = [],
+  resultadosAccion = [],
 }: {
   acciones: AccionItem[];
   vendedores: { id: string; nombre: string }[];
   initialFiltros: AccionesFiltros;
   mostrarFiltroVendedor?: boolean;
+  /** Alta global (SOL-22): registrar sin entrar al deal. */
+  canWrite?: boolean;
+  deals?: DealCompositor[];
+  tiposAccion?: TipoAccionOpcion[];
+  resultadosAccion?: ResultadoAccionOpcion[];
 }) {
   const router = useRouter();
+  // La lista se muta en local (marcar Listo, reprogramar) pero la verdad la arma el
+  // server. useState(acciones) solo toma la prop en el PRIMER render: sin re-sincronizar,
+  // un router.refresh() (p. ej. tras registrar una actividad) recarga el server component
+  // y la lista sigue mostrando lo viejo hasta recargar a mano. Se ajusta durante el
+  // render —patrón de React para "estado derivado de una prop"— en vez de en un efecto,
+  // que agregaría un render extra con la lista desactualizada.
   const [items, setItems] = useState<AccionItem[]>(acciones);
+  const [accionesPrev, setAccionesPrev] = useState(acciones);
+  if (acciones !== accionesPrev) {
+    setAccionesPrev(acciones);
+    setItems(acciones);
+  }
+  // Compositor de alta global: el MISMO que la bitácora del deal, con selector de deal.
+  const [registrando, setRegistrando] = useState(false);
 
   // Filtros persistentes en la URL (mecanismo compartido — pilar 3)
   const [filtros, setFiltros] = useUrlFilters(initialFiltros, serializeAccionesFiltros);
@@ -178,6 +203,37 @@ export default function AccionesInbox({
           </button>
         ))}
       </div>
+
+      {/* Alta global (SOL-22): registrar/agendar desde la agenda, sin entrar al deal.
+          Reusa el compositor de la bitácora — mismas reglas, un solo lugar. */}
+      {canWrite && deals.length > 0 && !registrando && (
+        <div className="border-b border-surface-border bg-white px-6 py-3">
+          <button
+            onClick={() => setRegistrando(true)}
+            className="flex w-full items-center gap-2 rounded-lg border border-dashed border-surface-border
+              px-3 py-2 text-sm font-semibold text-gray-500 hover:border-orange hover:text-navy"
+          >
+            <Plus size={15} /> Registrar actividad
+          </button>
+        </div>
+      )}
+      {canWrite && registrando && (
+        <ActividadCompositor
+          deals={deals}
+          tiposAccion={tiposAccion}
+          resultadosAccion={resultadosAccion}
+          onGuardado={() => {
+            setRegistrando(false);
+            // Qué entra en esta lista lo decide el server (WHERE_TAREA_PENDIENTE): una
+            // actividad nueva puede ser tarea pendiente o un registro que no va acá.
+            // Refrescar en vez de re-derivar la regla en el cliente.
+            router.refresh();
+            setToast({ type: "success", message: "Actividad registrada." });
+          }}
+          onCancelar={() => setRegistrando(false)}
+          onError={(message) => setToast({ type: "error", message })}
+        />
+      )}
 
       {vista === "calendario" ? (
         <div className="flex-1 overflow-hidden bg-surface">
