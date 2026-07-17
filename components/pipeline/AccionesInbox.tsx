@@ -23,7 +23,9 @@ import { formatFechaHora } from "@/lib/utils";
 import { useUrlFilters } from "@/hooks/useUrlFilters";
 import { serializeAccionesFiltros, type AccionesFiltros } from "@/lib/acciones-filtros";
 import { grupoUrgencia } from "@/lib/tareas";
-import { TIPO_ACTIVIDAD_META, tituloActividad } from "@/lib/actividad-tipos";
+import {
+  TIPO_ACTIVIDAD_META, TIPOS_CREABLES, tituloActividad, tipoMovimiento,
+} from "@/lib/actividad-tipos";
 
 const ORDEN_GRUPOS: GrupoUrgencia[] = ["VENCIDAS", "HOY", "SEMANA", "DESPUES"];
 
@@ -154,12 +156,12 @@ export default function AccionesInbox({
     setRegistrando(true);
   }
 
+  // Filtra por el tipo BASE (el enum), no por el catálogo: es lo que persiste en la URL
+  // (lib/acciones-filtros). Los rótulos salen de TIPO_ACTIVIDAD_META en vez de repetirse
+  // acá en duro — eran los mismos plurales escritos dos veces.
   const FILTROS_TIPO: { key: typeof tipoFiltro; label: string }[] = [
     { key: "todos", label: "Todos" },
-    { key: "LLAMADA", label: "Llamadas" },
-    { key: "EMAIL", label: "Emails" },
-    { key: "WHATSAPP", label: "WhatsApp" },
-    { key: "NOTA", label: "Notas" },
+    ...TIPOS_CREABLES.map((t) => ({ key: t, label: TIPO_ACTIVIDAD_META[t].labelPlural })),
   ];
 
   return (
@@ -303,8 +305,7 @@ export default function AccionesInbox({
                   const temp = TEMPERATURA_META[a.deal.temperatura];
                   // El tipo se nombra UNA vez: si no hay nota, el título ya es el tipo.
                   const hayNota = a.contenido.trim() !== "";
-                  const tipoNombre = a.tipo_accion?.nombre ?? TIPO_ACTIVIDAD_META[a.tipo].label;
-                  const tipoColor = a.tipo_accion?.color ?? TIPO_ACTIVIDAD_META[a.tipo].color;
+                  const { nombre: tipoNombre, color: tipoColor } = tipoMovimiento(a);
                   return (
                     <ActividadFila
                       key={a.id}
