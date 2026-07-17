@@ -4,20 +4,21 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Toast, { ToastData } from "@/components/ui/Toast";
 import {
-  ListChecks, CalendarClock, ChevronRight, LayoutList, CalendarDays, Plus,
+  ListChecks, CalendarClock, ChevronRight, LayoutList, CalendarDays, Plus, Link2,
 } from "lucide-react";
 import {
-  TEMPERATURA_META, GRUPO_URGENCIA_META,
+  TEMPERATURA_META, GRUPO_URGENCIA_META, EFECTO_META,
   type AccionItem, type TipoActividad, type GrupoUrgencia,
 } from "@/types/crm";
 import CalendarioAcciones from "@/components/pipeline/CalendarioAcciones";
 import CheckTarea from "@/components/pipeline/CheckTarea";
 import ActividadFila, { TipoMovimiento } from "@/components/pipeline/ActividadFila";
+import AccionesActividad from "@/components/pipeline/AccionesActividad";
+import { patchActividad, borrarActividad } from "@/lib/actividad-cliente";
 import ActividadCompositor, {
   type DealCompositor, type TipoAccionOpcion, type ResultadoAccionOpcion,
 } from "@/components/pipeline/ActividadCompositor";
-import InputFechaHora from "@/components/ui/InputFechaHora";
-import { formatCompacto, formatFechaHora } from "@/lib/utils";
+import { formatFechaHora } from "@/lib/utils";
 import { useUrlFilters } from "@/hooks/useUrlFilters";
 import { serializeAccionesFiltros, type AccionesFiltros } from "@/lib/acciones-filtros";
 import { grupoUrgencia } from "@/lib/tareas";
@@ -25,12 +26,6 @@ import { TIPO_ACTIVIDAD_META, tituloActividad } from "@/lib/actividad-tipos";
 
 const ORDEN_GRUPOS: GrupoUrgencia[] = ["VENCIDAS", "HOY", "SEMANA", "DESPUES"];
 
-// datetime-local espera "YYYY-MM-DDTHH:mm" en hora local
-function toLocalInput(iso: string): string {
-  const d = new Date(iso);
-  const off = d.getTimezoneOffset() * 60_000;
-  return new Date(d.getTime() - off).toISOString().slice(0, 16);
-}
 
 export default function AccionesInbox({
   acciones,
@@ -65,8 +60,10 @@ export default function AccionesInbox({
     setAccionesPrev(acciones);
     setItems(acciones);
   }
-  // Compositor de alta global: el MISMO que la bitácora del deal, con selector de deal.
+  // Compositor: el MISMO que la bitácora del deal. En alta ofrece el selector de deal; al
+  // editar, el deal ya está fijo.
   const [registrando, setRegistrando] = useState(false);
+  const [editando, setEditando] = useState<AccionItem | null>(null);
 
   // Filtros persistentes en la URL (mecanismo compartido — pilar 3)
   const [filtros, setFiltros] = useUrlFilters(initialFiltros, serializeAccionesFiltros);
@@ -75,8 +72,6 @@ export default function AccionesInbox({
   const setVendedorFiltro = (v: string) => setFiltros((f) => ({ ...f, vendedor: v }));
   const setTipoFiltro = (v: "todos" | TipoActividad) => setFiltros((f) => ({ ...f, tipo: v }));
 
-  const [reprogramando, setReprogramando] = useState<string | null>(null);
-  const [reprogValue, setReprogValue] = useState(""); // "YYYY-MM-DDTHH:mm" del reprogramar
   const [toast, setToast] = useState<ToastData | null>(null);
   // "Ahora" debe avanzar: si el inbox queda abierto (o cruza medianoche), el
   // agrupamiento Vencidas/Hoy/Semana se recalcula en vez de quedar congelado al montar.
@@ -107,35 +102,52 @@ export default function AccionesInbox({
     const prev = items;
     setItems((cur) => cur.filter((x) => x.id !== a.id));
     try {
-      const res = await fetch(`/api/crm/actividades/${a.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ completada: true }),
-      });
-      if (!res.ok) throw new Error();
+      await patchActividad(a.id, { completada: true });
     } catch {
       setItems(prev);
       setToast({ type: "error", message: "No se pudo actualizar el estado." });
     }
   }
 
-  async function reprogramar(a: AccionItem, nuevoLocal: string) {
-    setReprogramando(null);
-    if (!nuevoLocal) return;
-    const iso = new Date(nuevoLocal).toISOString();
+  async function reprogramar(a: AccionItem, iso: string) {
     const prev = items;
     setItems((cur) => cur.map((x) => (x.id === a.id ? { ...x, fecha_tarea: iso } : x)));
     try {
-      const res = await fetch(`/api/crm/actividades/${a.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ fecha_tarea: iso }),
-      });
-      if (!res.ok) throw new Error();
+      await patchActividad(a.id, { fecha_tarea: iso });
     } catch {
       setItems(prev);
       setToast({ type: "error", message: "No se pudo reprogramar." });
     }
+  }
+
+  async function toggleDestacar(a: AccionItem) {
+    const nuevo = !a.destacada;
+    setItems((cur) => cur.map((x) => (x.id === a.id ? { ...x, destacada: nuevo } : x)));
+    try {
+      await patchActividad(a.id, { destacada: nuevo });
+    } catch {
+      setItems((cur) => cur.map((x) => (x.id === a.id ? { ...x, destacada: !nuevo } : x)));
+      setToast({ type: "error", message: "No se pudo actualizar la actividad." });
+    }
+  }
+
+  async function eliminarActividad(a: AccionItem) {
+    if (!window.confirm("¿Eliminar esta entrada de la bitácora? Podés registrar otra si hace falta.")) return;
+    const prev = items;
+    setItems((cur) => cur.filter((x) => x.id !== a.id));
+    try {
+      await borrarActividad(a.id);
+    } catch {
+      setItems(prev);
+      setToast({ type: "error", message: "No se pudo eliminar la entrada." });
+    }
+  }
+
+  // Editar reusa el MISMO compositor del alta, precargado. Al editar el deal no cambia
+  // (el PATCH va contra la actividad), así que se fija en vez de ofrecer el selector.
+  function iniciarEdicion(a: AccionItem) {
+    setEditando(a);
+    setRegistrando(true);
   }
 
   const FILTROS_TIPO: { key: typeof tipoFiltro; label: string }[] = [
@@ -221,18 +233,30 @@ export default function AccionesInbox({
       )}
       {canWrite && registrando && (
         <ActividadCompositor
-          deals={deals}
+          key={editando?.id ?? "nueva"}
+          /* Al editar, el deal no cambia (el PATCH va contra la actividad): se fija y no
+             se ofrece el selector. En alta, se elige de la lista. */
+          deal={editando ? deals.find((d) => d.id === editando.deal.id) : undefined}
+          deals={editando ? undefined : deals}
+          editando={editando}
           tiposAccion={tiposAccion}
           resultadosAccion={resultadosAccion}
-          onGuardado={() => {
+          onGuardado={(_r, editada) => {
             setRegistrando(false);
-            // Qué entra en esta lista lo decide el server (WHERE_TAREA_PENDIENTE): una
-            // actividad nueva puede ser tarea pendiente o un registro que no va acá.
-            // Refrescar en vez de re-derivar la regla en el cliente.
+            setEditando(null);
+            // Qué entra en esta lista lo decide el server (WHERE_TAREA_PENDIENTE): al
+            // guardar, la actividad puede seguir siendo pendiente o dejar de serlo (p. ej.
+            // se reprogramó al pasado). Refrescar en vez de re-derivar la regla acá.
             router.refresh();
-            setToast({ type: "success", message: "Actividad registrada." });
+            setToast({
+              type: "success",
+              message: editada ? "Actividad actualizada." : "Actividad registrada.",
+            });
           }}
-          onCancelar={() => setRegistrando(false)}
+          onCancelar={() => {
+            setRegistrando(false);
+            setEditando(null);
+          }}
           onError={(message) => setToast({ type: "error", message })}
         />
       )}
@@ -273,13 +297,15 @@ export default function AccionesInbox({
               <div className="space-y-1.5">
                 {grupo.map((a) => {
                   const temp = TEMPERATURA_META[a.deal.temperatura];
-                  // El tipo se nombra UNA vez: si no hay nota, el título ya es el tipo
-                  // (antes convivían el ícono junto a la fecha y "Nota" de título).
+                  // El tipo se nombra UNA vez: si no hay nota, el título ya es el tipo.
                   const hayNota = a.contenido.trim() !== "";
-                  const tipoMeta = TIPO_ACTIVIDAD_META[a.tipo];
+                  const tipoNombre = a.tipo_accion?.nombre ?? TIPO_ACTIVIDAD_META[a.tipo].label;
+                  const tipoColor = a.tipo_accion?.color ?? TIPO_ACTIVIDAD_META[a.tipo].color;
                   return (
                     <ActividadFila
                       key={a.id}
+                      destacada={a.destacada}
+                      resaltada={editando?.id === a.id}
                       onAbrir={() => router.push(`/pipeline/${a.deal.id}`)}
                       /* Mismo control que la bitácora. La pastilla "PENDIENTE" que había acá
                          se leía como etiqueta, no como botón: nadie adivinaba que marcaba
@@ -287,10 +313,36 @@ export default function AccionesInbox({
                       control={<CheckTarea completada={a.completada} onToggle={() => marcarListo(a)} />}
                       titulo={tituloActividad(a)}
                       meta={
+                        /* Misma meta que la bitácora (tipo · autor · contacto · desenlace ·
+                           enlace) + el deal, que acá hace falta para saber de cuál es. */
                         <>
-                          {hayNota && <TipoMovimiento nombre={tipoMeta.label} color={tipoMeta.color} />}
+                          {hayNota && <TipoMovimiento nombre={tipoNombre} color={tipoColor} />}
+                          <span className="truncate">{a.autor}</span>
+                          {a.contacto_nombre && <span className="text-gray-400">· con {a.contacto_nombre}</span>}
+                          {a.resultado && (
+                            <span
+                              className={`flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px]
+                                          font-semibold ${EFECTO_META[a.resultado.efecto].chip}`}
+                            >
+                              {EFECTO_META[a.resultado.efecto].arrow && (
+                                <span>{EFECTO_META[a.resultado.efecto].arrow}</span>
+                              )}
+                              {a.resultado.nombre}
+                            </span>
+                          )}
+                          {a.enlace_url && /^https?:\/\//i.test(a.enlace_url) && (
+                            <a
+                              href={a.enlace_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              onClick={(e) => e.stopPropagation()}
+                              className="flex items-center gap-1 font-semibold text-blue-600 hover:underline"
+                            >
+                              <Link2 size={12} /> Ver enlace
+                            </a>
+                          )}
                           {/* El punto de temperatura va DENTRO del chip del deal: es del
-                              deal. Suelto al lado del punto del tipo, eran dos bolitas
+                              deal. Suelto al lado del punto del tipo eran dos bolitas
                               seguidas sin saber cuál es cuál. */}
                           <span
                             className="flex items-center gap-1 rounded bg-surface px-1.5 py-0.5"
@@ -299,50 +351,38 @@ export default function AccionesInbox({
                             <span className="h-1.5 w-1.5 rounded-full" style={{ background: temp.color }} />
                             {a.deal.nombre}
                           </span>
-                          <span className="font-bold text-navy">{formatCompacto(a.deal.valor)}</span>
-                          {a.contacto_nombre && <span className="text-gray-400">· {a.contacto_nombre}</span>}
-                          {a.deal.vendedor && <span className="text-gray-400">· {a.deal.vendedor.nombre}</span>}
                         </>
                       }
                       fecha={
-                        <span className="flex items-center gap-1 text-[11px] font-medium text-blue-700">
+                        <span
+                          className={`flex items-center gap-1 text-[11px] ${
+                            vencido ? "font-semibold text-red-600" : "font-medium text-blue-700"
+                          }`}
+                          title={`Registrado el ${formatFechaHora(a.created_at)}`}
+                        >
+                          {a.editada && <span className="mr-0.5 italic text-gray-300">editado ·</span>}
                           <CalendarClock size={12} />
                           {a.fecha_tarea ? formatFechaHora(a.fecha_tarea) : "Sin fecha"}
                         </span>
                       }
                       acciones={
-                        <>
-                          {reprogramando === a.id ? (
-                            <span className="flex items-center gap-1.5">
-                              <InputFechaHora autoFocus value={reprogValue} onChange={setReprogValue} />
-                              <button
-                                onClick={() => reprogramar(a, reprogValue)}
-                                disabled={!reprogValue.includes("T") || !reprogValue.split("T")[1]}
-                                className="rounded bg-navy px-2 py-1 text-[11px] font-semibold
-                                  text-white disabled:opacity-40"
-                              >
-                                Guardar
-                              </button>
-                            </span>
-                          ) : (
-                            <button
-                              onClick={() => {
-                                setReprogValue(a.fecha_tarea ? toLocalInput(a.fecha_tarea) : "");
-                                setReprogramando(a.id);
-                              }}
-                              className="flex items-center gap-1 text-[10px] font-semibold
-                                         text-gray-400 hover:text-orange"
-                            >
-                              <CalendarClock size={11} /> Reprogramar
-                            </button>
-                          )}
+                        <AccionesActividad
+                          destacada={a.destacada}
+                          canWrite={canWrite}
+                          editable={a.tipo !== "SISTEMA"}
+                          fechaTarea={a.completada ? null : a.fecha_tarea}
+                          onDestacar={() => toggleDestacar(a)}
+                          onEditar={() => iniciarEdicion(a)}
+                          onEliminar={() => eliminarActividad(a)}
+                          onReprogramar={(iso) => reprogramar(a, iso)}
+                        >
                           <button
                             onClick={() => router.push(`/pipeline/${a.deal.id}`)}
                             className="flex items-center gap-0.5 text-[10px] font-semibold text-navy hover:text-orange"
                           >
                             Abrir deal <ChevronRight size={11} />
                           </button>
-                        </>
+                        </AccionesActividad>
                       }
                     />
                   );

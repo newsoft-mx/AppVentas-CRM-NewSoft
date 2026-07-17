@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   ArrowLeft, Building2, Trophy, ChevronDown, XCircle, PauseCircle, Play, CalendarClock,
-  Star, Link2, ArrowUpCircle, ChevronRight, UserPlus, Pencil, Trash2, Plus, X,
+  Star, Link2, ArrowUpCircle, ChevronRight, UserPlus, Pencil, Plus, X,
   Globe, AlertTriangle,
   type LucideIcon,
 } from "lucide-react";
@@ -19,6 +19,8 @@ import Markdown from "@/components/ui/Markdown";
 import MarkdownEditor from "@/components/ui/MarkdownEditor";
 import CheckTarea from "@/components/pipeline/CheckTarea";
 import ActividadFila, { ControlVacio, TipoMovimiento } from "@/components/pipeline/ActividadFila";
+import AccionesActividad from "@/components/pipeline/AccionesActividad";
+import { patchActividad, borrarActividad } from "@/lib/actividad-cliente";
 import ActividadCompositor, {
   type TipoAccionOpcion, type ResultadoAccionOpcion, type RespuestaGuardado,
 } from "@/components/pipeline/ActividadCompositor";
@@ -185,12 +187,7 @@ export default function DealDetalleClient({
     setActividades((cur) => cur.map((x) => (x.id === a.id ? { ...x, completada } : x)));
     setCompletando(null);
     try {
-      const res = await fetch(`/api/crm/actividades/${a.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ completada, ...(resultadoId ? { resultado_id: resultadoId } : {}) }),
-      });
-      if (!res.ok) throw new Error();
+      await patchActividad(a.id, { completada, ...(resultadoId ? { resultado_id: resultadoId } : {}) });
       // El desenlace mueve el termómetro (efecto del catálogo) → refrescar del server.
       if (resultadoId) router.refresh();
     } catch {
@@ -205,12 +202,7 @@ export default function DealDetalleClient({
     const nuevo = !a.destacada;
     setActividades((cur) => cur.map((x) => (x.id === a.id ? { ...x, destacada: nuevo } : x)));
     try {
-      const res = await fetch(`/api/crm/actividades/${a.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ destacada: nuevo }),
-      });
-      if (!res.ok) throw new Error();
+      await patchActividad(a.id, { destacada: nuevo });
     } catch {
       // Revertir el pin optimista si el servidor no lo aceptó.
       setActividades((cur) => cur.map((x) => (x.id === a.id ? { ...x, destacada: !nuevo } : x)));
@@ -219,13 +211,24 @@ export default function DealDetalleClient({
   }
 
   // Eliminar (soft-delete) una entrada de la bitácora (SOL-02)
+  // Reprogramar un pendiente sin abrir el compositor: mismo gesto que en la agenda.
+  async function reprogramar(a: DealActividadItem, iso: string) {
+    const prev = actividades;
+    setActividades((cur) => cur.map((x) => (x.id === a.id ? { ...x, fecha_tarea: iso } : x)));
+    try {
+      await patchActividad(a.id, { fecha_tarea: iso });
+    } catch {
+      setActividades(prev);
+      setToast({ type: "error", message: "No se pudo reprogramar." });
+    }
+  }
+
   async function eliminarActividad(a: DealActividadItem) {
     if (!window.confirm("¿Eliminar esta entrada de la bitácora? Podés registrar otra si hace falta.")) return;
     const prev = actividades;
     setActividades((cur) => cur.filter((x) => x.id !== a.id));
     try {
-      const res = await fetch(`/api/crm/actividades/${a.id}`, { method: "DELETE" });
-      if (!res.ok) throw new Error();
+      await borrarActividad(a.id);
     } catch {
       setActividades(prev);
       setToast({ type: "error", message: "No se pudo eliminar la entrada." });
@@ -731,46 +734,16 @@ export default function DealDetalleClient({
                       </span>
                     }
                     acciones={
-                      /* Aparecen al pasar el mouse o al enfocar con teclado: encendidas en
-                         cada fila eran ruido. La estrella se queda si está destacada. */
-                      <span
-                        className={`flex items-center gap-1.5 transition-opacity
-                                    focus-within:opacity-100 group-hover:opacity-100 ${
-                                      a.destacada ? "" : "opacity-0"
-                                    }`}
-                      >
-                        {canWrite && (
-                          <button
-                            onClick={() => toggleDestacar(a)}
-                            title={a.destacada ? "Quitar destacado" : "Destacar"}
-                            className="text-gray-300 hover:text-amber-500"
-                          >
-                            <Star
-                              size={13}
-                              fill={a.destacada ? "#F5A623" : "none"}
-                              color={a.destacada ? "#F5A623" : "currentColor"}
-                            />
-                          </button>
-                        )}
-                        {canWrite && a.tipo !== "SISTEMA" && (
-                          <>
-                            <button
-                              onClick={() => iniciarEdicion(a)}
-                              title="Editar"
-                              className="text-gray-300 hover:text-navy"
-                            >
-                              <Pencil size={12} />
-                            </button>
-                            <button
-                              onClick={() => eliminarActividad(a)}
-                              title="Eliminar"
-                              className="text-gray-300 hover:text-red-500"
-                            >
-                              <Trash2 size={12} />
-                            </button>
-                          </>
-                        )}
-                      </span>
+                      <AccionesActividad
+                        destacada={a.destacada}
+                        canWrite={canWrite}
+                        editable={a.tipo !== "SISTEMA"}
+                        fechaTarea={a.completada ? null : a.fecha_tarea}
+                        onDestacar={() => toggleDestacar(a)}
+                        onEditar={() => iniciarEdicion(a)}
+                        onEliminar={() => eliminarActividad(a)}
+                        onReprogramar={(iso) => reprogramar(a, iso)}
+                      />
                     }
                   />
                 );
