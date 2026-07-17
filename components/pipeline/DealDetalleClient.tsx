@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import {
   ArrowLeft, Building2, Trophy, ChevronDown, XCircle, PauseCircle, Play, CalendarClock,
   Star, Link2, ArrowUpCircle, ChevronRight, UserPlus, Pencil, Trash2, Plus, X,
-  Globe, AlertTriangle,
+  Globe, AlertTriangle, Clock, User, Check,
   type LucideIcon,
 } from "lucide-react";
 import Modal from "@/components/ui/Modal";
@@ -83,6 +83,14 @@ function hoyISO(): string {
   return new Date(d.getTime() - off).toISOString().slice(0, 10);
 }
 
+// Campos opcionales del compositor (SOL-22), revelados a demanda con "+ Agregar".
+type Extra = "hora" | "contacto" | "enlace";
+const EXTRAS_META: Record<Extra, { label: string; icon: LucideIcon }> = {
+  hora: { label: "Hora", icon: Clock },
+  contacto: { label: "Contacto", icon: User },
+  enlace: { label: "Enlace", icon: Link2 },
+};
+
 function fmtFecha(iso: string | null): string {
   if (!iso) return "—";
   // Fecha-solo (YYYY-MM-DD): anclar a UTC → misma fecha en server y cliente (sin corrimiento).
@@ -140,6 +148,12 @@ export default function DealDetalleClient({
   const [resultadoSel, setResultadoSel] = useState("");
   const [enlace, setEnlace] = useState("");
   const [guardando, setGuardando] = useState(false);
+  // SOL-22: campos opcionales revelados a demanda ("+ Agregar"). Lo obligatorio (tipo +
+  // fecha) y la nota están siempre; el resto solo aparece si se pide o si ya trae valor
+  // (al editar). Reduce el formulario de ~7 campos a 3 en el camino común.
+  const [extras, setExtras] = useState<Extra[]>([]);
+  const revelar = (e: Extra) => setExtras((prev) => (prev.includes(e) ? prev : [...prev, e]));
+  const visible = (e: Extra) => extras.includes(e);
   // Mini-modal de desenlace (SOL-23): se abre al marcar Listo una acción con resultado.
   const [completando, setCompletando] = useState<DealActividadItem | null>(null);
   const [desenlaceSel, setDesenlaceSel] = useState("");
@@ -369,6 +383,7 @@ export default function DealDetalleClient({
     setEnlace("");
     setTipoAccionSel(null);
     setTipoNueva("NOTA");
+    setExtras([]); // vuelve al formulario mínimo: tipo + fecha + nota
     setEditandoId(null);
   }
 
@@ -386,8 +401,16 @@ export default function DealDetalleClient({
     // fecha_evento. Se parte en fecha + hora (la hora se muestra pero es opcional).
     const cuando = a.fecha_tarea ?? a.fecha_evento;
     const local = cuando ? fechaInput(cuando) : ""; // "YYYY-MM-DDTHH:mm"
+    const horaGuardada = local ? local.slice(11, 16) : "";
     setFecha(local ? local.slice(0, 10) : hoyISO());
-    setHora(local ? local.slice(11, 16) : "");
+    setHora(horaGuardada);
+    // Al editar, revelar los opcionales que YA tienen valor: si quedaran detrás de
+    // "+ Agregar" se editaría a ciegas (y borrarlos sin verlos).
+    setExtras([
+      ...(horaGuardada ? (["hora"] as Extra[]) : []),
+      ...(a.contacto_id ? (["contacto"] as Extra[]) : []),
+      ...(a.enlace_url ? (["enlace"] as Extra[]) : []),
+    ]);
     setRegistrando(true);
     requestAnimationFrame(() => composerRef.current?.scrollIntoView({ behavior: "smooth", block: "center" }));
   }
@@ -446,8 +469,13 @@ export default function DealDetalleClient({
 
   // Composer basado en catálogo (SOL-04); con fallback a los pills fijos si no hay tipos configurados.
   const catalogoTipos = tiposAccion.length > 0;
-  const mostrarInteraccion = catalogoTipos ? !!tipoAccionSel?.con_resultado : tipoNueva !== "NOTA";
-  const mostrarResultado = mostrarInteraccion && resultadosAccion.length > 0;
+  // ¿El tipo elegido captura desenlace? (del catálogo; sin catálogo, todo menos NOTA).
+  const capturaResultado = catalogoTipos ? !!tipoAccionSel?.con_resultado : tipoNueva !== "NOTA";
+  const mostrarResultado = capturaResultado && resultadosAccion.length > 0;
+  // "+ Agregar" ofrece solo los opcionales que faltan y que aplican a este deal.
+  const extrasDisponibles = (Object.keys(EXTRAS_META) as Extra[]).filter(
+    (e) => !visible(e) && (e !== "contacto" || deal.contactos.length > 0)
+  );
 
   return (
     <div className="flex h-full flex-col">
@@ -751,22 +779,78 @@ export default function DealDetalleClient({
                     })}
               </div>
 
-              {/* Campos según el tipo (catálogo: cuando el tipo captura resultado) */}
-              {mostrarInteraccion && (
-                <div className="mb-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+              {/* Cuándo (SOL-21/22): la FECHA es lo único obligatorio (nace en hoy). La HORA
+                  es opcional y se revela con "+ Agregar" — sin hora igual se agenda. Si el
+                  "cuándo" es futuro se agenda como pendiente; si es hoy/pasado, es un
+                  registro de algo que ya ocurrió. */}
+              <div className="mb-3 flex flex-wrap items-end gap-3">
+                <label className="flex flex-col gap-1 text-[11px] font-medium text-gray-500">
+                  Fecha
+                  <input
+                    type="date"
+                    value={fecha}
+                    onChange={(e) => setFecha(e.target.value)}
+                    className="rounded-lg border border-surface-border bg-white px-3 py-2 text-sm
+                               text-navy outline-none focus:border-orange"
+                  />
+                </label>
+                {visible("hora") && (
                   <label className="flex flex-col gap-1 text-[11px] font-medium text-gray-500">
-                    {tipoNueva === "EMAIL" ? "¿A quién?" : "¿Con quién?"}
-                    <select
-                      value={contactoSel}
-                      onChange={(e) => setContactoSel(e.target.value)}
-                      className="rounded-lg border border-surface-border bg-white px-3 py-2 text-sm text-navy outline-none focus:border-orange"
-                    >
-                      <option value="">— Selecciona contacto —</option>
-                      {deal.contactos.map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}
-                    </select>
+                    Hora <span className="font-normal text-gray-400">(opcional)</span>
+                    <input
+                      type="time"
+                      value={hora}
+                      onChange={(e) => setHora(e.target.value)}
+                      className="rounded-lg border border-surface-border bg-white px-3 py-2 text-sm
+                                 text-navy outline-none focus:border-orange"
+                    />
                   </label>
-                  {/* Desenlace (SOL-23): SOLO para algo que ya ocurrió. Al agendar a futuro
-                      no se muestra ni se pide — se preguntará al marcarla Listo. */}
+                )}
+                {cuandoFutura && (
+                  <p className="flex items-center gap-1 pb-2 text-[11px] font-medium text-blue-700">
+                    <CalendarClock size={13} /> Se agenda como pendiente
+                  </p>
+                )}
+              </div>
+
+              <MarkdownEditor
+                value={texto}
+                onChange={setTexto}
+                placeholder={TIPO_ACTIVIDAD_META[tipoNueva].placeholder}
+              />
+
+              {/* Opcionales: solo los revelados con "+ Agregar" (o los que ya traen valor al
+                  editar). El desenlace no es un "extra" — aparece solo cuando el tipo lo
+                  captura y la actividad ya ocurrió (SOL-23). */}
+              {(visible("contacto") || visible("enlace") || (mostrarResultado && !cuandoFutura)) && (
+                <div className="mt-2 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  {visible("contacto") && (
+                    <label className="flex flex-col gap-1 text-[11px] font-medium text-gray-500">
+                      {tipoNueva === "EMAIL" ? "¿A quién?" : "¿Con quién?"}
+                      <select
+                        value={contactoSel}
+                        onChange={(e) => setContactoSel(e.target.value)}
+                        className="rounded-lg border border-surface-border bg-white px-3 py-2 text-sm
+                                   text-navy outline-none focus:border-orange"
+                      >
+                        <option value="">— Selecciona contacto —</option>
+                        {deal.contactos.map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}
+                      </select>
+                    </label>
+                  )}
+                  {visible("enlace") && (
+                    <label className="flex flex-col gap-1 text-[11px] font-medium text-gray-500">
+                      Enlace <span className="font-normal text-gray-400">(Drive, propuesta…)</span>
+                      <input
+                        type="url"
+                        value={enlace}
+                        onChange={(e) => setEnlace(e.target.value)}
+                        placeholder="https://…"
+                        className="rounded-lg border border-surface-border bg-white px-3 py-2 text-sm
+                                   text-navy outline-none placeholder:text-gray-400 focus:border-orange"
+                      />
+                    </label>
+                  )}
                   {mostrarResultado && !cuandoFutura && (
                     <label className="flex flex-col gap-1 text-[11px] font-medium text-gray-500 sm:col-span-2">
                       Desenlace <span className="font-normal text-gray-400">(opcional — ajusta el termómetro)</span>
@@ -788,54 +872,28 @@ export default function DealDetalleClient({
                 </div>
               )}
 
-              {/* Cuándo (SOL-21): la FECHA es obligatoria (nace en hoy) y la HORA es
-                  opcional. Si el "cuándo" es futuro se agenda como pendiente — con o sin
-                  hora; si es hoy/pasado, es un registro de algo que ya ocurrió. */}
-              <div className="mb-3 flex flex-wrap items-end gap-3">
-                <label className="flex flex-col gap-1 text-[11px] font-medium text-gray-500">
-                  Fecha
-                  <input
-                    type="date"
-                    value={fecha}
-                    onChange={(e) => setFecha(e.target.value)}
-                    className="rounded-lg border border-surface-border bg-white px-3 py-2 text-sm
-                               text-navy outline-none focus:border-orange"
-                  />
-                </label>
-                <label className="flex flex-col gap-1 text-[11px] font-medium text-gray-500">
-                  Hora <span className="font-normal text-gray-400">(opcional)</span>
-                  <input
-                    type="time"
-                    value={hora}
-                    onChange={(e) => setHora(e.target.value)}
-                    className="rounded-lg border border-surface-border bg-white px-3 py-2 text-sm
-                               text-navy outline-none focus:border-orange"
-                  />
-                </label>
-                {cuandoFutura && (
-                  <p className="flex items-center gap-1 pb-2 text-[11px] font-medium text-blue-700">
-                    <CalendarClock size={13} /> Se agenda como pendiente
-                  </p>
-                )}
-              </div>
-
-              <MarkdownEditor value={texto} onChange={setTexto} placeholder={TIPO_ACTIVIDAD_META[tipoNueva].placeholder} />
-
-              {/* Enlace externo (ej. propuesta en Google Drive): siempre visible mientras se
-                  compone — antes se ocultaba al perder foco y el campo "se cerraba". */}
-              <div className="mt-2 space-y-2">
-                <label className="flex items-center gap-2 rounded-lg border border-surface-border bg-surface
-                                  px-3 py-1.5 text-sm text-navy focus-within:border-orange">
-                  <Link2 size={14} className="shrink-0 text-gray-400" />
-                  <input
-                    type="url"
-                    value={enlace}
-                    onChange={(e) => setEnlace(e.target.value)}
-                    placeholder="Enlace (Google Drive, propuesta…) — opcional"
-                    className="w-full bg-transparent outline-none placeholder:text-gray-400"
-                  />
-                </label>
-              </div>
+              {/* "+ Agregar" (SOL-22): revela los opcionales que falten, uno a uno. */}
+              {extrasDisponibles.length > 0 && (
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                  <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">
+                    + Agregar:
+                  </span>
+                  {extrasDisponibles.map((e) => {
+                    const { label, icon: Icon } = EXTRAS_META[e];
+                    return (
+                      <button
+                        key={e}
+                        onClick={() => revelar(e)}
+                        className="flex items-center gap-1 rounded-full border border-dashed border-surface-border
+                                   px-2.5 py-1 text-[11px] font-semibold text-gray-500
+                                   hover:border-orange hover:text-navy"
+                      >
+                        <Icon size={12} /> {label}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
 
               {/* CTA — cancelar (colapsa) + registrar */}
               <div className="mt-3 flex items-center justify-end gap-2">
@@ -890,11 +948,37 @@ export default function DealDetalleClient({
                 const Icon = meta.icon;
                 // Estado derivado (SOL-21/23): solo las agendadas tienen Pendiente/Listo.
                 const estadoT = estadoTarea(a);
+                // SOL-21: la nota es opcional → sin cuerpo no se dibuja la caja (antes
+                // quedaba un recuadro vacío). La caja existe si hay algo que mostrar.
+                const tieneCuerpo =
+                  a.contenido.trim() !== "" || Boolean(a.enlace_url) || Boolean(a.es_tarea && a.fecha_tarea);
                 return (
                   <div key={a.id} className="flex gap-3">
-                    <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full" style={{ background: meta.bg, color: meta.color }}>
-                      <Icon size={13} />
-                    </div>
+                    {/* Columna izquierda: en las agendadas, checkbox para completar de un
+                        clic (el gesto de Gaby en Pipedrive); en los registros, el ícono. */}
+                    {canWrite && estadoT ? (
+                      <button
+                        onClick={() => alternarEstado(a)}
+                        title={a.completada ? "Marcar como Pendiente" : "Marcar como Listo"}
+                        aria-label={a.completada ? "Marcar como Pendiente" : "Marcar como Listo"}
+                        className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full
+                                    border-2 transition-colors ${
+                                      a.completada
+                                        ? "border-emerald-600 bg-emerald-600 text-white"
+                                        : `border-gray-300 text-transparent hover:border-emerald-600
+                                           hover:text-emerald-600`
+                                    }`}
+                      >
+                        <Check size={14} strokeWidth={3} />
+                      </button>
+                    ) : (
+                      <div
+                        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full"
+                        style={{ background: meta.bg, color: meta.color }}
+                      >
+                        <Icon size={13} />
+                      </div>
+                    )}
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-2 text-xs">
                         <span className="font-semibold text-navy">{a.autor}</span>
@@ -953,49 +1037,43 @@ export default function DealDetalleClient({
                           {formatFechaHora(a.fecha_evento ?? a.created_at)}
                         </span>
                       </div>
-                      <div
-                        className={`mt-1 rounded-lg border border-surface-border bg-white px-3 py-2 text-sm leading-relaxed text-gray-700 ${
-                          editandoId === a.id ? "ring-2 ring-orange/40" : ""
-                        }`}
-                        style={{ borderLeftWidth: 3, borderLeftColor: a.destacada ? "#F5A623" : meta.color }}
-                      >
-                        <Markdown>{a.contenido}</Markdown>
-                        {a.enlace_url && /^https?:\/\//i.test(a.enlace_url) && (
-                          <a
-                            href={a.enlace_url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="mt-1.5 flex w-fit items-center gap-1 text-[11px] font-semibold text-blue-600 hover:underline"
-                          >
-                            <Link2 size={12} /> Ver enlace
-                          </a>
-                        )}
-                        {a.es_tarea && a.fecha_tarea && (
-                          <div className="mt-1.5 flex flex-wrap items-center gap-2 text-[11px]">
-                            <span className="flex items-center gap-1 font-semibold text-blue-700">
+                      {tieneCuerpo && (
+                        <div
+                          className={`mt-1 flex flex-col items-start gap-1.5 rounded-lg border border-surface-border
+                                      bg-white px-3 py-2 text-sm leading-relaxed text-gray-700 ${
+                                        editandoId === a.id ? "ring-2 ring-orange/40" : ""
+                                      }`}
+                          style={{ borderLeftWidth: 3, borderLeftColor: a.destacada ? "#F5A623" : meta.color }}
+                        >
+                          {a.contenido.trim() !== "" && (
+                            <div className="w-full">
+                              <Markdown>{a.contenido}</Markdown>
+                            </div>
+                          )}
+                          {a.enlace_url && /^https?:\/\//i.test(a.enlace_url) && (
+                            <a
+                              href={a.enlace_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="flex items-center gap-1 text-[11px] font-semibold
+                                         text-blue-600 hover:underline"
+                            >
+                              <Link2 size={12} /> Ver enlace
+                            </a>
+                          )}
+                          {/* El estado ya lo dice el checkbox de la izquierda + el chip de
+                              arriba; acá solo el "cuándo" del seguimiento. */}
+                          {a.es_tarea && a.fecha_tarea && (
+                            <span
+                              className={`flex items-center gap-1 text-[11px] font-semibold ${
+                                a.completada ? "text-gray-400 line-through" : "text-blue-700"
+                              }`}
+                            >
                               <CalendarClock size={12} /> Seguimiento: {formatFechaHora(a.fecha_tarea)}
                             </span>
-                            {canWrite && estadoT && (
-                              <button
-                                onClick={() => alternarEstado(a)}
-                                title={a.completada ? "Marcar como Pendiente" : "Marcar como Listo"}
-                                className="flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold
-                                           uppercase hover:opacity-80"
-                                style={{
-                                  background: ESTADO_TAREA_META[estadoT].dot + "22",
-                                  color: ESTADO_TAREA_META[estadoT].dot,
-                                }}
-                              >
-                                <span
-                                  className="h-1.5 w-1.5 rounded-full"
-                                  style={{ background: ESTADO_TAREA_META[estadoT].dot }}
-                                />
-                                {ESTADO_TAREA_META[estadoT].label}
-                              </button>
-                            )}
-                          </div>
-                        )}
-                      </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                   </div>
                 );
