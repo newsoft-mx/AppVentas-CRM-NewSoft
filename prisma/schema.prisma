@@ -421,15 +421,6 @@ enum RolContacto {
   @@map("rol_contacto")
 }
 
-// Estado de una acción/seguimiento de la bitácora (toggle de color en la UI)
-enum EstadoAccion {
-  PENDIENTE // Agendada, aún no se trabajó
-  EN_PROCESO // Se empezó a trabajar
-  TERMINADO // Hecha, con resultado registrado (sale de Próximas Acciones)
-
-  @@map("estado_accion")
-}
-
 // Modo de avance de etapa al cruzar el umbral del termómetro (REQ-06)
 enum AvanceModo {
   SUGERIR // Muestra aviso "listo para avanzar" con confirmación de 1 clic (default)
@@ -446,15 +437,6 @@ enum EfectoTermometro {
   NEGATIVO
 
   @@map("efecto_termometro")
-}
-
-// Estado de planeación de una acción agendable (SOL-04): Planeada (futura, no
-// cuenta) → Realizada (con resultado, ya cuenta). "Vencida" es derivado.
-enum EstadoPlaneacion {
-  PLANEADA
-  REALIZADA
-
-  @@map("estado_planeacion")
 }
 
 // Catálogo table-driven de TIPOS DE ACCIÓN (SOL-04). Reemplaza al enum fijo
@@ -681,8 +663,6 @@ model DealActividad {
   contacto     DealContacto? @relation(fields: [contacto_id], references: [id], onDelete: SetNull)
   // Cuándo ocurrió el evento (puede diferir del registro). Email = automático.
   fecha_evento DateTime?     @db.Timestamptz(6)
-  // Solo para LLAMADA: si contestó / fue exitosa
-  exitosa      Boolean?
   // Seguimiento agendado: próximo paso con fecha y hora (alimenta inbox/IA Fase 2)
   es_tarea     Boolean       @default(false)
   completada   Boolean       @default(false)
@@ -692,8 +672,6 @@ model DealActividad {
   // el instante guardado es el FIN del día (23:59 hora de pared CDMX) y la UI muestra
   // solo la fecha; así "vencida" y el agrupamiento por día siguen saliendo solos.
   hora_definida Boolean      @default(true)
-  // Estado de la acción (3 estados). Se mantiene en sync con completada: TERMINADO ⟺ completada=true
-  estado_accion EstadoAccion @default(PENDIENTE)
   fecha_tarea  DateTime?     @db.Timestamptz(6)
   // Destacada/bookmark: las actividades importantes se fijan arriba del listado (REQ-03)
   destacada    Boolean       @default(false)
@@ -709,8 +687,6 @@ model DealActividad {
   // Tipo desde el catálogo (naturaleza + banderas agendable/con_resultado)
   tipo_accion_id String?          @db.Uuid
   tipo_accion    TipoAccion?      @relation(fields: [tipo_accion_id], references: [id], onDelete: SetNull)
-  // Estado de planeación (solo agendables): PLANEADA → REALIZADA. null = no agendable
-  estado_plan    EstadoPlaneacion?
   // Resultado capturado al marcar Realizada (mueve el termómetro según su efecto)
   resultado_id   String?          @db.Uuid
   resultado      ResultadoAccion? @relation(fields: [resultado_id], references: [id], onDelete: SetNull)

@@ -29,7 +29,6 @@ export async function GET(req: NextRequest) {
       ganadosSinOrden,
       ventasSinFecha,
       clienteInactivo,
-      estadoDesync,
       ordenDup,
       refHuerfanaTipo,
       refHuerfanaResultado,
@@ -47,16 +46,11 @@ export async function GET(req: NextRequest) {
         _count: true,
         _sum: { total_mxn: true },
       }),
-      // Bloque S — "estado_accion y completada están sincronizados"
-      prisma.dealActividad.count({
-        where: {
-          eliminada: false,
-          OR: [
-            { estado_accion: "TERMINADO", completada: false },
-            { estado_accion: { in: ["PENDIENTE", "EN_PROCESO"] }, completada: true },
-          ],
-        },
-      }),
+      // El check "estado_accion y completada están sincronizados" se va con la columna:
+      // desde SOL-21/23 el estado es UNO y derivado (lib/tareas → estadoTarea), así que
+      // ya no hay dos campos que puedan desincronizarse. Peor: nada volvía a escribir
+      // estado_accion, así que el check reportaba como violación la deriva natural de una
+      // columna muerta — ruido permanente en el panel.
       // Bloque E — "PipelineStage.orden es único entre activas"
       prisma.pipelineStage.groupBy({
         by: ["orden"],
@@ -78,8 +72,6 @@ export async function GET(req: NextRequest) {
         titulo: "Deals GANADO sin orden vinculada (orden_id null)" },
       { id: "ventas_sin_fecha", bloque: "F", tipo: "violacion", count: ventasSinFecha,
         titulo: "Órdenes VENTA sin fecha_venta" },
-      { id: "actividad_estado_desync", bloque: "S", tipo: "violacion", count: estadoDesync,
-        titulo: "Actividades con estado_accion y completada desincronizados" },
       { id: "etapas_orden_duplicado", bloque: "E", tipo: "violacion", count: ordenDup.length,
         titulo: "Etapas activas con el mismo 'orden'" },
       { id: "actividad_ref_huerfana", bloque: "S", tipo: "violacion",
