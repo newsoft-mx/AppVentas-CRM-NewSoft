@@ -211,15 +211,15 @@ export interface DealDetalle {
 }
 
 // ── Próximas Acciones (agregador de seguimientos de la bitácora) ──
-export interface AccionItem {
-  id: string;
-  tipo: TipoActividad;
-  contenido: string;
-  fecha_tarea: string | null;
-  /** Con `es_tarea` deriva el estado Pendiente/Listo (lib/tareas → estadoTarea). */
-  es_tarea: boolean;
-  completada: boolean;
-  contacto_nombre: string | null;
+/**
+ * Una actividad vista desde la agenda global: la MISMA actividad de la bitácora, más el
+ * deal del que cuelga (ahí se cruzan deals; en la bitácora ya estás dentro de uno).
+ *
+ * Era una forma aparte y recortada, y por eso la agenda no podía mostrar autor, desenlace
+ * ni enlace, ni ofrecer editar/destacar: no tenía los datos. Es la misma entidad → una
+ * sola forma, serializada por el mismo lib/actividad-input.
+ */
+export interface AccionItem extends DealActividadItem {
   deal: {
     id: string;
     nombre: string;

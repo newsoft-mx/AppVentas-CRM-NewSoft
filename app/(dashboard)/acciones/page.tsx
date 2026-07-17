@@ -1,10 +1,13 @@
 import { prisma } from "@/lib/prisma";
 import { getServerSession } from "@/lib/server-session";
+import { canWrite } from "@/lib/session";
 import { scopeDealWhere } from "@/lib/access-control";
+import type { DealCompositor } from "@/components/pipeline/ActividadCompositor";
 import { getScoringContext, dealScoreView } from "@/lib/deal-score";
 import AccionesInbox from "@/components/pipeline/AccionesInbox";
 import { parseAccionesFiltros } from "@/lib/acciones-filtros";
 import { WHERE_TAREA_PENDIENTE } from "@/lib/tareas";
+import { ACTIVIDAD_INCLUDE, serializeActividad } from "@/lib/actividad-input";
 import type { Metadata } from "next";
 import type { AccionItem, Temperatura } from "@/types/crm";
 
@@ -23,11 +26,13 @@ export default async function AccionesPage({
   // suyos; ADMIN/GERENTE ven todos y filtran con el dropdown.
   const dealScope = scopeDealWhere(session, { resultado: "ABIERTO" });
 
-  const [tareas, vendedores] = await Promise.all([
+  const [tareas, vendedores, dealsAlta, tiposAccion, resultadosAccion] = await Promise.all([
     prisma.dealActividad.findMany({
       where: { ...WHERE_TAREA_PENDIENTE, deal: dealScope },
       include: {
-        contacto: { select: { contacto: { select: { nombre: true } } } },
+        // Mismas relaciones que la bitácora: la agenda muestra la misma actividad, así que
+        // la serializa el mismo lib/actividad-input en vez de recortarla a mano.
+        ...ACTIVIDAD_INCLUDE,
         deal: {
           select: {
             id: true,
@@ -46,6 +51,31 @@ export default async function AccionesPage({
       where: { activo: true },
       select: { id: true, nombre: true },
       orderBy: { nombre: "asc" },
+    }),
+    // Alta global (SOL-22): deal_id es NOT NULL, así que registrar desde la agenda exige
+    // elegir un deal. Mismo scope que la lista (scopeDealWhere) → un VENDEDOR no puede
+    // cargarle actividad a un deal ajeno. Se resuelve en el server: sin endpoint nuevo
+    // ni fetch en cascada al abrir el compositor.
+    prisma.deal.findMany({
+      where: dealScope,
+      select: {
+        id: true,
+        nombre: true,
+        cliente: { select: { nombre: true } },
+        contactos: { select: { id: true, contacto: { select: { nombre: true } } } },
+      },
+      orderBy: { created_at: "desc" },
+    }),
+    // Mismos catálogos que la bitácora del deal: el compositor es el mismo componente.
+    prisma.tipoAccion.findMany({
+      where: { activo: true },
+      orderBy: { orden: "asc" },
+      select: { id: true, nombre: true, color: true, agendable: true, con_resultado: true },
+    }),
+    prisma.resultadoAccion.findMany({
+      where: { activo: true },
+      orderBy: { orden: "asc" },
+      select: { id: true, nombre: true, efecto: true, sugiere_reagendar: true },
     }),
   ]);
 
@@ -75,13 +105,7 @@ export default async function AccionesPage({
   }
 
   const acciones: AccionItem[] = tareas.map((t) => ({
-    id: t.id,
-    tipo: t.tipo,
-    contenido: t.contenido,
-    fecha_tarea: t.fecha_tarea ? t.fecha_tarea.toISOString() : null,
-    es_tarea: t.es_tarea,
-    completada: t.completada,
-    contacto_nombre: t.contacto?.contacto?.nombre ?? null,
+    ...serializeActividad(t),
     deal: {
       id: t.deal.id,
       nombre: t.deal.nombre,
@@ -94,12 +118,24 @@ export default async function AccionesPage({
   // El VENDEDOR no necesita el dropdown (ya está scopeado a lo suyo)
   const mostrarFiltroVendedor = session?.rol !== "VENDEDOR";
 
+  // Opciones del selector "Deal — Cliente" del compositor.
+  const dealsCompositor: DealCompositor[] = dealsAlta.map((d) => ({
+    id: d.id,
+    titulo: d.nombre,
+    cliente_nombre: d.cliente?.nombre ?? "Sin cliente",
+    contactos: d.contactos.map((c) => ({ id: c.id, nombre: c.contacto.nombre })),
+  }));
+
   return (
     <AccionesInbox
       acciones={acciones}
       vendedores={vendedores}
       initialFiltros={initialFiltros}
       mostrarFiltroVendedor={mostrarFiltroVendedor}
+      canWrite={canWrite(session)}
+      deals={dealsCompositor}
+      tiposAccion={tiposAccion}
+      resultadosAccion={resultadosAccion}
     />
   );
 }

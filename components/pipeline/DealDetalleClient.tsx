@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   ArrowLeft, Building2, Trophy, ChevronDown, XCircle, PauseCircle, Play, CalendarClock,
-  Star, Link2, ArrowUpCircle, ChevronRight, UserPlus, Pencil, Trash2, Plus, X,
+  Star, Link2, ArrowUpCircle, ChevronRight, UserPlus, Pencil, Plus, X,
   Globe, AlertTriangle,
   type LucideIcon,
 } from "lucide-react";
@@ -17,34 +17,28 @@ import CasosNegocioDeal from "@/components/pipeline/CasosNegocioDeal";
 import NuevoDealModal from "@/components/pipeline/NuevoDealModal";
 import Markdown from "@/components/ui/Markdown";
 import MarkdownEditor from "@/components/ui/MarkdownEditor";
+import CheckTarea from "@/components/pipeline/CheckTarea";
+import ActividadFila, { ControlVacio, TipoMovimiento } from "@/components/pipeline/ActividadFila";
+import AccionesActividad from "@/components/pipeline/AccionesActividad";
+import { patchActividad, borrarActividad } from "@/lib/actividad-cliente";
+import ActividadCompositor, {
+  type TipoAccionOpcion, type ResultadoAccionOpcion, type RespuestaGuardado,
+} from "@/components/pipeline/ActividadCompositor";
 import { formatCompacto, formatFechaHora } from "@/lib/utils";
-import { MAX_CONTENIDO } from "@/lib/actividad";
-import { fechaInput } from "@/lib/tz";
-import { TIPO_ACTIVIDAD_META, TIPOS_CREABLES } from "@/lib/actividad-tipos";
-import InputFechaHora from "@/components/ui/InputFechaHora";
+import { TIPO_ACTIVIDAD_META } from "@/lib/actividad-tipos";
 import { esTareaPendiente, estaVencida, estadoTarea } from "@/lib/tareas";
 import {
-  TEMPERATURA_META, ESTADO_TAREA_META,
+  TEMPERATURA_META,
   EFECTO_META, TAMANO_EMPRESA_LABEL,
   type DealDetalle, type DealActividadItem, type StageResumen, type TipoActividad,
   type Temperatura,
 } from "@/types/crm";
 // El panel de IA (DealAIPanel) está construido pero se libera en Fase 2.
 
-export interface ResultadoAccionOpcion {
-  id: string;
-  nombre: string;
-  efecto: "POSITIVO" | "NEUTRO" | "NEGATIVO";
-  sugiere_reagendar: boolean;
-}
-
-export interface TipoAccionOpcion {
-  id: string;
-  nombre: string;
-  color: string;
-  agendable: boolean;
-  con_resultado: boolean;
-}
+// Los catálogos del compositor (TipoAccionOpcion / ResultadoAccionOpcion) viven en
+// ActividadCompositor: es quien los consume. Se re-exportan porque las páginas que
+// arman las props los tipan desde acá.
+export type { TipoAccionOpcion, ResultadoAccionOpcion };
 
 interface Props {
   deal: DealDetalle;
@@ -64,23 +58,8 @@ interface Props {
   sugerirAvanceInicial?: boolean;
 }
 
-// Deriva el tipo legado (para ícono/placeholder/éxito) a partir del nombre del tipo del catálogo.
-function tipoLegado(nombre: string): TipoActividad {
-  const n = nombre.toLowerCase();
-  if (n.includes("llamad")) return "LLAMADA";
-  if (n.includes("mail") || n.includes("correo")) return "EMAIL";
-  if (n.includes("whats")) return "WHATSAPP";
-  return "NOTA";
-}
-
 function fmtFull(n: number): string {
   return "$" + n.toLocaleString("es-MX", { minimumFractionDigits: 0 });
-}
-// "Hoy" como YYYY-MM-DD en hora local (para el default del campo fecha del compositor).
-function hoyISO(): string {
-  const d = new Date();
-  const off = d.getTimezoneOffset() * 60_000;
-  return new Date(d.getTime() - off).toISOString().slice(0, 10);
 }
 
 function fmtFecha(iso: string | null): string {
@@ -121,35 +100,15 @@ export default function DealDetalleClient({
   const temp = TEMPERATURA_META[temperatura];
   const [actividades, setActividades] = useState<DealActividadItem[]>(deal.actividades);
   const [filtroVer, setFiltroVer] = useState<string>("TODAS");
-  const [tipoNueva, setTipoNueva] = useState<TipoActividad>("NOTA");
-  const [tipoAccionSel, setTipoAccionSel] = useState<TipoAccionOpcion | null>(null);
-  const [texto, setTexto] = useState("");
-  // Contacto precargado por defecto: el primer contacto del deal (REQ-03)
-  const [contactoSel, setContactoSel] = useState(deal.contactos[0]?.id ?? "");
-  // SOL-21: fecha (obligatoria, default hoy) + hora (OPCIONAL). Sin hora igual se agenda.
-  // Como "hoy" depende del reloj, se setea tras el montaje (no en render → sin mismatch).
-  const [fecha, setFecha] = useState("");
-  const [hora, setHora] = useState("");
   // "Ahora" en ms, seteado tras el montaje: evita llamar Date.now() en el render
-  // (mismatch de hidratación). Alimenta cuandoFutura y seguimientoVencido.
+  // (mismatch de hidratación). Alimenta seguimientoVencido.
   const [nowTs, setNowTs] = useState<number | null>(null);
   useEffect(() => {
     setNowTs(Date.now());
-    setFecha(hoyISO());
   }, []);
-  const [resultadoSel, setResultadoSel] = useState("");
-  const [enlace, setEnlace] = useState("");
-  const [guardando, setGuardando] = useState(false);
   // Mini-modal de desenlace (SOL-23): se abre al marcar Listo una acción con resultado.
   const [completando, setCompletando] = useState<DealActividadItem | null>(null);
   const [desenlaceSel, setDesenlaceSel] = useState("");
-  // ¿El "cuándo" elegido es futuro? (fecha + hora ?? HORA_DEFAULT). Define si se AGENDA
-  // (pendiente, sin desenlace) o es un registro de algo ya ocurrido. Misma regla que el
-  // server (lib/actividad-input) — acá solo para mostrar/ocultar el desenlace.
-  const cuandoFutura =
-    /^\d{4}-\d{2}-\d{2}$/.test(fecha) && nowTs != null
-      ? new Date(`${fecha}T${/^\d{2}:\d{2}$/.test(hora) ? hora : "09:00"}`).getTime() > nowTs
-      : false;
   // El compositor está colapsado por defecto (la bitácora ocupa toda la altura); se
   // abre al tocar "Registrar actividad" y se cierra al guardar o con Cancelar/✕.
   const [registrando, setRegistrando] = useState(false);
@@ -171,8 +130,10 @@ export default function DealDetalleClient({
   const [notas, setNotas] = useState(deal.notas ?? "");
   const [editandoNotas, setEditandoNotas] = useState(false);
   const [toast, setToast] = useState<ToastData | null>(null);
-  // Edición de una entrada: se reusa el MISMO compositor precargado (editandoId != null).
-  const [editandoId, setEditandoId] = useState<string | null>(null);
+  // Edición de una entrada: se reusa el MISMO compositor, precargado con `editando`.
+  const [editando, setEditando] = useState<DealActividadItem | null>(null);
+  // Contacto elegido desde el panel de contactos → arranca el compositor con él.
+  const [contactoInicial, setContactoInicial] = useState<string | undefined>(undefined);
   // Ref al compositor para desplazarlo a la vista al iniciar una edición.
   const composerRef = useRef<HTMLDivElement>(null);
   async function guardarNotas() {
@@ -226,12 +187,7 @@ export default function DealDetalleClient({
     setActividades((cur) => cur.map((x) => (x.id === a.id ? { ...x, completada } : x)));
     setCompletando(null);
     try {
-      const res = await fetch(`/api/crm/actividades/${a.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ completada, ...(resultadoId ? { resultado_id: resultadoId } : {}) }),
-      });
-      if (!res.ok) throw new Error();
+      await patchActividad(a.id, { completada, ...(resultadoId ? { resultado_id: resultadoId } : {}) });
       // El desenlace mueve el termómetro (efecto del catálogo) → refrescar del server.
       if (resultadoId) router.refresh();
     } catch {
@@ -246,12 +202,7 @@ export default function DealDetalleClient({
     const nuevo = !a.destacada;
     setActividades((cur) => cur.map((x) => (x.id === a.id ? { ...x, destacada: nuevo } : x)));
     try {
-      const res = await fetch(`/api/crm/actividades/${a.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ destacada: nuevo }),
-      });
-      if (!res.ok) throw new Error();
+      await patchActividad(a.id, { destacada: nuevo });
     } catch {
       // Revertir el pin optimista si el servidor no lo aceptó.
       setActividades((cur) => cur.map((x) => (x.id === a.id ? { ...x, destacada: !nuevo } : x)));
@@ -260,13 +211,24 @@ export default function DealDetalleClient({
   }
 
   // Eliminar (soft-delete) una entrada de la bitácora (SOL-02)
+  // Reprogramar un pendiente sin abrir el compositor: mismo gesto que en la agenda.
+  async function reprogramar(a: DealActividadItem, iso: string) {
+    const prev = actividades;
+    setActividades((cur) => cur.map((x) => (x.id === a.id ? { ...x, fecha_tarea: iso } : x)));
+    try {
+      await patchActividad(a.id, { fecha_tarea: iso });
+    } catch {
+      setActividades(prev);
+      setToast({ type: "error", message: "No se pudo reprogramar." });
+    }
+  }
+
   async function eliminarActividad(a: DealActividadItem) {
     if (!window.confirm("¿Eliminar esta entrada de la bitácora? Podés registrar otra si hace falta.")) return;
     const prev = actividades;
     setActividades((cur) => cur.filter((x) => x.id !== a.id));
     try {
-      const res = await fetch(`/api/crm/actividades/${a.id}`, { method: "DELETE" });
-      if (!res.ok) throw new Error();
+      await borrarActividad(a.id);
     } catch {
       setActividades(prev);
       setToast({ type: "error", message: "No se pudo eliminar la entrada." });
@@ -358,96 +320,38 @@ export default function DealDetalleClient({
   const seguimientoVencido =
     proximoSeguimiento && nowTs != null ? estaVencida(proximoSeguimiento, nowTs) : false;
 
-  // Limpia el borrador del compositor a su estado inicial (un solo lugar; lo usan el
-  // guardado exitoso y el cierre con Cancelar/✕).
-  function resetCompositor() {
-    setTexto("");
-    setContactoSel(deal.contactos[0]?.id ?? "");
-    setFecha(hoyISO()); // la fecha nace en HOY (SOL-22: menos clics)
-    setHora(""); // la hora es opcional
-    setResultadoSel("");
-    setEnlace("");
-    setTipoAccionSel(null);
-    setTipoNueva("NOTA");
-    setEditandoId(null);
-  }
-
-  // Editar una entrada: precarga el MISMO compositor con todos sus campos y lo abre.
-  // Guardar hace PATCH (edición completa); la validación/serialización la comparte con el alta.
+  // Abrir el compositor para editar una entrada: precarga sola con `editando` (el
+  // compositor comparte validación y payload con el alta).
   function iniciarEdicion(a: DealActividadItem) {
-    setEditandoId(a.id);
-    setTexto(a.contenido);
-    setEnlace(a.enlace_url ?? "");
-    setContactoSel(a.contacto_id ?? "");
-    setTipoAccionSel(tiposAccion.find((t) => t.id === a.tipo_accion?.id) ?? null);
-    setTipoNueva(a.tipo);
-    setResultadoSel(a.resultado?.id ?? "");
-    // El "cuándo" de la entrada: si es tarea agendada, fecha_tarea; si es registro,
-    // fecha_evento. Se parte en fecha + hora (la hora se muestra pero es opcional).
-    const cuando = a.fecha_tarea ?? a.fecha_evento;
-    const local = cuando ? fechaInput(cuando) : ""; // "YYYY-MM-DDTHH:mm"
-    setFecha(local ? local.slice(0, 10) : hoyISO());
-    setHora(local ? local.slice(11, 16) : "");
+    setEditando(a);
     setRegistrando(true);
     requestAnimationFrame(() => composerRef.current?.scrollIntoView({ behavior: "smooth", block: "center" }));
   }
   function cerrarCompositor() {
-    resetCompositor();
+    setEditando(null);
+    setContactoInicial(undefined);
     setRegistrando(false);
   }
 
-  async function guardarActividad() {
-    // SOL-21: lo único que bloquea es tipo + fecha (la nota NO). El server valida igual.
-    if (!fecha || guardando) return;
-    setGuardando(true);
-    // Alta (POST) o edición completa (PATCH) — mismo payload; el server comparte validación.
-    const editar = editandoId != null;
-    // El server (lib/actividad-input) decide con fecha+hora si esto se AGENDA (futura →
-    // pendiente, con o sin hora) o es un registro de algo ya ocurrido. El desenlace solo
-    // viaja cuando ya ocurrió (SOL-23): al agendar no se pide ni se manda.
-    const payload = {
-      tipo: tipoNueva,
-      contenido: texto.trim() || undefined,
-      contacto_id: contactoSel || undefined,
-      fecha,
-      hora: hora || undefined,
-      tipo_accion_id: tipoAccionSel?.id || undefined,
-      resultado_id: !cuandoFutura && mostrarResultado ? resultadoSel || undefined : undefined,
-      enlace_url: enlace.trim() || undefined,
-    };
-    try {
-      const res = await fetch(
-        editar ? `/api/crm/actividades/${editandoId}` : `/api/crm/deals/${deal.id}/actividades`,
-        { method: editar ? "PATCH" : "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) }
-      );
-      const data = await res.json().catch(() => null);
-      if (!res.ok) throw new Error(data?.error ?? "No se pudo guardar la actividad.");
-      const guardada = data.actividad as DealActividadItem;
-      setActividades((cur) =>
-        editar ? cur.map((x) => (x.id === guardada.id ? guardada : x)) : [guardada, ...cur]
-      );
-      // Termómetro devuelto por el servidor (REQ-06) — el alta y la edición lo recalculan.
-      if (data.temperatura) setTemperatura(data.temperatura as Temperatura);
-      if (data.sugerir_avance) setSugerirAvance(true);
-      // Cierre de ciclo (SOL-04): el resultado sugiere agendar la próxima acción
-      if (data.sugerir_reagendar) {
-        setToast({ type: "success", message: "Guardado. El resultado sugiere agendar la próxima acción." });
-      }
-      // En modo AUTOMÁTICO el servidor ya avanzó de etapa y registró el evento SISTEMA:
-      // refrescar para reflejar la nueva etapa y la entrada en la bitácora.
-      if (data.avanzo_etapa) router.refresh();
-      cerrarCompositor(); // guardado OK → limpia y colapsa el compositor
-    } catch (e) {
-      setToast({ type: "error", message: e instanceof Error ? e.message : "No se pudo guardar la actividad." });
-    } finally {
-      setGuardando(false);
+  // El compositor ya hizo el POST/PATCH; acá solo se refleja lo que devolvió el server.
+  function alGuardar(data: RespuestaGuardado, editada: boolean) {
+    const guardada = data.actividad;
+    setActividades((cur) =>
+      editada ? cur.map((x) => (x.id === guardada.id ? guardada : x)) : [guardada, ...cur]
+    );
+    // Termómetro devuelto por el servidor (REQ-06) — el alta y la edición lo recalculan.
+    if (data.temperatura) setTemperatura(data.temperatura);
+    if (data.sugerir_avance) setSugerirAvance(true);
+    // Cierre de ciclo (SOL-04): el resultado sugiere agendar la próxima acción.
+    if (data.sugerir_reagendar) {
+      setToast({ type: "success", message: "Guardado. El resultado sugiere agendar la próxima acción." });
     }
+    // En modo AUTOMÁTICO el servidor ya avanzó de etapa y registró el evento SISTEMA:
+    // refrescar para reflejar la nueva etapa y la entrada en la bitácora.
+    if (data.avanzo_etapa) router.refresh();
+    cerrarCompositor();
   }
 
-  // Composer basado en catálogo (SOL-04); con fallback a los pills fijos si no hay tipos configurados.
-  const catalogoTipos = tiposAccion.length > 0;
-  const mostrarInteraccion = catalogoTipos ? !!tipoAccionSel?.con_resultado : tipoNueva !== "NOTA";
-  const mostrarResultado = mostrarInteraccion && resultadosAccion.length > 0;
 
   return (
     <div className="flex h-full flex-col">
@@ -643,7 +547,13 @@ export default function DealDetalleClient({
               contactos={deal.contactos}
               canWrite={canWrite}
               onError={(message) => setToast({ type: "error", message })}
-              onSelect={setContactoSel}
+              onSelect={(id) => {
+                // Clic en un contacto = "quiero registrar algo con él": abre el compositor
+                // en alta, con ese contacto ya puesto.
+                setEditando(null);
+                setContactoInicial(id);
+                setRegistrando(true);
+              }}
             />
           </Section>
 
@@ -695,164 +605,23 @@ export default function DealDetalleClient({
             </div>
           )}
 
-          {/* Compositor: visible solo al registrar; arriba el TIPO de entrada → cambian los campos */}
+          {/* Compositor: el MISMO componente que usa la agenda global. Las reglas de
+              captura (SOL-21/22/23) viven ahí una sola vez, no duplicadas por pantalla. */}
           {canWrite && registrando && (
-            <div
-              ref={composerRef}
-              className="border-b border-surface-border bg-white px-5 py-4"
-            >
-              <div className="mb-3 flex items-center justify-between">
-                <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">
-                  {editandoId ? "Editar actividad" : "Nueva actividad"}
-                </span>
-                <button
-                  onClick={cerrarCompositor}
-                  title="Cerrar"
-                  className="rounded p-1 text-gray-400 hover:bg-surface hover:text-navy"
-                >
-                  <X size={16} />
-                </button>
-              </div>
-              <div className="mb-3 flex flex-wrap items-center gap-2">
-                {catalogoTipos
-                  ? tiposAccion.map((t) => {
-                      const activo = tipoAccionSel?.id === t.id;
-                      return (
-                        <button
-                          key={t.id}
-                          onClick={() => {
-                            setTipoAccionSel(t);
-                            setTipoNueva(tipoLegado(t.nombre));
-                            if (!t.con_resultado) setResultadoSel("");
-                          }}
-                          className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold transition-colors ${
-                            activo ? "text-white" : "border-surface-border text-gray-500 hover:bg-surface"
-                          }`}
-                          style={activo ? { background: t.color, borderColor: t.color } : undefined}
-                        >
-                          <span className="h-2 w-2 rounded-full" style={{ background: activo ? "#fff" : t.color }} />
-                          {t.nombre}
-                        </button>
-                      );
-                    })
-                  : TIPOS_CREABLES.map((tipo) => {
-                      const { label, icon: Icon } = TIPO_ACTIVIDAD_META[tipo];
-                      return (
-                        <button
-                          key={tipo}
-                          onClick={() => setTipoNueva(tipo)}
-                          className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold transition-colors ${
-                            tipoNueva === tipo ? "border-navy bg-navy text-white" : "border-surface-border text-gray-500 hover:bg-surface"
-                          }`}
-                        >
-                          <Icon size={13} /> {label}
-                        </button>
-                      );
-                    })}
-              </div>
-
-              {/* Campos según el tipo (catálogo: cuando el tipo captura resultado) */}
-              {mostrarInteraccion && (
-                <div className="mb-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
-                  <label className="flex flex-col gap-1 text-[11px] font-medium text-gray-500">
-                    {tipoNueva === "EMAIL" ? "¿A quién?" : "¿Con quién?"}
-                    <select
-                      value={contactoSel}
-                      onChange={(e) => setContactoSel(e.target.value)}
-                      className="rounded-lg border border-surface-border bg-white px-3 py-2 text-sm text-navy outline-none focus:border-orange"
-                    >
-                      <option value="">— Selecciona contacto —</option>
-                      {deal.contactos.map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}
-                    </select>
-                  </label>
-                  {/* Desenlace (SOL-23): SOLO para algo que ya ocurrió. Al agendar a futuro
-                      no se muestra ni se pide — se preguntará al marcarla Listo. */}
-                  {mostrarResultado && !cuandoFutura && (
-                    <label className="flex flex-col gap-1 text-[11px] font-medium text-gray-500 sm:col-span-2">
-                      Desenlace <span className="font-normal text-gray-400">(opcional — ajusta el termómetro)</span>
-                      <select
-                        value={resultadoSel}
-                        onChange={(e) => setResultadoSel(e.target.value)}
-                        className="rounded-lg border border-surface-border bg-white px-3 py-2 text-sm text-navy outline-none focus:border-orange"
-                      >
-                        <option value="">— Sin registrar resultado —</option>
-                        {resultadosAccion.map((r) => (
-                          <option key={r.id} value={r.id}>
-                            {r.nombre}
-                            {r.efecto === "POSITIVO" ? "  ▲" : r.efecto === "NEGATIVO" ? "  ▼" : ""}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                  )}
-                </div>
-              )}
-
-              {/* Cuándo (SOL-21): la FECHA es obligatoria (nace en hoy) y la HORA es
-                  opcional. Si el "cuándo" es futuro se agenda como pendiente — con o sin
-                  hora; si es hoy/pasado, es un registro de algo que ya ocurrió. */}
-              <div className="mb-3 flex flex-wrap items-end gap-3">
-                <label className="flex flex-col gap-1 text-[11px] font-medium text-gray-500">
-                  Fecha
-                  <input
-                    type="date"
-                    value={fecha}
-                    onChange={(e) => setFecha(e.target.value)}
-                    className="rounded-lg border border-surface-border bg-white px-3 py-2 text-sm
-                               text-navy outline-none focus:border-orange"
-                  />
-                </label>
-                <label className="flex flex-col gap-1 text-[11px] font-medium text-gray-500">
-                  Hora <span className="font-normal text-gray-400">(opcional)</span>
-                  <input
-                    type="time"
-                    value={hora}
-                    onChange={(e) => setHora(e.target.value)}
-                    className="rounded-lg border border-surface-border bg-white px-3 py-2 text-sm
-                               text-navy outline-none focus:border-orange"
-                  />
-                </label>
-                {cuandoFutura && (
-                  <p className="flex items-center gap-1 pb-2 text-[11px] font-medium text-blue-700">
-                    <CalendarClock size={13} /> Se agenda como pendiente
-                  </p>
-                )}
-              </div>
-
-              <MarkdownEditor value={texto} onChange={setTexto} placeholder={TIPO_ACTIVIDAD_META[tipoNueva].placeholder} />
-
-              {/* Enlace externo (ej. propuesta en Google Drive): siempre visible mientras se
-                  compone — antes se ocultaba al perder foco y el campo "se cerraba". */}
-              <div className="mt-2 space-y-2">
-                <label className="flex items-center gap-2 rounded-lg border border-surface-border bg-surface
-                                  px-3 py-1.5 text-sm text-navy focus-within:border-orange">
-                  <Link2 size={14} className="shrink-0 text-gray-400" />
-                  <input
-                    type="url"
-                    value={enlace}
-                    onChange={(e) => setEnlace(e.target.value)}
-                    placeholder="Enlace (Google Drive, propuesta…) — opcional"
-                    className="w-full bg-transparent outline-none placeholder:text-gray-400"
-                  />
-                </label>
-              </div>
-
-              {/* CTA — cancelar (colapsa) + registrar */}
-              <div className="mt-3 flex items-center justify-end gap-2">
-                <button
-                  onClick={cerrarCompositor}
-                  className="rounded-lg px-4 py-2 text-sm font-semibold text-gray-500 hover:bg-surface hover:text-navy"
-                >
-                  Cancelar
-                </button>
-                <button
-                  onClick={guardarActividad}
-                  disabled={!fecha || texto.length > MAX_CONTENIDO || guardando}
-                  className="rounded-lg bg-navy px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-navy-700 disabled:opacity-50"
-                >
-                  {guardando ? "Guardando…" : editandoId ? "Guardar cambios" : "Registrar"}
-                </button>
-              </div>
+            <div ref={composerRef}>
+              {/* key: cambiar de actividad (o de contacto) remonta el compositor, que nace
+                  ya precargado. Evita un efecto que pise lo que se está tipeando. */}
+              <ActividadCompositor
+                key={editando?.id ?? contactoInicial ?? "nueva"}
+                deal={{ id: deal.id, contactos: deal.contactos }}
+                tiposAccion={tiposAccion}
+                resultadosAccion={resultadosAccion}
+                editando={editando}
+                contactoInicial={contactoInicial}
+                onGuardado={alGuardar}
+                onCancelar={cerrarCompositor}
+                onError={(m) => setToast({ type: "error", message: m })}
+              />
             </div>
           )}
 
@@ -890,114 +659,93 @@ export default function DealDetalleClient({
                 const Icon = meta.icon;
                 // Estado derivado (SOL-21/23): solo las agendadas tienen Pendiente/Listo.
                 const estadoT = estadoTarea(a);
+                const vencida = Boolean(
+                  a.es_tarea && !a.completada && a.fecha_tarea && nowTs != null && estaVencida(a.fecha_tarea, nowTs)
+                );
+                // El tipo se nombra UNA vez: si no hay nota, el título ya es el tipo y la
+                // meta no lo repite. Del catálogo si lo tiene (SOL-04); si no, el tipo base.
+                const hayNota = a.contenido.trim() !== "";
+                const tipoNombre = a.tipo_accion?.nombre ?? meta.label;
+                const tipoColor = a.tipo_accion?.color ?? meta.color;
+                // Fecha: de una tarea importa CUÁNDO vence, no cuándo se anotó (eso queda en
+                // el title); de un registro, cuándo ocurrió.
+                const fechaDer = a.es_tarea && a.fecha_tarea ? a.fecha_tarea : (a.fecha_evento ?? a.created_at);
                 return (
-                  <div key={a.id} className="flex gap-3">
-                    <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full" style={{ background: meta.bg, color: meta.color }}>
-                      <Icon size={13} />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex flex-wrap items-center gap-2 text-xs">
-                        <span className="font-semibold text-navy">{a.autor}</span>
+                  <ActividadFila
+                    key={a.id}
+                    destacada={a.destacada}
+                    resaltada={editando?.id === a.id}
+                    control={
+                      estadoT ? (
+                        <CheckTarea
+                          completada={a.completada}
+                          onToggle={() => alternarEstado(a)}
+                          disabled={!canWrite}
+                        />
+                      ) : (
+                        <ControlVacio />
+                      )
+                    }
+                    titulo={hayNota ? <Markdown>{a.contenido}</Markdown> : tipoNombre}
+                    meta={
+                      <>
+                        {hayNota && <TipoMovimiento nombre={tipoNombre} color={tipoColor} />}
+                        <span className="truncate">{a.autor}</span>
                         {a.contacto_nombre && <span className="text-gray-400">· con {a.contacto_nombre}</span>}
-                        {/* Modelo de actividad (SOL-04): tipo del catálogo (color), estado y resultado */}
-                        {a.tipo_accion && (
-                          <span
-                            className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-semibold"
-                            style={{ background: a.tipo_accion.color + "1A", color: a.tipo_accion.color }}
-                          >
-                            <span className="h-1.5 w-1.5 rounded-full" style={{ background: a.tipo_accion.color }} />
-                            {a.tipo_accion.nombre}
-                          </span>
-                        )}
-                        {estadoT && (
-                          <span
-                            className={`rounded px-1.5 py-0.5 text-[10px] font-semibold
-                                        ${ESTADO_TAREA_META[estadoT].chip}`}
-                          >
-                            {ESTADO_TAREA_META[estadoT].label}
-                          </span>
-                        )}
                         {a.resultado && (
-                          <span className={`flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-semibold ${EFECTO_META[a.resultado.efecto].chip}`}>
+                          <span
+                            className={`flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px]
+                                        font-semibold ${EFECTO_META[a.resultado.efecto].chip}`}
+                          >
                             {EFECTO_META[a.resultado.efecto].arrow && (
                               <span>{EFECTO_META[a.resultado.efecto].arrow}</span>
                             )}
                             {a.resultado.nombre}
                           </span>
                         )}
-                        {canWrite && (
-                          <button
-                            onClick={() => toggleDestacar(a)}
-                            title={a.destacada ? "Quitar destacado" : "Destacar"}
-                            className="text-gray-300 hover:text-amber-500"
-                          >
-                            <Star
-                              size={13}
-                              fill={a.destacada ? "#F5A623" : "none"}
-                              color={a.destacada ? "#F5A623" : "currentColor"}
-                            />
-                          </button>
-                        )}
-                        {canWrite && a.tipo !== "SISTEMA" && (
-                          <>
-                            <button onClick={() => iniciarEdicion(a)} title="Editar" className="text-gray-300 hover:text-navy">
-                              <Pencil size={12} />
-                            </button>
-                            <button onClick={() => eliminarActividad(a)} title="Eliminar" className="text-gray-300 hover:text-red-500">
-                              <Trash2 size={12} />
-                            </button>
-                          </>
-                        )}
-                        <span className="ml-auto text-[11px] text-gray-400">
-                          {a.editada && <span className="mr-1 italic text-gray-300">editado ·</span>}
-                          {formatFechaHora(a.fecha_evento ?? a.created_at)}
-                        </span>
-                      </div>
-                      <div
-                        className={`mt-1 rounded-lg border border-surface-border bg-white px-3 py-2 text-sm leading-relaxed text-gray-700 ${
-                          editandoId === a.id ? "ring-2 ring-orange/40" : ""
-                        }`}
-                        style={{ borderLeftWidth: 3, borderLeftColor: a.destacada ? "#F5A623" : meta.color }}
-                      >
-                        <Markdown>{a.contenido}</Markdown>
                         {a.enlace_url && /^https?:\/\//i.test(a.enlace_url) && (
                           <a
                             href={a.enlace_url}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="mt-1.5 flex w-fit items-center gap-1 text-[11px] font-semibold text-blue-600 hover:underline"
+                            className="flex items-center gap-1 font-semibold text-blue-600 hover:underline"
                           >
                             <Link2 size={12} /> Ver enlace
                           </a>
                         )}
-                        {a.es_tarea && a.fecha_tarea && (
-                          <div className="mt-1.5 flex flex-wrap items-center gap-2 text-[11px]">
-                            <span className="flex items-center gap-1 font-semibold text-blue-700">
-                              <CalendarClock size={12} /> Seguimiento: {formatFechaHora(a.fecha_tarea)}
-                            </span>
-                            {canWrite && estadoT && (
-                              <button
-                                onClick={() => alternarEstado(a)}
-                                title={a.completada ? "Marcar como Pendiente" : "Marcar como Listo"}
-                                className="flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold
-                                           uppercase hover:opacity-80"
-                                style={{
-                                  background: ESTADO_TAREA_META[estadoT].dot + "22",
-                                  color: ESTADO_TAREA_META[estadoT].dot,
-                                }}
-                              >
-                                <span
-                                  className="h-1.5 w-1.5 rounded-full"
-                                  style={{ background: ESTADO_TAREA_META[estadoT].dot }}
-                                />
-                                {ESTADO_TAREA_META[estadoT].label}
-                              </button>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
+                      </>
+                    }
+                    fecha={
+                      <span
+                        className={`flex shrink-0 items-center gap-1 text-[11px] ${
+                          a.completada
+                            ? "text-gray-400 line-through"
+                            : a.es_tarea
+                              ? vencida
+                                ? "font-semibold text-red-600"
+                                : "font-medium text-blue-700"
+                              : "text-gray-400"
+                        }`}
+                        title={`Registrado el ${formatFechaHora(a.created_at)}`}
+                      >
+                        {a.editada && <span className="mr-0.5 italic text-gray-300">editado ·</span>}
+                        {a.es_tarea && <CalendarClock size={12} />}
+                        {formatFechaHora(fechaDer)}
+                      </span>
+                    }
+                    acciones={
+                      <AccionesActividad
+                        destacada={a.destacada}
+                        canWrite={canWrite}
+                        editable={a.tipo !== "SISTEMA"}
+                        fechaTarea={a.completada ? null : a.fecha_tarea}
+                        onDestacar={() => toggleDestacar(a)}
+                        onEditar={() => iniciarEdicion(a)}
+                        onEliminar={() => eliminarActividad(a)}
+                        onReprogramar={(iso) => reprogramar(a, iso)}
+                      />
+                    }
+                  />
                 );
               })}
             </div>
