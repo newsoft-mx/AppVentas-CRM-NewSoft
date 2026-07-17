@@ -18,9 +18,13 @@
 --   resultado_id (catálogo ResultadoAccion), que además mueve el termómetro.
 --
 -- Los enums quedan sin columnas que los usen: DROP TYPE no borra filas.
-ALTER TABLE "deal_actividad" DROP COLUMN "exitosa";
-ALTER TABLE "deal_actividad" DROP COLUMN "estado_accion";
-ALTER TABLE "deal_actividad" DROP COLUMN "estado_plan";
+-- IF EXISTS: la BD de prod ya tiene las columnas dropeadas (el build de preview de este
+-- PR corrió migrate deploy contra la BD compartida antes de mergear). Sin IF EXISTS, este
+-- DROP fallaría el build de prod al intentar borrar algo que ya no está. Con IF EXISTS es
+-- idempotente: funciona esté aplicada o no.
+ALTER TABLE "deal_actividad" DROP COLUMN IF EXISTS "exitosa";
+ALTER TABLE "deal_actividad" DROP COLUMN IF EXISTS "estado_accion";
+ALTER TABLE "deal_actividad" DROP COLUMN IF EXISTS "estado_plan";
 
-DROP TYPE "estado_accion";
-DROP TYPE "estado_planeacion";
+DROP TYPE IF EXISTS "estado_accion";
+DROP TYPE IF EXISTS "estado_planeacion";
