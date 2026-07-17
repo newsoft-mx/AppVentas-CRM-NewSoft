@@ -7,9 +7,7 @@
 import { prisma } from "@/lib/prisma";
 import { inputAUtc } from "@/lib/tz";
 import { MAX_CONTENIDO, MSG_CONTENIDO_LARGO } from "@/lib/actividad";
-import type {
-  DealActividadItem, TipoActividad, EstadoAccion, EstadoPlaneacion, EfectoTermometro,
-} from "@/types/crm";
+import type { DealActividadItem, TipoActividad, EfectoTermometro } from "@/types/crm";
 
 const TIPOS = ["NOTA", "LLAMADA", "EMAIL", "WHATSAPP"] as const;
 type TipoCreable = (typeof TIPOS)[number];
@@ -21,13 +19,15 @@ export interface ActividadResuelta {
   contacto_id: string | null;
   enlace_url: string | null;
   fecha_evento: Date | null;
-  exitosa: boolean | null;
   es_tarea: boolean;
   fecha_tarea: Date | null;
   tipo_accion_id: string | null;
   resultado_id: string | null;
-  estado_plan: EstadoPlaneacion | null;
 }
+
+// Hora por defecto cuando se agenda sin especificarla (SOL-21: la hora es opcional y no
+// debe impedir que el pendiente se agende).
+const HORA_DEFAULT = "09:00";
 
 export type ResolveActividad =
   | { ok: false; error: string; campo?: string; status: number }
@@ -39,19 +39,21 @@ export type ResolveActividad =
  */
 export async function resolveActividadInput(body: unknown, dealId: string): Promise<ResolveActividad> {
   const {
-    tipo, contenido, contacto_id, fecha_evento, exitosa, fecha_tarea, enlace_url, tipo_accion_id, resultado_id,
+    tipo, contenido, contacto_id, fecha, hora, enlace_url, tipo_accion_id, resultado_id,
   } = (body ?? {}) as {
-    tipo?: string; contenido?: string; contacto_id?: string; fecha_evento?: string;
-    exitosa?: boolean; fecha_tarea?: string; enlace_url?: string; tipo_accion_id?: string; resultado_id?: string;
+    tipo?: string; contenido?: string; contacto_id?: string; fecha?: string; hora?: string;
+    enlace_url?: string; tipo_accion_id?: string; resultado_id?: string;
   };
 
   if (!tipo || !TIPOS.includes(tipo as TipoCreable)) {
     return { ok: false, error: "Tipo inválido", campo: "tipo", status: 422 };
   }
-  if (!contenido || !contenido.trim()) {
-    return { ok: false, error: "El contenido es obligatorio", campo: "contenido", status: 422 };
+  // SOL-21: lo ÚNICO que bloquea el guardado es tipo + fecha (el cliente/deal es el contexto).
+  // La nota, la hora, el contacto y el desenlace son opcionales y nunca bloquean.
+  if (!fecha || !/^\d{4}-\d{2}-\d{2}$/.test(fecha)) {
+    return { ok: false, error: "La fecha es obligatoria", campo: "fecha", status: 422 };
   }
-  if (contenido.length > MAX_CONTENIDO) {
+  if (contenido && contenido.length > MAX_CONTENIDO) {
     return { ok: false, error: MSG_CONTENIDO_LARGO, campo: "contenido", status: 422 };
   }
 
@@ -72,44 +74,59 @@ export async function resolveActividadInput(body: unknown, dealId: string): Prom
     const c = await prisma.dealContacto.findFirst({ where: { id: contacto_id, deal_id: dealId }, select: { id: true } });
     contactoId = c?.id ?? null;
   }
-  const exitosaVal = tipoActividad === "LLAMADA" ? (typeof exitosa === "boolean" ? exitosa : null) : null;
-
-  // Tipo/resultado del catálogo (SOL-04): valida contra el catálogo activo y captura su efecto.
+  // Tipo del catálogo (SOL-04): valida contra el catálogo activo y trae su bandera `agendable`,
+  // que sigue rigiendo si una fecha futura se convierte en pendiente o no (SOL-21).
   let tipoAccionId: string | null = null;
+  let agendable = true; // sin tipo del catálogo → se asume agendable
   if (tipo_accion_id) {
-    const ta = await prisma.tipoAccion.findFirst({ where: { id: tipo_accion_id, activo: true }, select: { id: true } });
-    tipoAccionId = ta?.id ?? null;
+    const ta = await prisma.tipoAccion.findFirst({
+      where: { id: tipo_accion_id, activo: true },
+      select: { id: true, agendable: true },
+    });
+    if (ta) {
+      tipoAccionId = ta.id;
+      agendable = ta.agendable;
+    }
   }
+  // Regla de agendado (SOL-21).
+  // El "cuándo" es fecha (obligatoria) + hora (opcional → HORA_DEFAULT). Los valores son
+  // hora de pared CDMX → inputAUtc los ancla al instante correcto.
+  //   futura + tipo agendable → PENDIENTE (es_tarea, aparece en Próximas Acciones),
+  //                             con o sin hora. Sin desenlace: aún no ocurrió.
+  //   hoy/pasada             → registro de algo que ya ocurrió (fecha_evento), y ahí sí
+  //                             admite desenlace (opcional).
+  const horaUsada = /^\d{2}:\d{2}$/.test(hora ?? "") ? (hora as string) : HORA_DEFAULT;
+  const cuando = inputAUtc(`${fecha}T${horaUsada}`) ?? new Date(`${fecha}T${horaUsada}`);
+  if (Number.isNaN(cuando.getTime())) {
+    return { ok: false, error: "Fecha inválida", campo: "fecha", status: 422 };
+  }
+  const esFutura = cuando.getTime() > Date.now();
+  const esTarea = esFutura && agendable;
+
+  // Desenlace (SOL-23): solo tiene sentido en lo que YA ocurrió. Al agendar se ignora.
   let resultadoId: string | null = null;
   let sugiereReagendar = false;
-  if (resultado_id) {
+  if (resultado_id && !esTarea) {
     const r = await prisma.resultadoAccion.findFirst({
       where: { id: resultado_id, activo: true },
       select: { id: true, sugiere_reagendar: true },
     });
     if (r) { resultadoId = r.id; sugiereReagendar = r.sugiere_reagendar; }
   }
-  // Si capturó resultado, la acción está REALIZADA; si agenda a futuro, PLANEADA.
-  const estadoPlan: EstadoPlaneacion | null = resultadoId ? "REALIZADA" : fecha_tarea ? "PLANEADA" : null;
 
   return {
     ok: true,
     sugiereReagendar,
     data: {
       tipo: tipoActividad,
-      contenido: contenido.trim(),
+      contenido: (contenido ?? "").trim(),
       contacto_id: contactoId,
       enlace_url: enlaceLimpio || null,
-      // "¿Cuándo?" (fecha_evento): si viene se respeta para cualquier tipo (incluida NOTA);
-      // si no, NOTA queda sin fecha (usa created_at en el timeline) y el resto asume "ahora".
-      // Los valores del input son hora de pared CDMX → inputAUtc los ancla al instante correcto.
-      fecha_evento: fecha_evento ? inputAUtc(fecha_evento) ?? new Date(fecha_evento) : tipoActividad === "NOTA" ? null : new Date(),
-      exitosa: exitosaVal,
-      es_tarea: Boolean(fecha_tarea),
-      fecha_tarea: fecha_tarea ? inputAUtc(fecha_tarea) ?? new Date(fecha_tarea) : null,
+      fecha_evento: esTarea ? null : cuando,
+      es_tarea: esTarea,
+      fecha_tarea: esTarea ? cuando : null,
       tipo_accion_id: tipoAccionId,
       resultado_id: resultadoId,
-      estado_plan: estadoPlan,
     },
   };
 }
@@ -121,17 +138,14 @@ export interface ActividadConRelaciones {
   contenido: string;
   autor: string;
   contacto_id: string | null;
-  exitosa: boolean | null;
   es_tarea: boolean;
   completada: boolean;
-  estado_accion: EstadoAccion;
   destacada: boolean;
   editada: boolean;
   enlace_url: string | null;
   fecha_evento: Date | null;
   fecha_tarea: Date | null;
   created_at: Date;
-  estado_plan: EstadoPlaneacion | null;
   contacto: { contacto: { nombre: string } } | null;
   tipo_accion: { id: string; nombre: string; color: string } | null;
   resultado: { id: string; nombre: string; efecto: EfectoTermometro } | null;
@@ -147,16 +161,13 @@ export function serializeActividad(a: ActividadConRelaciones): DealActividadItem
     contacto_nombre: a.contacto?.contacto?.nombre ?? null,
     contacto_id: a.contacto_id,
     fecha_evento: a.fecha_evento ? a.fecha_evento.toISOString() : null,
-    exitosa: a.exitosa,
     es_tarea: a.es_tarea,
     completada: a.completada,
-    estado_accion: a.estado_accion,
     destacada: a.destacada,
     editada: a.editada,
     enlace_url: a.enlace_url,
     fecha_tarea: a.fecha_tarea ? a.fecha_tarea.toISOString() : null,
     created_at: a.created_at.toISOString(),
-    estado_plan: a.estado_plan,
     tipo_accion: a.tipo_accion
       ? { id: a.tipo_accion.id, nombre: a.tipo_accion.nombre, color: a.tipo_accion.color }
       : null,

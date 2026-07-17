@@ -22,10 +22,10 @@ import { MAX_CONTENIDO } from "@/lib/actividad";
 import { fechaInput } from "@/lib/tz";
 import { TIPO_ACTIVIDAD_META, TIPOS_CREABLES } from "@/lib/actividad-tipos";
 import InputFechaHora from "@/components/ui/InputFechaHora";
-import { esTareaPendiente, estaVencida } from "@/lib/tareas";
+import { esTareaPendiente, estaVencida, estadoTarea } from "@/lib/tareas";
 import {
-  TEMPERATURA_META, ESTADO_ACCION_META, ESTADO_ACCION_CICLO,
-  EFECTO_META, ESTADO_PLAN_META, TAMANO_EMPRESA_LABEL,
+  TEMPERATURA_META, ESTADO_TAREA_META,
+  EFECTO_META, TAMANO_EMPRESA_LABEL,
   type DealDetalle, type DealActividadItem, type StageResumen, type TipoActividad,
   type Temperatura,
 } from "@/types/crm";
@@ -76,6 +76,13 @@ function tipoLegado(nombre: string): TipoActividad {
 function fmtFull(n: number): string {
   return "$" + n.toLocaleString("es-MX", { minimumFractionDigits: 0 });
 }
+// "Hoy" como YYYY-MM-DD en hora local (para el default del campo fecha del compositor).
+function hoyISO(): string {
+  const d = new Date();
+  const off = d.getTimezoneOffset() * 60_000;
+  return new Date(d.getTime() - off).toISOString().slice(0, 10);
+}
+
 function fmtFecha(iso: string | null): string {
   if (!iso) return "—";
   // Fecha-solo (YYYY-MM-DD): anclar a UTC → misma fecha en server y cliente (sin corrimiento).
@@ -119,26 +126,30 @@ export default function DealDetalleClient({
   const [texto, setTexto] = useState("");
   // Contacto precargado por defecto: el primer contacto del deal (REQ-03)
   const [contactoSel, setContactoSel] = useState(deal.contactos[0]?.id ?? "");
-  const [fechaEvento, setFechaEvento] = useState("");
+  // SOL-21: fecha (obligatoria, default hoy) + hora (OPCIONAL). Sin hora igual se agenda.
+  // Como "hoy" depende del reloj, se setea tras el montaje (no en render → sin mismatch).
+  const [fecha, setFecha] = useState("");
+  const [hora, setHora] = useState("");
   // "Ahora" en ms, seteado tras el montaje: evita llamar Date.now() en el render
-  // (mismatch de hidratación). Alimenta cuandoFutura, seguimientoVencido y el sello
-  // "se registra ahora" del compositor.
+  // (mismatch de hidratación). Alimenta cuandoFutura y seguimientoVencido.
   const [nowTs, setNowTs] = useState<number | null>(null);
-  useEffect(() => setNowTs(Date.now()), []);
-  const [exitosa, setExitosa] = useState(true);
-  // Un solo campo de fecha ("¿Cuándo?" = fechaEvento). Si la fecha es futura y se pide
-  // recordatorio, se guarda como tarea (fecha_tarea); si no, como registro (fecha_evento).
-  const [recordatorio, setRecordatorio] = useState(false);
+  useEffect(() => {
+    setNowTs(Date.now());
+    setFecha(hoyISO());
+  }, []);
   const [resultadoSel, setResultadoSel] = useState("");
   const [enlace, setEnlace] = useState("");
   const [guardando, setGuardando] = useState(false);
-  // "Registrar fecha" es opcional: solo cuenta si está completa (fecha + hora). Un valor
-  // parcial (al limpiar un lado) se trata como vacío para no guardar una fecha inválida.
-  const fechaValida = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(fechaEvento);
-  // ¿La fecha elegida es futura? Se compara contra nowTs (montado) para no llamar
-  // Date.now() en render. Antes de montar → false (no hay fecha elegida aún).
+  // Mini-modal de desenlace (SOL-23): se abre al marcar Listo una acción con resultado.
+  const [completando, setCompletando] = useState<DealActividadItem | null>(null);
+  const [desenlaceSel, setDesenlaceSel] = useState("");
+  // ¿El "cuándo" elegido es futuro? (fecha + hora ?? HORA_DEFAULT). Define si se AGENDA
+  // (pendiente, sin desenlace) o es un registro de algo ya ocurrido. Misma regla que el
+  // server (lib/actividad-input) — acá solo para mostrar/ocultar el desenlace.
   const cuandoFutura =
-    fechaValida && nowTs != null ? new Date(fechaEvento).getTime() > nowTs : false;
+    /^\d{4}-\d{2}-\d{2}$/.test(fecha) && nowTs != null
+      ? new Date(`${fecha}T${/^\d{2}:\d{2}$/.test(hora) ? hora : "09:00"}`).getTime() > nowTs
+      : false;
   // El compositor está colapsado por defecto (la bitácora ocupa toda la altura); se
   // abre al tocar "Registrar actividad" y se cierra al guardar o con Cancelar/✕.
   const [registrando, setRegistrando] = useState(false);
@@ -196,26 +207,36 @@ export default function DealDetalleClient({
     }
   }
 
-  // Toggle del estado de una acción (cicla Pendiente→En proceso→Terminado)
-  async function ciclarEstado(a: DealActividadItem) {
-    const idx = ESTADO_ACCION_CICLO.indexOf(a.estado_accion);
-    const siguiente = ESTADO_ACCION_CICLO[(idx + 1) % ESTADO_ACCION_CICLO.length];
-    const prev = a.estado_accion;
-    setActividades((cur) =>
-      cur.map((x) => (x.id === a.id ? { ...x, estado_accion: siguiente, completada: siguiente === "TERMINADO" } : x))
-    );
+  // Estado (SOL-21/23): Pendiente ⇄ Listo, nada más. Al marcar Listo se pide el DESENLACE
+  // (si el tipo lo lleva): el desenlace solo tiene sentido cuando la acción ya ocurrió, y
+  // mueve el termómetro según su efecto. Al agendar nunca se pregunta.
+  function alternarEstado(a: DealActividadItem) {
+    if (a.completada) return marcarEstado(a, false); // deshacer: vuelve a Pendiente
+    const tipoCat = tiposAccion.find((t) => t.id === a.tipo_accion?.id);
+    if (tipoCat?.con_resultado && resultadosAccion.length > 0) {
+      setCompletando(a); // abre el mini-modal de desenlace
+      setDesenlaceSel("");
+      return;
+    }
+    marcarEstado(a, true);
+  }
+
+  async function marcarEstado(a: DealActividadItem, completada: boolean, resultadoId?: string) {
+    const prev = a.completada;
+    setActividades((cur) => cur.map((x) => (x.id === a.id ? { ...x, completada } : x)));
+    setCompletando(null);
     try {
       const res = await fetch(`/api/crm/actividades/${a.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ estado_accion: siguiente }),
+        body: JSON.stringify({ completada, ...(resultadoId ? { resultado_id: resultadoId } : {}) }),
       });
       if (!res.ok) throw new Error();
+      // El desenlace mueve el termómetro (efecto del catálogo) → refrescar del server.
+      if (resultadoId) router.refresh();
     } catch {
       // Revertir el cambio optimista si el servidor no lo aceptó.
-      setActividades((cur) =>
-        cur.map((x) => (x.id === a.id ? { ...x, estado_accion: prev, completada: prev === "TERMINADO" } : x))
-      );
+      setActividades((cur) => cur.map((x) => (x.id === a.id ? { ...x, completada: prev } : x)));
       setToast({ type: "error", message: "No se pudo actualizar el estado." });
     }
   }
@@ -342,9 +363,8 @@ export default function DealDetalleClient({
   function resetCompositor() {
     setTexto("");
     setContactoSel(deal.contactos[0]?.id ?? "");
-    setFechaEvento(""); // "Registrar fecha" es opcional → nace vacío
-    setExitosa(true);
-    setRecordatorio(false);
+    setFecha(hoyISO()); // la fecha nace en HOY (SOL-22: menos clics)
+    setHora(""); // la hora es opcional
     setResultadoSel("");
     setEnlace("");
     setTipoAccionSel(null);
@@ -362,12 +382,12 @@ export default function DealDetalleClient({
     setTipoAccionSel(tiposAccion.find((t) => t.id === a.tipo_accion?.id) ?? null);
     setTipoNueva(a.tipo);
     setResultadoSel(a.resultado?.id ?? "");
-    setExitosa(a.exitosa ?? true);
-    // Registrar fecha: si es tarea agendada refleja fecha_tarea (+recordatorio); si es
-    // registro, fecha_evento. Si la entrada no tenía fecha, el campo queda vacío (opcional).
-    setRecordatorio(a.es_tarea);
+    // El "cuándo" de la entrada: si es tarea agendada, fecha_tarea; si es registro,
+    // fecha_evento. Se parte en fecha + hora (la hora se muestra pero es opcional).
     const cuando = a.fecha_tarea ?? a.fecha_evento;
-    setFechaEvento(cuando ? fechaInput(cuando) : "");
+    const local = cuando ? fechaInput(cuando) : ""; // "YYYY-MM-DDTHH:mm"
+    setFecha(local ? local.slice(0, 10) : hoyISO());
+    setHora(local ? local.slice(11, 16) : "");
     setRegistrando(true);
     requestAnimationFrame(() => composerRef.current?.scrollIntoView({ behavior: "smooth", block: "center" }));
   }
@@ -377,21 +397,22 @@ export default function DealDetalleClient({
   }
 
   async function guardarActividad() {
-    if (!texto.trim() || guardando) return;
+    // SOL-21: lo único que bloquea es tipo + fecha (la nota NO). El server valida igual.
+    if (!fecha || guardando) return;
     setGuardando(true);
     // Alta (POST) o edición completa (PATCH) — mismo payload; el server comparte validación.
     const editar = editandoId != null;
-    // Fecha futura + recordatorio → tarea agendada (fecha_tarea → Próximas Acciones y
-    // alertas). Pasada/ahora, o futura sin recordatorio → registro (fecha_evento).
+    // El server (lib/actividad-input) decide con fecha+hora si esto se AGENDA (futura →
+    // pendiente, con o sin hora) o es un registro de algo ya ocurrido. El desenlace solo
+    // viaja cuando ya ocurrió (SOL-23): al agendar no se pide ni se manda.
     const payload = {
       tipo: tipoNueva,
-      contenido: texto.trim(),
+      contenido: texto.trim() || undefined,
       contacto_id: contactoSel || undefined,
-      fecha_evento: cuandoFutura && recordatorio ? undefined : fechaValida ? fechaEvento : undefined,
-      exitosa: tipoNueva === "LLAMADA" ? exitosa : undefined,
-      fecha_tarea: cuandoFutura && recordatorio ? fechaEvento : undefined,
+      fecha,
+      hora: hora || undefined,
       tipo_accion_id: tipoAccionSel?.id || undefined,
-      resultado_id: mostrarResultado ? resultadoSel || undefined : undefined,
+      resultado_id: !cuandoFutura && mostrarResultado ? resultadoSel || undefined : undefined,
       enlace_url: enlace.trim() || undefined,
     };
     try {
@@ -744,14 +765,11 @@ export default function DealDetalleClient({
                       {deal.contactos.map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}
                     </select>
                   </label>
-                  {tipoNueva === "LLAMADA" && (
-                    <label className="flex items-center gap-2 text-sm text-gray-600 sm:col-span-2">
-                      <input type="checkbox" checked={exitosa} onChange={(e) => setExitosa(e.target.checked)} className="h-4 w-4" /> ¿Contestó / fue exitosa?
-                    </label>
-                  )}
-                  {mostrarResultado && (
+                  {/* Desenlace (SOL-23): SOLO para algo que ya ocurrió. Al agendar a futuro
+                      no se muestra ni se pide — se preguntará al marcarla Listo. */}
+                  {mostrarResultado && !cuandoFutura && (
                     <label className="flex flex-col gap-1 text-[11px] font-medium text-gray-500 sm:col-span-2">
-                      Resultado <span className="font-normal text-gray-400">(ajusta el termómetro)</span>
+                      Desenlace <span className="font-normal text-gray-400">(opcional — ajusta el termómetro)</span>
                       <select
                         value={resultadoSel}
                         onChange={(e) => setResultadoSel(e.target.value)}
@@ -770,34 +788,34 @@ export default function DealDetalleClient({
                 </div>
               )}
 
-              {/* Registrar fecha (opcional) — para fechar el evento en el pasado o agendar
-                  a futuro. Vacío = solo se registra ahora. Si es futura y se pide
-                  recordatorio, se agenda como pendiente (fecha_tarea). */}
-              <div className="mb-3">
+              {/* Cuándo (SOL-21): la FECHA es obligatoria (nace en hoy) y la HORA es
+                  opcional. Si el "cuándo" es futuro se agenda como pendiente — con o sin
+                  hora; si es hoy/pasado, es un registro de algo que ya ocurrió. */}
+              <div className="mb-3 flex flex-wrap items-end gap-3">
                 <label className="flex flex-col gap-1 text-[11px] font-medium text-gray-500">
-                  <span>
-                    Registrar fecha <span className="font-normal text-gray-400">(opcional)</span>
-                  </span>
-                  <InputFechaHora value={fechaEvento} onChange={setFechaEvento} className="w-fit" />
+                  Fecha
+                  <input
+                    type="date"
+                    value={fecha}
+                    onChange={(e) => setFecha(e.target.value)}
+                    className="rounded-lg border border-surface-border bg-white px-3 py-2 text-sm
+                               text-navy outline-none focus:border-orange"
+                  />
                 </label>
-                {/* Sello de creación: cuándo se está registrando. No editable, solo informativo. */}
-                {!editandoId && nowTs != null && (
-                  <p className="mt-1.5 flex items-center gap-1 text-[11px] text-gray-400">
-                    <CalendarClock size={12} /> Se registra ahora · {formatFechaHora(new Date(nowTs).toISOString())}
-                  </p>
-                )}
+                <label className="flex flex-col gap-1 text-[11px] font-medium text-gray-500">
+                  Hora <span className="font-normal text-gray-400">(opcional)</span>
+                  <input
+                    type="time"
+                    value={hora}
+                    onChange={(e) => setHora(e.target.value)}
+                    className="rounded-lg border border-surface-border bg-white px-3 py-2 text-sm
+                               text-navy outline-none focus:border-orange"
+                  />
+                </label>
                 {cuandoFutura && (
-                  <label className="mt-2 flex w-fit items-center gap-2 text-xs font-medium text-navy">
-                    <input
-                      type="checkbox"
-                      checked={recordatorio}
-                      onChange={(e) => setRecordatorio(e.target.checked)}
-                      className="h-4 w-4"
-                    />
-                    <span className="flex items-center gap-1">
-                      <CalendarClock size={13} /> Recordármelo — agendar como pendiente
-                    </span>
-                  </label>
+                  <p className="flex items-center gap-1 pb-2 text-[11px] font-medium text-blue-700">
+                    <CalendarClock size={13} /> Se agenda como pendiente
+                  </p>
                 )}
               </div>
 
@@ -829,7 +847,7 @@ export default function DealDetalleClient({
                 </button>
                 <button
                   onClick={guardarActividad}
-                  disabled={!texto.trim() || texto.length > MAX_CONTENIDO || guardando}
+                  disabled={!fecha || texto.length > MAX_CONTENIDO || guardando}
                   className="rounded-lg bg-navy px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-navy-700 disabled:opacity-50"
                 >
                   {guardando ? "Guardando…" : editandoId ? "Guardar cambios" : "Registrar"}
@@ -870,7 +888,8 @@ export default function DealDetalleClient({
               {actividadesFiltradas.map((a) => {
                 const meta = TIPO_ACTIVIDAD_META[a.tipo];
                 const Icon = meta.icon;
-                const estado = ESTADO_ACCION_META[a.estado_accion];
+                // Estado derivado (SOL-21/23): solo las agendadas tienen Pendiente/Listo.
+                const estadoT = estadoTarea(a);
                 return (
                   <div key={a.id} className="flex gap-3">
                     <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full" style={{ background: meta.bg, color: meta.color }}>
@@ -890,9 +909,12 @@ export default function DealDetalleClient({
                             {a.tipo_accion.nombre}
                           </span>
                         )}
-                        {a.estado_plan && (
-                          <span className={`rounded px-1.5 py-0.5 text-[10px] font-semibold ${ESTADO_PLAN_META[a.estado_plan].chip}`}>
-                            {ESTADO_PLAN_META[a.estado_plan].label}
+                        {estadoT && (
+                          <span
+                            className={`rounded px-1.5 py-0.5 text-[10px] font-semibold
+                                        ${ESTADO_TAREA_META[estadoT].chip}`}
+                          >
+                            {ESTADO_TAREA_META[estadoT].label}
                           </span>
                         )}
                         {a.resultado && (
@@ -901,12 +923,6 @@ export default function DealDetalleClient({
                               <span>{EFECTO_META[a.resultado.efecto].arrow}</span>
                             )}
                             {a.resultado.nombre}
-                          </span>
-                        )}
-                        {a.tipo === "LLAMADA" && a.exitosa !== null && (
-                          <span className={`flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-semibold ${a.exitosa ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}>
-                            <span className="h-1.5 w-1.5 rounded-full" style={{ background: a.exitosa ? "#1D9E75" : "#F5A623" }} />
-                            {a.exitosa ? "Contestó" : "No contestó"}
                           </span>
                         )}
                         {canWrite && (
@@ -959,15 +975,22 @@ export default function DealDetalleClient({
                             <span className="flex items-center gap-1 font-semibold text-blue-700">
                               <CalendarClock size={12} /> Seguimiento: {formatFechaHora(a.fecha_tarea)}
                             </span>
-                            {canWrite && (
+                            {canWrite && estadoT && (
                               <button
-                                onClick={() => ciclarEstado(a)}
-                                title="Cambiar estado"
-                                className="flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase hover:opacity-80"
-                                style={{ background: estado.dot + "22", color: estado.dot }}
+                                onClick={() => alternarEstado(a)}
+                                title={a.completada ? "Marcar como Pendiente" : "Marcar como Listo"}
+                                className="flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold
+                                           uppercase hover:opacity-80"
+                                style={{
+                                  background: ESTADO_TAREA_META[estadoT].dot + "22",
+                                  color: ESTADO_TAREA_META[estadoT].dot,
+                                }}
                               >
-                                <span className="h-1.5 w-1.5 rounded-full" style={{ background: estado.dot }} />
-                                {estado.label}
+                                <span
+                                  className="h-1.5 w-1.5 rounded-full"
+                                  style={{ background: ESTADO_TAREA_META[estadoT].dot }}
+                                />
+                                {ESTADO_TAREA_META[estadoT].label}
                               </button>
                             )}
                           </div>
@@ -1005,6 +1028,41 @@ export default function DealDetalleClient({
                 className="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-50"
               >
                 Marcar perdido
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* Desenlace al completar (SOL-23): el resultado se pide SOLO al pasar la acción a
+          Listo — nunca al agendar. El efecto del desenlace mueve el termómetro. */}
+      {completando && (
+        <Modal title="¿Cómo salió?" onClose={() => setCompletando(null)} size="sm">
+          <div className="space-y-4">
+            <p className="text-sm text-gray-500">
+              Marcás <b>Listo</b>
+              {completando.tipo_accion ? <> «{completando.tipo_accion.nombre}»</> : null}. Registrá
+              el desenlace para que el termómetro lo refleje.
+            </p>
+            <div>
+              <label className="label">Desenlace <span className="font-normal text-gray-400">(opcional)</span></label>
+              <select className="input" value={desenlaceSel} onChange={(e) => setDesenlaceSel(e.target.value)}>
+                <option value="">— Sin registrar desenlace —</option>
+                {resultadosAccion.map((r) => (
+                  <option key={r.id} value={r.id}>
+                    {r.nombre}
+                    {r.efecto === "POSITIVO" ? "  ▲" : r.efecto === "NEGATIVO" ? "  ▼" : ""}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="flex justify-end gap-2 border-t border-surface-border pt-4">
+              <button onClick={() => setCompletando(null)} className="btn-secondary justify-center">Cancelar</button>
+              <button
+                onClick={() => marcarEstado(completando, true, desenlaceSel || undefined)}
+                className="btn-primary justify-center"
+              >
+                Marcar Listo
               </button>
             </div>
           </div>
