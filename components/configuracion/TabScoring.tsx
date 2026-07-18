@@ -8,7 +8,7 @@ import type { PipelineStageConfig } from "@/types/configuracion";
 
 interface TipoAccion {
   id: string; nombre: string; color: string; peso: number;
-  agendable: boolean; con_resultado: boolean; activo: boolean;
+  agendable: boolean; activo: boolean;
 }
 interface ResultadoAccion {
   id: string; nombre: string; factor: number;

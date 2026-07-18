@@ -27,7 +27,6 @@ export interface TipoAccionOpcion {
   nombre: string;
   color: string;
   agendable: boolean;
-  con_resultado: boolean;
 }
 
 export interface ContactoOpcion {
@@ -182,8 +181,9 @@ export default function ActividadCompositor({
 
   // Composer basado en catálogo (SOL-04); fallback a pills fijos si no hay tipos configurados.
   const catalogoTipos = tiposAccion.length > 0;
-  const capturaResultado = catalogoTipos ? !!tipoAccionSel?.con_resultado : tipoNueva !== "NOTA";
-  const mostrarResultado = capturaResultado && resultadosAccion.length > 0;
+  // El desenlace es opcional y está disponible en CUALQUIER acción: lo único que lo condiciona
+  // es que la actividad ya haya ocurrido (no futura, ver `cuandoFutura`). Ya no depende del tipo.
+  const mostrarResultado = resultadosAccion.length > 0;
   // ¿El "cuándo" elegido es futuro? Define si se AGENDA (pendiente, sin desenlace) o es un
   // registro de algo ya ocurrido. Misma regla que el server — acá solo para mostrar/ocultar.
   // Misma regla que el server (lib/actividad-input): con hora manda el instante; sin hora,
@@ -281,7 +281,6 @@ export default function ActividadCompositor({
                   onClick={() => {
                     setTipoAccionSel(t);
                     setTipoNueva(tipoLegado(t.nombre));
-                    if (!t.con_resultado) setResultadoSel("");
                   }}
                   className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs
                               font-semibold transition-colors ${

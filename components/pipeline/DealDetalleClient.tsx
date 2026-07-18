@@ -183,13 +183,12 @@ export default function DealDetalleClient({
     }
   }
 
-  // Estado (SOL-21/23): Pendiente ⇄ Listo, nada más. Al marcar Listo se pide el DESENLACE
-  // (si el tipo lo lleva): el desenlace solo tiene sentido cuando la acción ya ocurrió, y
-  // mueve el termómetro según su efecto. Al agendar nunca se pregunta.
+  // Estado (SOL-21/23): Pendiente ⇄ Listo, nada más. Al marcar Listo se ofrece el DESENLACE
+  // (opcional, en cualquier tipo): solo tiene sentido cuando la acción ya ocurrió, y mueve el
+  // termómetro según su efecto. Al agendar nunca se pregunta.
   function alternarEstado(a: DealActividadItem) {
     if (a.completada) return marcarEstado(a, false); // deshacer: vuelve a Pendiente
-    const tipoCat = tiposAccion.find((t) => t.id === a.tipo_accion?.id);
-    if (tipoCat?.con_resultado && resultadosAccion.length > 0) {
+    if (resultadosAccion.length > 0) {
       setCompletando(a); // abre el mini-modal de desenlace
       setDesenlaceSel("");
       return;

@@ -452,6 +452,9 @@ model TipoAccion {
   // ¿Agendable? → admite fecha futura y ciclo Planeada→Realizada
   agendable     Boolean  @default(true)
   // ¿Con resultado? → produce desenlace que mueve el score
+  // VESTIGIAL: ya no se lee ni escribe (el desenlace se ofrece en toda acción, gated solo por
+  // "ya ocurrió"). Se conserva la columna para no hacer un DROP destructivo ahora; se elimina
+  // en un contract posterior cuando se saque ALLOW_DESTRUCTIVE_MIGRATIONS de prod (#46).
   con_resultado Boolean  @default(true)
   activo        Boolean  @default(true)
   created_at    DateTime @default(now()) @db.Timestamptz(6)
@@ -698,7 +701,7 @@ model DealActividad {
   editada      Boolean       @default(false)
   editada_at   DateTime?     @db.Timestamptz(6)
   // ── Modelo de actividad table-driven (SOL-04) — aditivo sobre el enum legacy ──
-  // Tipo desde el catálogo (naturaleza + banderas agendable/con_resultado)
+  // Tipo desde el catálogo (naturaleza + bandera agendable)
   tipo_accion_id String?          @db.Uuid
   tipo_accion    TipoAccion?      @relation(fields: [tipo_accion_id], references: [id], onDelete: SetNull)
   // Resultado capturado al marcar Realizada (mueve el termómetro según su efecto)
