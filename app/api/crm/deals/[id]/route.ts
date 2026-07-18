@@ -5,6 +5,7 @@ import { canWrite, requireAuth } from "@/lib/session";
 import { scopeDealWhere } from "@/lib/access-control";
 import { logger } from "@/lib/logger";
 import { TAMANOS_EMPRESA, type TamanoEmpresa } from "@/types/crm";
+import { clasificarBorrado, puedeBorrarDeals, puedeForzarDestruccion } from "@/lib/deals";
 
 export const dynamic = "force-dynamic";
 
@@ -178,5 +179,89 @@ export async function PATCH(
   } catch (err) {
     logger.error("Error al actualizar el deal", "PATCH /api/crm/deals/:id", err);
     return NextResponse.json({ error: "Error al actualizar el deal" }, { status: 500 });
+  }
+}
+
+// DELETE /api/crm/deals/:id
+// Borrar un lead. Del form web entra basura y hay que poder sacarla.
+//
+// El cliente NO elige el mecanismo: lo decide clasificarBorrado() (lib/deals) según el
+// costo del error — un lead virgen se destruye, uno trabajado se marca, uno con orden no se
+// toca. `forzar` solo lo puede pedir un ADMIN, y es lo único que destruye algo trabajado.
+export async function DELETE(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { id } = await params;
+  const session = await requireAuth(req);
+  if (!session) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+  if (!puedeBorrarDeals(session.rol)) {
+    return NextResponse.json({ error: "Sin permisos para borrar leads" }, { status: 403 });
+  }
+
+  const body = (await req.json().catch(() => ({}))) as { motivo?: unknown; forzar?: unknown };
+  const motivo = typeof body.motivo === "string" ? body.motivo.trim().slice(0, 200) : "";
+  if (!motivo) {
+    return NextResponse.json({ error: "El motivo es obligatorio", campo: "motivo" }, { status: 422 });
+  }
+  const forzar = body.forzar === true;
+  if (forzar && !puedeForzarDestruccion(session.rol)) {
+    return NextResponse.json({ error: "Solo un administrador puede eliminar definitivamente" }, { status: 403 });
+  }
+
+  try {
+    // scopeDealWhere aplica el scope del rol: un VENDEDOR solo alcanza los suyos (404 si no).
+    const deal = await prisma.deal.findFirst({
+      where: scopeDealWhere(session, { id }),
+      select: {
+        id: true, nombre: true, resultado: true, orden_id: true,
+        _count: {
+          select: {
+            // "Actividad real" excluye SISTEMA: el intake y los cambios de etapa dejan
+            // entradas automáticas. Un lead del form web llega con esas y nada más — no
+            // son trabajo de nadie, así que no deben impedir destruirlo.
+            actividades: { where: { eliminada: false, tipo: { not: "SISTEMA" } } },
+            contactos: true,
+          },
+        },
+      },
+    });
+    if (!deal) return NextResponse.json({ error: "Deal no encontrado" }, { status: 404 });
+
+    const decision = clasificarBorrado({
+      resultado: deal.resultado,
+      orden_id: deal.orden_id,
+      actividades_reales: deal._count.actividades,
+      contactos: deal._count.contactos,
+    });
+    if (decision.clase === "BLOQUEADO") {
+      return NextResponse.json({ error: decision.motivo, clase: "BLOQUEADO" }, { status: 409 });
+    }
+
+    // Destruir: solo si no hay nada que perder, o si un ADMIN lo forzó a sabiendas.
+    const destruir = decision.clase === "FISICO" || forzar;
+    if (destruir) {
+      // El cascade se lleva actividades/contactos/eventos/adjuntos/análisis (schema).
+      await prisma.deal.delete({ where: { id: deal.id } });
+      logger.info(
+        `Deal destruido: "${deal.nombre}" por ${session.email} — ${motivo}${forzar ? " (forzado)" : ""}`,
+        "DELETE /api/crm/deals/:id"
+      );
+      return NextResponse.json({ ok: true, clase: "FISICO" });
+    }
+
+    await prisma.deal.update({
+      where: { id: deal.id },
+      data: {
+        eliminada: true,
+        eliminada_at: new Date(),
+        eliminada_por: session.email,
+        motivo_eliminacion: motivo,
+      },
+    });
+    return NextResponse.json({ ok: true, clase: "MARCAR" });
+  } catch (err) {
+    logger.error("Error al borrar el deal", "DELETE /api/crm/deals/:id", err);
+    return NextResponse.json({ error: "Error al borrar el lead" }, { status: 500 });
   }
 }

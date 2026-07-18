@@ -600,6 +600,20 @@ model Deal {
   // a mano se corrige para que no aparezcan todos "nuevos hoy". Los KPIs de altas, el
   // orden de la lista y "días abierto" la leen. created_at queda INMUTABLE (auditoría).
   fecha_ingreso DateTime @default(now()) @db.Timestamptz(6)
+
+  // Borrado de leads. Del pipeline entra basura (form web), y hay que poder sacarla.
+  // Mismo patrón que DealActividad. Un deal borrado NO existe para el resto de la app:
+  // el candado vive en scopeDealWhere (lib/access-control), no en cada query.
+  //
+  // Qué se destruye y qué se marca lo decide lib/deals → clasificarBorrado(), según el
+  // costo del error: un lead virgen (sin actividad real) se borra FÍSICO —no hay nada que
+  // recuperar— y uno trabajado se marca. Con orden no se borra: es plata facturada.
+  eliminada     Boolean   @default(false)
+  eliminada_at  DateTime? @db.Timestamptz(6)
+  // Quién y por qué: sin esto, "¿dónde está el lead de X?" no tiene respuesta.
+  eliminada_por String?   @db.VarChar(150)
+  motivo_eliminacion String? @db.VarChar(200)
+
   created_at DateTime @default(now()) @db.Timestamptz(6)
   updated_at DateTime @updatedAt @db.Timestamptz(6)
 

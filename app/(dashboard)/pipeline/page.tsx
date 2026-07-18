@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { getServerSession } from "@/lib/server-session";
-import { canWrite } from "@/lib/session";
+import { canWrite, isAdmin } from "@/lib/session";
 import { scopeDealWhere } from "@/lib/access-control";
 import { estadoAtencion } from "@/lib/atencion";
 import { WHERE_TAREA_PENDIENTE } from "@/lib/tareas";
@@ -167,6 +167,7 @@ export default async function PipelinePage({
       canales={canales}
       origenes={origenes}
       canWrite={canWrite(session)}
+      esAdmin={isAdmin(session)}
       altas={{ hoy: nuevosHoy, semana: nuevosSemana, mes: nuevosMes }}
     />
   );

@@ -104,3 +104,64 @@ export async function crearDealTx(tx: Prisma.TransactionClient, input: CrearDeal
     },
   });
 }
+
+// Borrado de leads.
+//
+// SSOT de "qué pasa cuando borrás un deal". El usuario hace UN gesto (Borrar) y no elige
+// mecanismo: lo decide el costo del error.
+
+/** Qué se hace al borrar, y por qué. */
+export type ClaseBorrado =
+  /** Basura probada: nadie lo trabajó nunca. Se destruye — no hay nada que recuperar. */
+  | { clase: "FISICO"; motivo: string }
+  /** Tiene trabajo encima. Se marca: desaparece igual, pero un error se puede deshacer. */
+  | { clase: "MARCAR"; motivo: string }
+  /** No se borra. */
+  | { clase: "BLOQUEADO"; motivo: string };
+
+/** Lo mínimo para decidir. `actividades_reales` excluye las entradas SISTEMA (ver abajo). */
+export interface DealParaBorrar {
+  resultado: string;
+  orden_id: string | null;
+  actividades_reales: number;
+  contactos: number;
+}
+
+/**
+ * La regla. Un lead del form web llega virgen (0 actividades reales: el intake solo deja un
+ * registro SISTEMA) → destruirlo no pierde nada y no ensucia la BD de basura. Uno con
+ * bitácora encima es trabajo de alguien: desaparece igual, pero se puede volver.
+ *
+ * Con orden vinculada NO se borra ni marcado: es plata facturada, y el Deal es lo que la
+ * ata al pipeline. Para sacarlo de la vista existen PERDIDO/SUSPENDIDO.
+ */
+export function clasificarBorrado(d: DealParaBorrar): ClaseBorrado {
+  if (d.orden_id) {
+    return { clase: "BLOQUEADO", motivo: "Tiene una orden de venta vinculada. Marcalo como perdido o suspendido." };
+  }
+  if (d.resultado === "GANADO") {
+    return { clase: "BLOQUEADO", motivo: "Está marcado como ganado. Cambiale el estado antes de borrarlo." };
+  }
+  if (d.actividades_reales === 0) {
+    return { clase: "FISICO", motivo: "Nadie registró actividad: no hay trabajo que conservar." };
+  }
+  return {
+    clase: "MARCAR",
+    motivo: `Tiene ${d.actividades_reales} ${d.actividades_reales === 1 ? "actividad" : "actividades"} registradas.`,
+  };
+}
+
+/** ¿Puede este rol borrar deals? El VENDEDOR solo los suyos — eso lo aplica scopeDealWhere. */
+export function puedeBorrarDeals(rol: string): boolean {
+  return rol === "ADMIN" || rol === "GERENTE_COMERCIAL" || rol === "VENDEDOR";
+}
+
+/**
+ * Forzar la destrucción de un deal YA trabajado es solo de ADMIN.
+ *
+ * Un vendedor borrando su propio trabajo para que no se vea es justo el escenario que el
+ * soft-delete previene; dejarlo forzar el destruido lo reabre.
+ */
+export function puedeForzarDestruccion(rol: string): boolean {
+  return rol === "ADMIN";
+}

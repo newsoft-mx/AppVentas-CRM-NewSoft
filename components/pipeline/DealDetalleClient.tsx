@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   ArrowLeft, Building2, Trophy, ChevronDown, XCircle, PauseCircle, Play, CalendarClock,
-  Star, Link2, ArrowUpCircle, ChevronRight, UserPlus, Pencil, Plus, X,
+  Star, Link2, ArrowUpCircle, ChevronRight, UserPlus, Pencil, Plus, X, Trash2,
   Globe, AlertTriangle,
   type LucideIcon,
 } from "lucide-react";
@@ -45,6 +45,8 @@ interface Props {
   deal: DealDetalle;
   stages: StageResumen[];
   canWrite: boolean;
+  /** Solo ADMIN puede forzar la destrucción de un deal ya trabajado. */
+  esAdmin?: boolean;
   vendedores?: { id: string; nombre: string }[];
   clientes?: { id: string; nombre: string }[];
   tipos?: { id: string; nombre: string }[];
@@ -89,7 +91,7 @@ interface FiltroBitacora {
 }
 
 export default function DealDetalleClient({
-  deal, stages, canWrite,
+  deal, stages, canWrite, esAdmin = false,
   vendedores = [], clientes = [], tipos = [], canales = [], origenes = [], motivos = [],
   tiposAccion = [], resultadosAccion = [], sugerirAvanceInicial = false,
 }: Props) {
@@ -119,6 +121,14 @@ export default function DealDetalleClient({
   const [modalPerdida, setModalPerdida] = useState(false);
   const [razon, setRazon] = useState("");
   const [comentarioP, setComentarioP] = useState("");
+  // Borrar lead: modal con motivo obligatorio + (solo ADMIN) forzar destrucción.
+  const [modalBorrar, setModalBorrar] = useState(false);
+  const [motivoBorrar, setMotivoBorrar] = useState("");
+  const [forzarBorrar, setForzarBorrar] = useState(false);
+  // Actividades REALES (sin las SISTEMA automáticas): el modal muestra qué se llevaría el
+  // borrado, misma cuenta que usa el server para decidir destruir vs. marcar.
+  const actividadesReales = deal.actividades.filter((a) => a.tipo !== "SISTEMA").length;
+  const bloqueadoPorOrden = deal.resultado === "GANADO";
   // Siguiente etapa (por orden) para el banner de avance
   const siguienteStage = stages
     .filter((s) => s.orden > deal.stage.orden)
@@ -271,6 +281,27 @@ export default function DealDetalleClient({
     }
   }
 
+  // Borrar el lead. El server decide destruir vs. marcar (clasificarBorrado); acá solo se
+  // manda el motivo + el flag de forzar (ADMIN). En cualquiera de los dos casos el deal
+  // desaparece de la vista, así que se vuelve al pipeline.
+  async function borrarLead() {
+    if (!motivoBorrar.trim() || procesando) return;
+    setProcesando(true);
+    try {
+      const res = await fetch(`/api/crm/deals/${deal.id}`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ motivo: motivoBorrar.trim(), forzar: forzarBorrar }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(data?.error ?? "No se pudo borrar el lead.");
+      router.push("/pipeline");
+    } catch (e) {
+      setToast({ type: "error", message: e instanceof Error ? e.message : "No se pudo borrar el lead." });
+      setProcesando(false);
+    }
+  }
+
   // Filtros "Ver" derivados del contenido: Todas + tipos de movimiento presentes +
   // facetas con resultados. Con contador; se auto-mantienen con lo que hay en la bitácora.
   const filtrosBitacora = useMemo<FiltroBitacora[]>(() => {
@@ -380,6 +411,19 @@ export default function DealDetalleClient({
                 ) : (
                   <button onClick={() => cambiarResultado("ABIERTO")} className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-50"><Play size={15} /> Reactivar</button>
                 )}
+                <div className="my-1 border-t border-surface-border" />
+                <button
+                  onClick={() => {
+                    setMenuOpen(false);
+                    setMotivoBorrar("");
+                    setForzarBorrar(false);
+                    setModalBorrar(true);
+                  }}
+                  className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-sm
+                             text-red-700 hover:bg-red-50"
+                >
+                  <Trash2 size={15} /> Borrar lead
+                </button>
               </div>
             )}
           </div>
@@ -772,6 +816,76 @@ export default function DealDetalleClient({
                 Marcar perdido
               </button>
             </div>
+          </div>
+        </Modal>
+      )}
+
+      {modalBorrar && (
+        <Modal title="Borrar lead" onClose={() => setModalBorrar(false)} size="md">
+          <div className="space-y-4">
+            {bloqueadoPorOrden ? (
+              // Hint del front; el server igual responde 409 si tiene orden.
+              <p className="rounded-lg bg-amber-50 px-3 py-2.5 text-sm text-amber-800">
+                Este deal está <b>ganado</b> y tiene una orden de venta. No se puede borrar —
+                cambiale el estado a perdido o suspendido si querés sacarlo del pipeline.
+              </p>
+            ) : (
+              <>
+                {/* Muestra el costo: qué se lleva el borrado. Sin actividad real, el server
+                    lo destruye; con actividad, lo marca (desaparece pero se puede recuperar). */}
+                <p className="text-sm text-gray-600">
+                  {actividadesReales === 0 ? (
+                    <>Este lead <b>no tiene actividad registrada</b>. Se eliminará definitivamente.</>
+                  ) : (
+                    <>
+                      Este lead tiene{" "}
+                      <b>{actividadesReales} {actividadesReales === 1 ? "actividad" : "actividades"}</b>.
+                      Desaparecerá del pipeline; un administrador puede recuperarlo.
+                    </>
+                  )}
+                </p>
+                <div>
+                  <label className="label">Motivo *</label>
+                  <input
+                    className="input"
+                    value={motivoBorrar}
+                    onChange={(e) => setMotivoBorrar(e.target.value)}
+                    placeholder="Spam, duplicado, no es un lead real…"
+                    maxLength={200}
+                    autoFocus
+                  />
+                </div>
+                {/* Forzar la destrucción de algo trabajado: solo ADMIN, y solo si hay algo
+                    que destruir (con 0 actividades el server ya destruye sin forzar). */}
+                {esAdmin && actividadesReales > 0 && (
+                  <label className="flex items-start gap-2 rounded-lg bg-red-50 px-3 py-2.5 text-sm text-red-800">
+                    <input
+                      type="checkbox"
+                      checked={forzarBorrar}
+                      onChange={(e) => setForzarBorrar(e.target.checked)}
+                      className="mt-0.5"
+                    />
+                    <span>Eliminar definitivamente (no se podrá recuperar).</span>
+                  </label>
+                )}
+                <div className="flex justify-end gap-2 border-t border-surface-border pt-4">
+                  <button
+                    onClick={() => setModalBorrar(false)}
+                    className="btn-secondary justify-center"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    onClick={borrarLead}
+                    disabled={!motivoBorrar.trim() || procesando}
+                    className="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white
+                               hover:bg-red-700 disabled:opacity-50"
+                  >
+                    {procesando ? "Borrando…" : "Borrar lead"}
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </Modal>
       )}

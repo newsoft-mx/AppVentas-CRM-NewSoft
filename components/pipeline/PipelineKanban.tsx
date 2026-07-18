@@ -1,10 +1,11 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   Plus, Filter, Building2, Clock, LayoutGrid, List, Flame, CalendarClock, Search,
-  SlidersHorizontal, ChevronDown, X,
+  SlidersHorizontal, ChevronDown, X, Trash2,
 } from "lucide-react";
 import {
   TEMPERATURA_META,
@@ -42,6 +43,8 @@ interface Props {
   canales: { id: string; nombre: string }[];
   origenes: { id: string; nombre: string }[];
   canWrite: boolean;
+  /** ADMIN ve el acceso a "Leads eliminados" (restaurar). */
+  esAdmin?: boolean;
   altas: { hoy: number; semana: number; mes: number };
 }
 
@@ -50,7 +53,7 @@ interface Props {
 const ESTADOS_ORDEN: DealResultado[] = ["ABIERTO", "SUSPENDIDO", "GANADO", "PERDIDO"];
 
 export default function PipelineKanban({
-  initialFiltros, stages, deals, vendedores, clientes, tipos, canales, origenes, canWrite, altas,
+  initialFiltros, stages, deals, vendedores, clientes, tipos, canales, origenes, canWrite, esAdmin = false, altas,
 }: Props) {
   const router = useRouter();
   const [items, setItems] = useState<DealResumen[]>(deals);
@@ -259,6 +262,16 @@ export default function PipelineKanban({
             <List size={14} />
           </button>
         </div>
+        {esAdmin && (
+          <Link
+            href="/pipeline/eliminados"
+            className="flex items-center gap-1.5 rounded-lg border border-surface-border px-3 py-2
+                       text-sm font-medium text-gray-500 transition-colors hover:border-gray-300 hover:text-navy"
+            title="Ver y restaurar leads eliminados"
+          >
+            <Trash2 size={15} /> Eliminados
+          </Link>
+        )}
         {canWrite && (
           <button
             onClick={() => setModalOpen(true)}
