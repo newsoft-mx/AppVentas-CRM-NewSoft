@@ -34,9 +34,11 @@ export default function MarkdownEditor({
   const ref = useRef<HTMLTextAreaElement>(null);
   const [preview, setPreview] = useState(false);
   const [expandido, setExpandido] = useState(false);
-  // Tope expandido ≈60% del viewport, medido en cliente (evita usar window en SSR).
+  // Tope expandido ≈60% del viewport, medido en cliente (window no existe en SSR y no se
+  // puede lazy-init). Patrón correcto; la regla es conservadora con setState-en-effect.
   const [maxExp, setMaxExp] = useState(MAX_H_EXP_FALLBACK);
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setMaxExp(Math.max(360, Math.round(window.innerHeight * 0.6)));
   }, []);
 
@@ -92,6 +94,9 @@ export default function MarkdownEditor({
   return (
     <div className="rounded-lg border border-surface-border bg-surface focus-within:border-orange">
       <div className="flex items-center gap-0.5 border-b border-surface-border px-1.5 py-1">
+        {/* `run` (envolver/prefijarLinea) lee ref.current, pero SOLO al hacer click (onClick),
+            nunca en render. El linter no distingue el handler diferido → falso positivo. */}
+        {/* eslint-disable-next-line react-hooks/refs */}
         {acciones.map(({ Icon, title, run }) => (
           <button key={title} type="button" onClick={run} title={title} className={btn} disabled={preview}>
             <Icon size={14} />

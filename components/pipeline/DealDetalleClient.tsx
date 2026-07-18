@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   ArrowLeft, Building2, Trophy, ChevronDown, XCircle, PauseCircle, Play, CalendarClock,
-  Star, Link2, ArrowUpCircle, ChevronRight, UserPlus, Pencil, Plus, X, Trash2,
+  Star, Link2, ArrowUpCircle, ChevronRight, Pencil, Plus, X, Trash2,
   Globe, AlertTriangle,
   type LucideIcon,
 } from "lucide-react";
@@ -107,6 +107,10 @@ export default function DealDetalleClient({
   // (mismatch de hidratación). Alimenta seguimientoVencido.
   const [nowTs, setNowTs] = useState<number | null>(null);
   useEffect(() => {
+    // Date.now() es un valor client-only: en render rompería la hidratación (server y
+    // cliente calcularían distinto). Se lee tras montar — patrón correcto; la regla es
+    // conservadora con setState-en-effect.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setNowTs(Date.now());
   }, []);
   // Mini-modal de desenlace (SOL-23): se abre al marcar Listo una acción con resultado.
@@ -480,15 +484,6 @@ export default function DealDetalleClient({
               </span>
             ) : null}
           </div>
-          {canWrite && deal.cliente?.estatus === "PROSPECTO" && (
-            <Link
-              href="/clientes?estatus=PROSPECTO"
-              className="mt-2 flex w-fit items-center gap-1.5 rounded-lg border border-orange/40 bg-orange/5 px-2.5 py-1.5 text-[11px] font-semibold text-orange hover:bg-orange/10"
-            >
-              <UserPlus size={13} /> Convertir a Cliente
-            </Link>
-          )}
-
           {/* El banner de seguimiento se movió al tope de la bitácora (lo primero que hay
               que accionar va donde se registra la actividad, no perdido en el aside). */}
 

@@ -35,6 +35,9 @@ export default function ContactosCliente({ clienteId, canWrite, onPrincipalChang
     setCargando(false);
   }, [clienteId]);
 
+  // Cargar los contactos al montar. Fetchear datos es la razón de ser de un efecto; el
+  // setState (loading + resultado) es intrínseco a eso. La regla es conservadora acá.
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { cargar(); }, [cargar]);
 
   async function req(url: string, method: string, body?: unknown): Promise<boolean> {

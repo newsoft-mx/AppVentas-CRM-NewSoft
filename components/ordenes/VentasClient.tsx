@@ -85,9 +85,10 @@ export default function VentasClient({
 
   // ── Handlers ─────────────────────────────────────────────────
 
+  // setFiltros es el setter de useState (estable), pero el linter pide declararlo.
   const handleFiltrosChange = useCallback((nuevos: FiltroOrdenes) => {
     setFiltros(nuevos);
-  }, []);
+  }, [setFiltros]);
 
   const handleEstatusChanged = useCallback(
     (id: string, nuevoEstatus: EstatusOrden, fechaVenta?: string) => {

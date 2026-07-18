@@ -48,7 +48,10 @@ export default function SaludClient() {
     }
   }
 
+  // Cargar el health-check al montar. Fetchear datos es la razón de ser de un efecto; el
+  // setState (loading + resultado) es intrínseco a eso. La regla es conservadora acá.
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     cargar();
   }, []);
 
