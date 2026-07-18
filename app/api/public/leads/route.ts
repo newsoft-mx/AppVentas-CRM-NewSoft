@@ -57,8 +57,10 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    await registrarLead(parsed.data, { canal: "Web", origen: "Formulario web" });
-    return json({ ok: true }, 201);
+    const { deal, avisos } = await registrarLead(parsed.data, { canal: "Web", origen: "Formulario web" });
+    // Devolvemos el id (para conciliar del lado de la fuente) y los avisos de campos blandos
+    // que se ignoraron (no son errores: el lead se creó igual).
+    return json({ ok: true, id: deal.id, ...(avisos.length ? { avisos } : {}) }, 201);
   } catch (err) {
     if (err instanceof HttpError) return json({ error: err.message }, err.status);
     logger.error("Error al crear lead web", "POST /api/public/leads", err);
