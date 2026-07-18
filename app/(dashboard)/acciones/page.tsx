@@ -70,7 +70,7 @@ export default async function AccionesPage({
     prisma.tipoAccion.findMany({
       where: { activo: true },
       orderBy: { orden: "asc" },
-      select: { id: true, nombre: true, color: true, agendable: true, con_resultado: true },
+      select: { id: true, nombre: true, color: true, agendable: true },
     }),
     prisma.resultadoAccion.findMany({
       where: { activo: true },

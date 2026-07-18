@@ -76,7 +76,7 @@ export default async function DealDetallePage({
     prisma.tipoAccion.findMany({
       where: { activo: true },
       orderBy: { orden: "asc" },
-      select: { id: true, nombre: true, color: true, agendable: true, con_resultado: true },
+      select: { id: true, nombre: true, color: true, agendable: true },
     }),
     // Catálogo de resultados de acción (SOL-04): mueven el termómetro al registrar la interacción
     prisma.resultadoAccion.findMany({

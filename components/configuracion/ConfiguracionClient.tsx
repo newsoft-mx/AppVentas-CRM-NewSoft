@@ -15,7 +15,7 @@ import TabScoring from "./TabScoring";
 import type { Empresa, TipoCotizacion, CondicionComercial, Vendedor, Usuario, PipelineStageConfig } from "@/types/configuracion";
 
 interface MotivoPerdida { id: string; nombre: string; orden: number; activo: boolean; }
-interface TipoAccionCfg { id: string; nombre: string; color: string; peso: number; agendable: boolean; con_resultado: boolean; activo: boolean; }
+interface TipoAccionCfg { id: string; nombre: string; color: string; peso: number; agendable: boolean; activo: boolean; }
 interface ResultadoAccionCfg { id: string; nombre: string; factor: number; efecto: "POSITIVO" | "NEUTRO" | "NEGATIVO"; sugiere_reagendar: boolean; activo: boolean; }
 
 interface ConfiguracionClientProps {

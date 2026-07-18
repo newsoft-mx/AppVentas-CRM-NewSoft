@@ -10,8 +10,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const { id } = await params;
   let body: unknown;
   try { body = await req.json(); } catch { return NextResponse.json({ error: "JSON inválido" }, { status: 400 }); }
-  const b = (body ?? {}) as { nombre?: unknown; color?: unknown; agendable?: unknown; con_resultado?: unknown; activo?: unknown; peso?: unknown };
-  const data: { nombre?: string; color?: string; agendable?: boolean; con_resultado?: boolean; activo?: boolean; peso?: number } = {};
+  const b = (body ?? {}) as { nombre?: unknown; color?: unknown; agendable?: unknown; activo?: unknown; peso?: unknown };
+  const data: { nombre?: string; color?: string; agendable?: boolean; activo?: boolean; peso?: number } = {};
   if (b.nombre !== undefined) {
     const n = typeof b.nombre === "string" ? b.nombre.trim() : "";
     if (!n) return NextResponse.json({ error: "El nombre no puede estar vacío" }, { status: 422 });
@@ -19,7 +19,6 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   }
   if (typeof b.color === "string" && /^#[0-9A-Fa-f]{6}$/.test(b.color)) data.color = b.color;
   if (typeof b.agendable === "boolean") data.agendable = b.agendable;
-  if (typeof b.con_resultado === "boolean") data.con_resultado = b.con_resultado;
   if (typeof b.activo === "boolean") data.activo = b.activo;
   if (b.peso !== undefined && Number.isFinite(Number(b.peso))) data.peso = Math.max(0, Math.min(100, Math.round(Number(b.peso))));
   if (Object.keys(data).length === 0) return NextResponse.json({ error: "Nada para actualizar" }, { status: 422 });
