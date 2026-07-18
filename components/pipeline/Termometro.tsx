@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Thermometer } from "lucide-react";
 import { TEMPERATURA_META, type Temperatura } from "@/types/crm";
 import Toast, { ToastData } from "@/components/ui/Toast";
@@ -25,9 +25,15 @@ export default function Termometro({
   const [scoreVal, setScoreVal] = useState<number>(score);
   const [guardando, setGuardando] = useState(false);
   const [toast, setToast] = useState<ToastData | null>(null);
-  // Re-sincronizar si el padre actualiza (ej. tras registrar actividad)
-  useEffect(() => setValor(temperatura), [temperatura]);
-  useEffect(() => setScoreVal(score), [score]);
+  // Re-sincronizar si el padre actualiza (ej. tras registrar actividad). Se ajusta durante
+  // el render —patrón de React para "estado derivado de una prop"— en vez de en un efecto,
+  // que agregaría un render extra con el valor viejo.
+  const [propsPrev, setPropsPrev] = useState({ temperatura, score });
+  if (propsPrev.temperatura !== temperatura || propsPrev.score !== score) {
+    setPropsPrev({ temperatura, score });
+    setValor(temperatura);
+    setScoreVal(score);
+  }
   const meta = TEMPERATURA_META[valor];
   const nivel = ESCALA.indexOf(valor);
 

@@ -43,7 +43,13 @@ function DescripcionEditable({
   const [editando, setEditando] = useState(false);
   const [texto, setTexto] = useState(valor);
   const [guardando, setGuardando] = useState(false);
-  useEffect(() => setTexto(valor), [valor]);
+  // Re-sincronizar el texto si el prop cambia. Se ajusta durante el render (patrón de React
+  // para "estado derivado de una prop") en vez de en un efecto.
+  const [valorPrev, setValorPrev] = useState(valor);
+  if (valorPrev !== valor) {
+    setValorPrev(valor);
+    setTexto(valor);
+  }
 
   if (!editando) {
     return (

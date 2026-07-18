@@ -57,8 +57,11 @@ export default function Sidebar({ role }: { role: UserRole }) {
   const pathname = usePathname();
   const router = useRouter();
   const [colapsado, setColapsado] = useState(false);
-  // Persistir el estado colapsado (solo desktop). Init en useEffect evita mismatch de hidratación.
+  // Persistir el estado colapsado (solo desktop). Se lee de localStorage tras montar: en
+  // render rompería la hidratación (localStorage no existe en SSR) y no se puede lazy-init.
+  // Patrón correcto; la regla es conservadora con setState-en-effect.
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setColapsado(localStorage.getItem("ns-sidebar-colapsado") === "1");
   }, []);
   const toggleColapsado = () => {

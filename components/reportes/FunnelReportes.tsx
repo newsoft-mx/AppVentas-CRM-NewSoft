@@ -208,7 +208,10 @@ export default function FunnelReportes({
     }
   }, [preset, desde, hasta, vendedor]);
 
+  // Cargar el reporte al montar y cuando cambian los filtros (cargar es useCallback de
+  // ellos). Fetchear datos es la razón de ser de un efecto; la regla es conservadora acá.
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     cargar();
   }, [cargar]);
 

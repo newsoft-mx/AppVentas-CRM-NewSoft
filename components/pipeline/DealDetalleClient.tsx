@@ -107,6 +107,10 @@ export default function DealDetalleClient({
   // (mismatch de hidratación). Alimenta seguimientoVencido.
   const [nowTs, setNowTs] = useState<number | null>(null);
   useEffect(() => {
+    // Date.now() es un valor client-only: en render rompería la hidratación (server y
+    // cliente calcularían distinto). Se lee tras montar — patrón correcto; la regla es
+    // conservadora con setState-en-effect.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setNowTs(Date.now());
   }, []);
   // Mini-modal de desenlace (SOL-23): se abre al marcar Listo una acción con resultado.
