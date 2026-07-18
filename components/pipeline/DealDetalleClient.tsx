@@ -29,7 +29,7 @@ import { formatCompacto, formatFechaHora } from "@/lib/utils";
 import { TIPO_ACTIVIDAD_META, tipoMovimiento } from "@/lib/actividad-tipos";
 import { esTareaPendiente, estaVencida, estadoTarea } from "@/lib/tareas";
 import {
-  TEMPERATURA_META,
+  TEMPERATURA_META, ATENCION_META,
   EFECTO_META, TAMANO_EMPRESA_LABEL,
   type DealDetalle, type DealActividadItem, type StageResumen, type TipoActividad,
   type Temperatura,
@@ -398,14 +398,9 @@ export default function DealDetalleClient({
       <div className="grid flex-1 grid-cols-1 gap-0 overflow-hidden lg:grid-cols-[320px_1fr]">
         {/* ── IZQUIERDA: info del deal ── */}
         <aside className="overflow-y-auto border-r border-surface-border bg-white p-5">
-          <span
-            className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold"
-            style={{ background: `${temp.color}1A`, color: temp.color }}
-          >
-            <span className="h-1.5 w-1.5 rounded-full" style={{ background: temp.color }} />
-            {temp.label} · {deal.stage.nombre}
-          </span>
-          <div className="mt-2.5 flex items-start justify-between gap-2">
+          {/* Sin chip de temperatura/etapa acá: la temperatura vive en el termómetro y la
+              etapa en el breadcrumb. Repetirlas recargaba el header (pedido de Roldán). */}
+          <div className="flex items-start justify-between gap-2">
             <h1 className="text-lg font-bold leading-tight text-navy">{deal.nombre}</h1>
             {canWrite && (
               <button
@@ -450,16 +445,8 @@ export default function DealDetalleClient({
             </Link>
           )}
 
-          {proximoSeguimiento && (
-            <div
-              className={`mt-3 flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[11px] font-semibold ${
-                seguimientoVencido ? "bg-red-50 text-red-700" : "bg-blue-50 text-blue-700"
-              }`}
-            >
-              <CalendarClock size={13} />
-              {seguimientoVencido ? "Seguimiento vencido:" : "Próximo seguimiento:"} {formatFechaHora(proximoSeguimiento)}
-            </div>
-          )}
+          {/* El banner de seguimiento se movió al tope de la bitácora (lo primero que hay
+              que accionar va donde se registra la actividad, no perdido en el aside). */}
 
           {/* Progreso de stages */}
           <div className="mt-4">
@@ -586,6 +573,21 @@ export default function DealDetalleClient({
               </button>
             )}
           </div>
+
+          {/* Lo primero que hay que accionar, arriba de todo. El color sale de ATENCION_META
+              (Pilar 5): mismo rojo/verde que el kanban, nadie repinta por su cuenta. */}
+          {proximoSeguimiento && (
+            <div
+              className={`flex items-center gap-1.5 border-b border-surface-border px-5 py-2
+                          text-[11px] font-semibold ${
+                            ATENCION_META[seguimientoVencido ? "VENCIDO" : "EN_SEGUIMIENTO"].chip
+                          }`}
+            >
+              <CalendarClock size={13} />
+              {seguimientoVencido ? "Seguimiento vencido:" : "Próximo seguimiento:"}{" "}
+              {formatFechaHora(proximoSeguimiento)}
+            </div>
+          )}
 
           {/* Colapsado: solo un trigger; la bitácora ocupa toda la altura (pedido de UX). */}
           {canWrite && !registrando && (
