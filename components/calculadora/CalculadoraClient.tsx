@@ -1,9 +1,12 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { Calculator } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { Calculator, Save, FolderOpen, Trash2, Link2 } from "lucide-react";
+import Toast, { ToastData } from "@/components/ui/Toast";
 import { calcularPlataforma, type CalculadoraInputs, type ServicioConsumo } from "@/lib/calculadora-plataformas";
 import { INPUTS_DEFAULT } from "@/lib/calculadora-plataformas-defaults";
+
+interface CasoMeta { id: string; nombre: string; deal_id: string | null; deal_nombre: string | null; updated_at: string }
 
 // Calculadora de Plataformas Administradas (Fase 1, nativa). Captura inputs y pinta el
 // resultado del motor puro (lib/calculadora-plataformas). Tres vistas: interna (desglose),
@@ -62,12 +65,83 @@ function SecHeader({ variant, children }: { variant: keyof typeof secCls; childr
   );
 }
 
-export default function CalculadoraClient() {
+export default function CalculadoraClient({ casoInicial, dealId }: { casoInicial: string | null; dealId: string | null }) {
   const [inputs, setInputs] = useState<CalculadoraInputs>(INPUTS_DEFAULT);
   const [tab, setTab] = useState<Tab>("interno");
   const set = <K extends keyof CalculadoraInputs>(k: K) => (v: CalculadoraInputs[K]) => setInputs((p) => ({ ...p, [k]: v }));
   const updateServicio = (id: string, campo: keyof ServicioConsumo, valor: unknown) =>
     setInputs((p) => ({ ...p, servicios: p.servicios.map((s) => (s.id === id ? { ...s, [campo]: valor } : s)) }));
+
+  // ── Persistencia (Fase 2): guardar/cargar/borrar cotizaciones, opcionalmente ligadas a un deal.
+  const [nombre, setNombre] = useState("");
+  const [casos, setCasos] = useState<CasoMeta[]>([]);
+  const [dealVinc, setDealVinc] = useState<string | null>(dealId);
+  const [dealNombre, setDealNombre] = useState<string | null>(null);
+  const [guardando, setGuardando] = useState(false);
+  const [toast, setToast] = useState<ToastData | null>(null);
+
+  async function refrescarCasos() {
+    const r = await fetch("/api/calculadora/casos");
+    if (r.ok) setCasos(await r.json());
+  }
+  // Cargar la lista de cotizaciones + (si viene ?caso=) abrir una. Fetch-on-mount.
+  useEffect(() => {
+    let vivo = true;
+    (async () => {
+      const r = await fetch("/api/calculadora/casos");
+      if (r.ok && vivo) setCasos(await r.json());
+      if (casoInicial) await cargar(casoInicial, false);
+    })();
+    return () => { vivo = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [casoInicial]);
+
+  async function cargar(id: string, aviso = true) {
+    const r = await fetch(`/api/calculadora/casos/${id}`);
+    if (!r.ok) { setToast({ type: "error", message: "No se pudo cargar la cotización" }); return; }
+    const c = await r.json();
+    const d = c.datos as { inputs?: CalculadoraInputs };
+    if (d?.inputs) setInputs({ ...INPUTS_DEFAULT, ...d.inputs });
+    setNombre(c.nombre);
+    setDealVinc(c.deal_id ?? null);
+    if (aviso) setToast({ type: "success", message: `Cargada "${c.nombre}"` });
+  }
+
+  async function guardar() {
+    const n = nombre.trim();
+    if (!n) { setToast({ type: "error", message: "Ponle un nombre a la cotización" }); return; }
+    setGuardando(true);
+    try {
+      const r = await fetch("/api/calculadora/casos", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ nombre: n, datos: { inputs }, deal_id: dealVinc }),
+      });
+      if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error ?? "No se pudo guardar");
+      await refrescarCasos();
+      setToast({ type: "success", message: `Guardada "${n}"` });
+    } catch (e) { setToast({ type: "error", message: e instanceof Error ? e.message : "Error" }); }
+    finally { setGuardando(false); }
+  }
+
+  async function borrar(id: string, nom: string) {
+    if (!window.confirm(`¿Eliminar la cotización "${nom}"?`)) return;
+    const r = await fetch(`/api/calculadora/casos/${id}`, { method: "DELETE" });
+    if (r.ok) { await refrescarCasos(); setToast({ type: "success", message: "Cotización eliminada" }); }
+    else setToast({ type: "error", message: "No se pudo eliminar" });
+  }
+
+  // Nombre del deal vinculado (para el chip), si vino por ?deal= o al cargar un caso. Fetch-on-mount:
+  // todo el setState va dentro del async (diferido) para no violar la regla de set-state-en-effect.
+  useEffect(() => {
+    let vivo = true;
+    (async () => {
+      if (!dealVinc) { if (vivo) setDealNombre(null); return; }
+      const r = await fetch(`/api/calculadora/casos?deal_id=${dealVinc}`);
+      const cs: CasoMeta[] = r.ok ? await r.json() : [];
+      if (vivo) setDealNombre(cs.find((c) => c.deal_nombre)?.deal_nombre ?? "deal vinculado");
+    })();
+    return () => { vivo = false; };
+  }, [dealVinc]);
 
   const calc = useMemo(() => calcularPlataforma(inputs), [inputs]);
   const { antiPct, meses, tasa, hrsSoporte, margenConsumo } = inputs;
@@ -78,14 +152,53 @@ export default function CalculadoraClient() {
 
   return (
     <div className="mx-auto max-w-3xl">
+      {toast && <Toast {...toast} onClose={() => setToast(null)} />}
+
       {/* Header */}
-      <div className="mb-6 flex items-center gap-2.5">
+      <div className="mb-4 flex items-center gap-2.5">
         <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-orange text-white"><Calculator size={18} /></div>
-        <div>
+        <div className="flex-1">
           <h1 className="text-base font-bold text-navy">Calculadora · Plataformas Administradas</h1>
           <p className="text-xs text-gray-400">Cuota fija (dev + soporte + infra) · Consumo variable</p>
         </div>
+        {dealVinc && (
+          <span className="flex items-center gap-1 rounded-full bg-orange/10 px-2.5 py-1 text-[11px] font-semibold text-orange">
+            <Link2 size={12} /> {dealNombre ?? "deal vinculado"}
+          </span>
+        )}
       </div>
+
+      {/* Guardar / cargar cotizaciones */}
+      <div className="mb-6 flex flex-wrap items-center gap-2 rounded-lg border border-surface-border bg-surface px-3 py-2">
+        <input value={nombre} onChange={(e) => setNombre(e.target.value)} placeholder="Nombre de la cotización…"
+          className="min-w-[180px] flex-1 rounded-md border border-surface-border bg-white px-2.5 py-1.5 text-[13px] text-navy outline-none focus:border-orange" />
+        <button onClick={guardar} disabled={guardando}
+          className="flex items-center gap-1.5 rounded-md bg-navy px-3 py-1.5 text-xs font-semibold text-white hover:bg-navy-700 disabled:opacity-50">
+          <Save size={13} /> {guardando ? "Guardando…" : "Guardar"}
+        </button>
+        {casos.length > 0 && (
+          <div className="flex items-center gap-1.5">
+            <FolderOpen size={14} className="text-gray-400" />
+            <select value="" onChange={(e) => e.target.value && cargar(e.target.value)}
+              className="rounded-md border border-surface-border bg-white px-2 py-1.5 text-[12px] text-navy outline-none focus:border-orange">
+              <option value="">Cargar… ({casos.length})</option>
+              {casos.map((c) => <option key={c.id} value={c.id}>{c.nombre}{c.deal_nombre ? ` · ${c.deal_nombre}` : ""}</option>)}
+            </select>
+          </div>
+        )}
+      </div>
+
+      {/* Lista de guardadas (con borrar) */}
+      {casos.length > 0 && (
+        <div className="mb-6 flex flex-wrap gap-1.5">
+          {casos.map((c) => (
+            <span key={c.id} className="flex items-center gap-1.5 rounded-full border border-surface-border bg-white px-2.5 py-1 text-[11px] text-gray-600">
+              <button onClick={() => cargar(c.id)} className="font-medium text-navy hover:text-orange">{c.nombre}</button>
+              <button onClick={() => borrar(c.id, c.nombre)} title="Eliminar" className="text-gray-300 hover:text-red-500"><Trash2 size={11} /></button>
+            </span>
+          ))}
+        </div>
+      )}
 
       {/* Sliders */}
       <div className="mb-6 grid gap-6 md:grid-cols-3">

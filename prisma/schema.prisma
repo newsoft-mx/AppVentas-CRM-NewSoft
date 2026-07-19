@@ -34,6 +34,7 @@ model User {
   updated_at    DateTime  @updatedAt @db.Timestamptz(6)
 
   simulador_casos SimuladorCaso[]
+  calculadora_casos CalculadoraCaso[]
 
   @@map("user")
 }
@@ -627,6 +628,7 @@ model Deal {
   analisis     DealAnalisisIA[]
   stage_events DealStageEvent[]
   simulador_casos SimuladorCaso[]
+  calculadora_casos CalculadoraCaso[]
 
   @@index([stage_id])
   @@index([vendedor_id])
@@ -790,4 +792,25 @@ model SimuladorCaso {
   @@index([user_id])
   @@index([deal_id])
   @@map("simulador_caso")
+}
+
+// Cotización de la Calculadora de Plataformas (Fase 2). Espejo de SimuladorCaso: es una
+// herramienta hermana pero distinta (precio vs ROI), así que persiste aparte y desacoplada.
+// `datos` = estado opaco de la calculadora (inputs). Si aparece una 3ª herramienta, se unifica
+// en un modelo `Caso` base.
+model CalculadoraCaso {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  nombre     String   @db.VarChar(150)
+  datos      Json     // estado completo de la calculadora (inputs)
+  user_id    String   @db.Uuid
+  user       User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  deal_id    String?  @db.Uuid
+  deal       Deal?    @relation(fields: [deal_id], references: [id], onDelete: SetNull)
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  updated_at DateTime @updatedAt @db.Timestamptz(6)
+
+  @@unique([user_id, nombre]) // guardar por nombre sobrescribe
+  @@index([user_id])
+  @@index([deal_id])
+  @@map("calculadora_caso")
 }
