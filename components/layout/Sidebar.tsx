@@ -9,6 +9,7 @@ import {
   BarChart3,
   ShoppingCart,
   Users,
+  Contact,
   Settings,
   ChevronRight,
   ChevronsLeft,
@@ -47,6 +48,7 @@ const navGroups: {
     title: null,
     items: [
       { href: "/clientes", label: "Clientes", icon: Users },
+      { href: "/contactos", label: "Contactos", icon: Contact },
       { href: "/configuracion", label: "Configuración", icon: Settings, adminOnly: true },
       { href: "/salud", label: "Salud del sistema", icon: ShieldCheck, adminOnly: true },
     ],

@@ -244,6 +244,9 @@ export const GRUPO_URGENCIA_META: Record<GrupoUrgencia, { label: string }> = {
   DESPUES: { label: "Más adelante" },
 };
 
+// SSOT del orden de roles de contacto (para selects/filtros).
+export const ROLES_CONTACTO: RolContacto[] = ["DECISOR", "INFLUENCIADOR", "USUARIO", "OTRO"];
+
 export const ROL_CONTACTO_LABEL: Record<RolContacto, string> = {
   DECISOR: "Decisor",
   INFLUENCIADOR: "Influenciador",
