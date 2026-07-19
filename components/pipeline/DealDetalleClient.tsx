@@ -14,6 +14,7 @@ import Toast, { ToastData } from "@/components/ui/Toast";
 import Termometro from "@/components/pipeline/Termometro";
 import ContactosDeal from "@/components/pipeline/ContactosDeal";
 import CasosNegocioDeal from "@/components/pipeline/CasosNegocioDeal";
+import CotizacionesPlataformaDeal from "@/components/pipeline/CotizacionesPlataformaDeal";
 import NuevoDealModal from "@/components/pipeline/NuevoDealModal";
 import Markdown from "@/components/ui/Markdown";
 import MarkdownEditor from "@/components/ui/MarkdownEditor";
@@ -580,6 +581,11 @@ export default function DealDetalleClient({
           {/* Casos de negocio (Simulador Fase 2): abrir/crear casos vinculados al deal */}
           <Section title="Casos de negocio">
             <CasosNegocioDeal dealId={deal.id} />
+          </Section>
+
+          {/* Cotizaciones de plataforma (Calculadora Fase 2): precio ligado al deal */}
+          <Section title="Cotizaciones de plataforma">
+            <CotizacionesPlataformaDeal dealId={deal.id} />
           </Section>
 
           {/* Historial con el cliente */}
