@@ -8,6 +8,7 @@ import type { ZodIssue } from "zod";
 import Decimal from "decimal.js";
 import { canWrite, requireAuth } from "@/lib/session";
 import { canAccessOrden, canMutateOrden } from "@/lib/access-control";
+import { diffCampos, registrarAuditoria } from "@/lib/auditoria";
 import { logger } from "@/lib/logger";
 
 // ── GET /api/ordenes/:id ──────────────────────────────────────
@@ -78,7 +79,12 @@ export async function PUT(
     // Verificar que la orden exista
     const ordenExistente = await prisma.ordenVenta.findUnique({
       where: { id },
-      include: { partidas: true },
+      include: {
+        partidas: true,
+        // Nombres del "antes" para la bitácora: se audita con valores legibles, no con ids.
+        cliente: { select: { nombre: true } },
+        tipo_cotizacion: { select: { nombre: true } },
+      },
     });
 
     if (!ordenExistente) {
@@ -203,6 +209,37 @@ export async function PUT(
       });
 
       return { ...actualizada, partidas };
+    });
+
+    // Bitácora de auditoría: la orden es dinero impactado, así que queda el rastro de qué
+    // cambió y quién. Solo los campos de la lista blanca (lib/auditoria) y con valores
+    // legibles. Si no cambió nada auditado, no se escribe nada (bitácora sin ruido).
+    await registrarAuditoria({
+      entidad: "orden_venta",
+      entidad_id: id,
+      accion: "EDITAR",
+      etiqueta: orden.folio,
+      autor: session.email,
+      user_id: session.userId,
+      cambios: diffCampos(
+        "orden_venta",
+        {
+          total: Number(ordenExistente.total),
+          cliente: ordenExistente.cliente?.nombre,
+          estatus: ordenExistente.estatus,
+          tipo: ordenExistente.tipo_cotizacion?.nombre,
+          fecha_venta: ordenExistente.fecha_venta,
+          vigencia: ordenExistente.vigencia,
+        },
+        {
+          total: Number(orden.total),
+          cliente: orden.cliente?.nombre,
+          estatus: orden.estatus,
+          tipo: orden.tipo_cotizacion?.nombre,
+          fecha_venta: orden.fecha_venta,
+          vigencia: orden.vigencia,
+        }
+      ),
     });
 
     return NextResponse.json(serializeOrden(orden));

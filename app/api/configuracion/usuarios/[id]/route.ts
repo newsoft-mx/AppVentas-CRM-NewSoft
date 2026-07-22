@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { isAdmin, requireAuth } from "@/lib/session";
 import { serializeUsuario } from "@/lib/serializers";
 import { usuarioUpdateSchema } from "@/lib/validations/configuracion";
+import { diffCampos, registrarAuditoria } from "@/lib/auditoria";
 
 export async function PUT(
   req: NextRequest,
@@ -31,6 +32,11 @@ export async function PUT(
 
   try {
     const vendedorId = parsed.data.rol === "VENDEDOR" ? parsed.data.vendedor_id ?? null : null;
+    // "Antes" para la bitácora: acá se auditan accesos, así que el rastro importa.
+    const previo = await prisma.user.findUnique({
+      where: { id },
+      select: { email: true, rol: true, activo: true, vendedor: { select: { nombre: true } } },
+    });
     const usuario = await prisma.user.update({
       where: { id },
       data: {
@@ -41,7 +47,25 @@ export async function PUT(
         vendedor_id: vendedorId,
         ...(parsed.data.password && { password_hash: await bcrypt.hash(parsed.data.password, 12) }),
       },
-      select: { id: true, nombre: true, email: true, activo: true, rol: true, vendedor_id: true, created_at: true, updated_at: true },
+      select: {
+        id: true, nombre: true, email: true, activo: true, rol: true, vendedor_id: true,
+        created_at: true, updated_at: true, vendedor: { select: { nombre: true } },
+      },
+    });
+
+    // Nota: la contraseña NO se audita (ni su valor ni su hash); solo accesos y rol.
+    await registrarAuditoria({
+      entidad: "usuario",
+      entidad_id: id,
+      accion: "EDITAR",
+      etiqueta: usuario.nombre,
+      autor: session.email,
+      user_id: session.userId,
+      cambios: diffCampos(
+        "usuario",
+        { email: previo?.email, rol: previo?.rol, activo: previo?.activo, vendedor: previo?.vendedor?.nombre },
+        { email: usuario.email, rol: usuario.rol, activo: usuario.activo, vendedor: usuario.vendedor?.nombre }
+      ),
     });
 
     return NextResponse.json(serializeUsuario(usuario));

@@ -6,6 +6,7 @@ import { clienteUpdateSchema } from "@/lib/validations/clientes";
 import { canManageClients, requireAuth } from "@/lib/session";
 import { netAmount, netAmountMxn } from "@/lib/net-amounts";
 import { asegurarPrincipalDesdeCliente } from "@/lib/contactos";
+import { diffCampos, registrarAuditoria } from "@/lib/auditoria";
 
 // GET /api/clientes/:id
 export async function GET(
@@ -83,7 +84,11 @@ export async function PUT(
       );
     }
 
-    const cliente = await prisma.cliente.findUnique({ where: { id } });
+    const cliente = await prisma.cliente.findUnique({
+      where: { id },
+      // Nombre de la condición para la bitácora: se audita con valores legibles, no con ids.
+      include: { condicion_pago: { select: { nombre: true } } },
+    });
     if (!cliente) {
       return NextResponse.json({ error: "Cliente no encontrado" }, { status: 404 });
     }
@@ -142,6 +147,28 @@ export async function PUT(
         subtotal_con_descuento: { toNumber(): number };
       }>;
     };
+
+    // Bitácora: datos del cliente que afectan facturación y relación comercial.
+    await registrarAuditoria({
+      entidad: "cliente",
+      entidad_id: id,
+      accion: "EDITAR",
+      etiqueta: c.nombre,
+      autor: session.email,
+      user_id: session.userId,
+      cambios: diffCampos(
+        "cliente",
+        {
+          nombre: cliente.nombre, rfc: cliente.rfc, estatus: cliente.estatus,
+          activo: cliente.activo, condicion_pago: cliente.condicion_pago?.nombre,
+        },
+        {
+          nombre: c.nombre, rfc: c.rfc, estatus: c.estatus,
+          activo: c.activo, condicion_pago: c.condicion_pago?.nombre,
+        }
+      ),
+    });
+
     const mxnOrdenes = ordenes.filter((o) => o.moneda === "MXN");
     const usdOrdenes = ordenes.filter((o) => o.moneda === "USD");
 

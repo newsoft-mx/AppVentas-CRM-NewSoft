@@ -6,6 +6,7 @@ import { Pencil, X, ArrowLeft, Copy, Loader2, Check, CalendarDays, FileDown } fr
 import OrdenForm from "./OrdenForm";
 import StatusBadge from "./StatusBadge";
 import Toast, { ToastData } from "@/components/ui/Toast";
+import HistorialCambios from "@/components/ordenes/HistorialCambios";
 import { formatMoneda, formatMXN, formatFecha, fechaParaInput, ESTATUS_COLORS, ESTATUS_LABELS } from "@/lib/utils";
 import type { OrdenDetalle, EstatusOrden } from "@/types/ordenes";
 
@@ -472,6 +473,9 @@ export default function OrdenDetalleClient({
                 <p>{orden.cliente.ciudad}</p>
               </div>
             </div>
+
+            {/* Trazabilidad: la orden es dinero impactado. Colapsado, sin robar espacio. */}
+            <HistorialCambios entidad="orden_venta" entidadId={orden.id} />
           </div>
 
         </div>

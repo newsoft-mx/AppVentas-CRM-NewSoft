@@ -35,6 +35,7 @@ model User {
 
   simulador_casos SimuladorCaso[]
   calculadora_casos CalculadoraCaso[]
+  auditoria_logs AuditoriaLog[]
 
   @@map("user")
 }
@@ -813,4 +814,37 @@ model CalculadoraCaso {
   @@index([user_id])
   @@index([deal_id])
   @@map("calculadora_caso")
+}
+
+// ============================================================
+// AUDITORÍA — bitácora de cambios de los módulos sensibles
+// ============================================================
+// Trazabilidad de "quién cambió qué y cuándo" en lo que impacta dinero o reglas:
+// órdenes de venta, clientes, configuración y usuarios/roles. NO audita todo: solo
+// las entidades y campos de la lista blanca en lib/auditoria.ts (SSOT).
+//
+// APPEND-ONLY: no se edita ni se borra: una auditoría que se puede alterar no sirve
+// como auditoría. Por eso `autor` es un snapshot de texto — si el usuario se elimina,
+// el rastro sobrevive.
+model AuditoriaLog {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  // Entidad tocada: "orden_venta" | "cliente" | "configuracion" | "usuario".
+  entidad    String   @db.VarChar(40)
+  // Id del registro tocado (para la bitácora dentro de la ficha).
+  entidad_id String   @db.VarChar(64)
+  // "CREAR" | "EDITAR" | "BORRAR".
+  accion     String   @db.VarChar(20)
+  // Etiqueta legible del registro al momento del cambio (ej. folio de la orden).
+  etiqueta   String?  @db.VarChar(200)
+  // Quién: snapshot de texto (sobrevive al borrado del usuario) + FK opcional.
+  autor      String   @db.VarChar(150)
+  user_id    String?  @db.Uuid
+  user       User?    @relation(fields: [user_id], references: [id], onDelete: SetNull)
+  // Qué cambió: [{ campo, label, antes, despues }] — solo campos de la lista blanca.
+  cambios    Json
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+
+  @@index([entidad, entidad_id]) // bitácora de una ficha
+  @@index([created_at])          // vista global (ADMIN), ordenada por fecha
+  @@map("auditoria_log")
 }
