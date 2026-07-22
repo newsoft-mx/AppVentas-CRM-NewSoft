@@ -234,8 +234,13 @@ export async function DELETE(
       actividades_reales: deal._count.actividades,
       contactos: deal._count.contactos,
     });
-    if (decision.clase === "BLOQUEADO") {
-      return NextResponse.json({ error: decision.motivo, clase: "BLOQUEADO" }, { status: 409 });
+    // Nada queda bloqueado: un deal se borra en cualquier etapa. Los casos sensibles
+    // (ganado / con orden de venta) se MARCAN —recuperables— y piden ADMIN.
+    if (decision.soloAdmin && !puedeForzarDestruccion(session.rol)) {
+      return NextResponse.json(
+        { error: `Solo un administrador puede borrarlo. ${decision.motivo}`, soloAdmin: true },
+        { status: 403 }
+      );
     }
 
     // Destruir: solo si no hay nada que perder, o si un ADMIN lo forzó a sabiendas.

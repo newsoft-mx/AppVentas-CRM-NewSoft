@@ -110,14 +110,18 @@ export async function crearDealTx(tx: Prisma.TransactionClient, input: CrearDeal
 // SSOT de "qué pasa cuando borrás un deal". El usuario hace UN gesto (Borrar) y no elige
 // mecanismo: lo decide el costo del error.
 
-/** Qué se hace al borrar, y por qué. */
-export type ClaseBorrado =
-  /** Basura probada: nadie lo trabajó nunca. Se destruye — no hay nada que recuperar. */
-  | { clase: "FISICO"; motivo: string }
-  /** Tiene trabajo encima. Se marca: desaparece igual, pero un error se puede deshacer. */
-  | { clase: "MARCAR"; motivo: string }
-  /** No se borra. */
-  | { clase: "BLOQUEADO"; motivo: string };
+/**
+ * Qué se hace al borrar, y por qué. **Un deal se puede borrar SIEMPRE, en cualquier etapa**:
+ * lo que decide la regla es *cómo* (destruir vs. marcar) y *quién* (los casos sensibles piden
+ * ADMIN). Nada queda bloqueado — un callejón sin salida es peor que un borrado recuperable.
+ */
+export interface ClaseBorrado {
+  /** FISICO: se destruye (no hay nada que recuperar). MARCAR: desaparece pero es recuperable. */
+  clase: "FISICO" | "MARCAR";
+  motivo: string;
+  /** Casos sensibles (ganado / con orden de venta): solo un ADMIN puede borrarlos. */
+  soloAdmin: boolean;
+}
 
 /** Lo mínimo para decidir. `actividades_reales` excluye las entradas SISTEMA (ver abajo). */
 export interface DealParaBorrar {
@@ -132,22 +136,36 @@ export interface DealParaBorrar {
  * registro SISTEMA) → destruirlo no pierde nada y no ensucia la BD de basura. Uno con
  * bitácora encima es trabajo de alguien: desaparece igual, pero se puede volver.
  *
- * Con orden vinculada NO se borra ni marcado: es plata facturada, y el Deal es lo que la
- * ata al pipeline. Para sacarlo de la vista existen PERDIDO/SUSPENDIDO.
+ * Con orden vinculada o ya ganado NO se destruye: es plata facturada y el Deal es lo que la
+ * ata al pipeline. Pero tampoco se bloquea — se MARCA (recuperable) y se pide ADMIN. Antes
+ * esto devolvía BLOQUEADO con el texto "cambiale el estado", y esa salida no existía:
+ * GANADO es terminal en la máquina de estados → era un callejón sin salida.
+ *
+ * Por encima de todo esto, un ADMIN puede forzar la destrucción de cualquier cosa (última
+ * instancia); eso lo resuelve el endpoint con `forzar`, no esta función.
  */
 export function clasificarBorrado(d: DealParaBorrar): ClaseBorrado {
   if (d.orden_id) {
-    return { clase: "BLOQUEADO", motivo: "Tiene una orden de venta vinculada. Marcalo como perdido o suspendido." };
+    return {
+      clase: "MARCAR",
+      motivo: "Tiene una orden de venta vinculada: se marca (recuperable) para no romper la trazabilidad del ingreso.",
+      soloAdmin: true,
+    };
   }
   if (d.resultado === "GANADO") {
-    return { clase: "BLOQUEADO", motivo: "Está marcado como ganado. Cambiale el estado antes de borrarlo." };
+    return {
+      clase: "MARCAR",
+      motivo: "Está marcado como ganado: se marca (recuperable), no se destruye.",
+      soloAdmin: true,
+    };
   }
   if (d.actividades_reales === 0) {
-    return { clase: "FISICO", motivo: "Nadie registró actividad: no hay trabajo que conservar." };
+    return { clase: "FISICO", motivo: "Nadie registró actividad: no hay trabajo que conservar.", soloAdmin: false };
   }
   return {
     clase: "MARCAR",
     motivo: `Tiene ${d.actividades_reales} ${d.actividades_reales === 1 ? "actividad" : "actividades"} registradas.`,
+    soloAdmin: false,
   };
 }
 
