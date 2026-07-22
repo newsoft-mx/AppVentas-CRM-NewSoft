@@ -21,6 +21,7 @@ import {
   UserCircle,
   Calculator,
   Target,
+  ScrollText,
 } from "lucide-react";
 import { ROLE_LABEL, type UserRole } from "@/lib/session";
 
@@ -57,6 +58,7 @@ const navGroups: {
       { href: "/clientes", label: "Clientes", icon: Users },
       { href: "/contactos", label: "Contactos", icon: Contact },
       { href: "/configuracion", label: "Configuración", icon: Settings, adminOnly: true },
+      { href: "/auditoria", label: "Bitácora", icon: ScrollText, adminOnly: true },
       { href: "/salud", label: "Salud del sistema", icon: ShieldCheck, adminOnly: true },
     ],
   },

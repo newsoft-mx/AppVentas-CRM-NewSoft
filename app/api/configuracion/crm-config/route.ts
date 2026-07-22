@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { isAdmin, requireAuth } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { getScoringConfig } from "@/lib/crm-config";
+import { diffCampos, registrarAuditoria } from "@/lib/auditoria";
 
 // GET /api/configuracion/crm-config — parámetros del motor de scoring
 export async function GET(req: NextRequest) {
@@ -58,7 +59,28 @@ export async function PUT(req: NextRequest) {
       return NextResponse.json({ error: "Nada que actualizar" }, { status: 400 });
     }
 
+    // "Antes" completo para la bitácora: cambiar estos parámetros cambia el comportamiento
+    // del sistema para todos, así que queda el rastro de quién los tocó.
+    const previo = await prisma.crmConfig.findUnique({ where: { id: "crm" } });
+
     await prisma.crmConfig.upsert({ where: { id: "crm" }, update: data, create: { id: "crm", ...data } });
+
+    const actual = await prisma.crmConfig.findUnique({ where: { id: "crm" } });
+    await registrarAuditoria({
+      entidad: "configuracion",
+      entidad_id: "crm",
+      accion: "EDITAR",
+      etiqueta: "Parámetros del CRM",
+      autor: session.email,
+      user_id: session.userId,
+      // Solo se comparan las claves que el PUT tocó (data), contra la lista blanca.
+      cambios: diffCampos(
+        "configuracion",
+        (previo ?? {}) as Record<string, unknown>,
+        Object.fromEntries(Object.keys(data).map((k) => [k, (actual as Record<string, unknown> | null)?.[k]]))
+      ),
+    });
+
     const scoring = await getScoringConfig();
     const row = await prisma.crmConfig.findUnique({
       where: { id: "crm" },
