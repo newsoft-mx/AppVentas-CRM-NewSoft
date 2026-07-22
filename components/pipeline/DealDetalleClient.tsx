@@ -133,7 +133,11 @@ export default function DealDetalleClient({
   // Actividades REALES (sin las SISTEMA automáticas): el modal muestra qué se llevaría el
   // borrado, misma cuenta que usa el server para decidir destruir vs. marcar.
   const actividadesReales = deal.actividades.filter((a) => a.tipo !== "SISTEMA").length;
-  const bloqueadoPorOrden = deal.resultado === "GANADO";
+  // Caso sensible (ganado / con orden de venta): se borra igual, pero se MARCA (recuperable)
+  // y solo lo hace un ADMIN. El server tiene la verdad completa (incluye orden vinculada).
+  const borradoSensible = deal.resultado === "GANADO";
+  // Con actividad o sensible, el borrado por defecto es "marcar" (no destruye).
+  const seMarcara = actividadesReales > 0 || borradoSensible;
   // Siguiente etapa (por orden) para el banner de avance
   const siguienteStage = stages
     .filter((s) => s.orden > deal.stage.orden)
@@ -823,18 +827,24 @@ export default function DealDetalleClient({
       {modalBorrar && (
         <Modal title="Borrar lead" onClose={() => setModalBorrar(false)} size="md">
           <div className="space-y-4">
-            {bloqueadoPorOrden ? (
-              // Hint del front; el server igual responde 409 si tiene orden.
+            {borradoSensible && !esAdmin ? (
+              // Se puede borrar en cualquier etapa, pero lo sensible lo hace un ADMIN.
               <p className="rounded-lg bg-amber-50 px-3 py-2.5 text-sm text-amber-800">
-                Este deal está <b>ganado</b> y tiene una orden de venta. No se puede borrar —
-                cambiale el estado a perdido o suspendido si querés sacarlo del pipeline.
+                Este deal está <b>ganado</b> (puede tener una orden de venta asociada).
+                Solo un <b>administrador</b> puede borrarlo — pedíselo a quien administre el CRM.
               </p>
             ) : (
               <>
-                {/* Muestra el costo: qué se lleva el borrado. Sin actividad real, el server
-                    lo destruye; con actividad, lo marca (desaparece pero se puede recuperar). */}
+                {/* Muestra el costo: qué se lleva el borrado. Sin actividad real y sin ser
+                    sensible, el server lo destruye; si no, lo marca (recuperable). */}
                 <p className="text-sm text-gray-600">
-                  {actividadesReales === 0 ? (
+                  {borradoSensible ? (
+                    <>
+                      Este deal está <b>ganado</b> (puede tener una orden de venta).
+                      Desaparecerá del pipeline pero <b>se conserva</b>: no se destruye la
+                      trazabilidad del ingreso, y se puede recuperar.
+                    </>
+                  ) : actividadesReales === 0 ? (
                     <>Este lead <b>no tiene actividad registrada</b>. Se eliminará definitivamente.</>
                   ) : (
                     <>
@@ -855,9 +865,10 @@ export default function DealDetalleClient({
                     autoFocus
                   />
                 </div>
-                {/* Forzar la destrucción de algo trabajado: solo ADMIN, y solo si hay algo
-                    que destruir (con 0 actividades el server ya destruye sin forzar). */}
-                {esAdmin && actividadesReales > 0 && (
+                {/* Última instancia: un ADMIN puede destruir CUALQUIER deal, sin importar su
+                    etapa. Se ofrece siempre que el borrado por defecto sería "marcar" (con 0
+                    actividades y sin ser sensible, el server ya destruye sin forzar). */}
+                {esAdmin && seMarcara && (
                   <label className="flex items-start gap-2 rounded-lg bg-red-50 px-3 py-2.5 text-sm text-red-800">
                     <input
                       type="checkbox"
@@ -865,7 +876,10 @@ export default function DealDetalleClient({
                       onChange={(e) => setForzarBorrar(e.target.checked)}
                       className="mt-0.5"
                     />
-                    <span>Eliminar definitivamente (no se podrá recuperar).</span>
+                    <span>
+                      Eliminar definitivamente (no se podrá recuperar)
+                      {borradoSensible && <> — <b>se pierde el rastro del ingreso</b></>}.
+                    </span>
                   </label>
                 )}
                 <div className="flex justify-end gap-2 border-t border-surface-border pt-4">

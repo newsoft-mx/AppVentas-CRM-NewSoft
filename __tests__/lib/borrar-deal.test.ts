@@ -28,19 +28,45 @@ describe("clasificarBorrado — qué pasa al borrar un deal", () => {
     });
   });
 
-  describe("no se borra (plata facturada)", () => {
+  // Se borra en CUALQUIER etapa: lo sensible no se bloquea, se marca (recuperable) y pide ADMIN.
+  describe("plata facturada: se marca y pide ADMIN (nunca se bloquea)", () => {
     it("con orden vinculada, aunque esté abierto y virgen", () => {
-      expect(clasificarBorrado({ ...base, orden_id: "abc" }).clase).toBe("BLOQUEADO");
+      const r = clasificarBorrado({ ...base, orden_id: "abc" });
+      expect(r.clase).toBe("MARCAR"); // recuperable, no destruido
+      expect(r.soloAdmin).toBe(true);
     });
 
     it("GANADO, aunque todavía no tenga la orden vinculada", () => {
-      expect(clasificarBorrado({ ...base, resultado: "GANADO" }).clase).toBe("BLOQUEADO");
+      const r = clasificarBorrado({ ...base, resultado: "GANADO" });
+      expect(r.clase).toBe("MARCAR");
+      expect(r.soloAdmin).toBe(true);
     });
 
     it("la orden manda por encima de todo lo demás", () => {
       const r = clasificarBorrado({ ...base, orden_id: "abc", actividades_reales: 99 });
-      expect(r.clase).toBe("BLOQUEADO");
+      expect(r.clase).toBe("MARCAR");
+      expect(r.soloAdmin).toBe(true);
       expect(r.motivo).toMatch(/orden/i);
+    });
+
+    it("ningún caso queda bloqueado: siempre se puede borrar", () => {
+      const casos = [
+        { ...base },
+        { ...base, actividades_reales: 5 },
+        { ...base, resultado: "GANADO" },
+        { ...base, orden_id: "abc" },
+        { ...base, resultado: "GANADO", orden_id: "abc", actividades_reales: 20 },
+      ];
+      for (const c of casos) {
+        expect(["FISICO", "MARCAR"]).toContain(clasificarBorrado(c).clase);
+      }
+    });
+  });
+
+  describe("quién puede: lo normal es de cualquiera, lo sensible es de ADMIN", () => {
+    it("un lead virgen o trabajado NO pide ADMIN", () => {
+      expect(clasificarBorrado(base).soloAdmin).toBe(false);
+      expect(clasificarBorrado({ ...base, actividades_reales: 3 }).soloAdmin).toBe(false);
     });
   });
 
