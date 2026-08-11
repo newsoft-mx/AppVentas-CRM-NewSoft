@@ -12,6 +12,13 @@ import Toast, { ToastData } from "@/components/ui/Toast";
 import { ESTATUS_CLIENTE_META } from "@/types/clientes";
 import { ROL_CONTACTO_LABEL, ROLES_CONTACTO, type EstatusCliente, type RolContacto } from "@/types/crm";
 import { TIPO_ACTIVIDAD_META } from "@/lib/actividad-tipos";
+import ThOrdenable from "@/components/ui/ThOrdenable";
+import {
+  ordenarFilas, propsOrdenables, siguienteOrden, type OrdenTabla,
+} from "@/lib/tabla-orden";
+import {
+  EXTRACTORES_CONTACTO, ORDEN_INICIAL_CONTACTOS, type CampoContacto,
+} from "@/lib/contactos-orden";
 import type {
   ContactoDirectorioItem, ContactoDetalle, ContactoFormInput, OrganizacionOpcion,
 } from "@/types/contactos-directorio";
@@ -34,7 +41,6 @@ type Props = {
 };
 type FiltroEstatus = "TODOS" | EstatusCliente;
 type FiltroDeals = "TODOS" | "CON" | "SIN";
-type Orden = "NOMBRE" | "ACTIVIDAD";
 
 export default function ContactosClient({ initialContactos, organizaciones, canWrite }: Props) {
   const [contactos, setContactos] = useState(initialContactos);
@@ -46,7 +52,8 @@ export default function ContactosClient({ initialContactos, organizaciones, canW
   const [conCorreo, setConCorreo] = useState(false);
   const [conTelefono, setConTelefono] = useState(false);
   const [conDeals, setConDeals] = useState<FiltroDeals>("TODOS");
-  const [orden, setOrden] = useState<Orden>("NOMBRE");
+  const [orden, setOrden] = useState<OrdenTabla<CampoContacto>>(ORDEN_INICIAL_CONTACTOS);
+  const th = propsOrdenables(orden, (campo) => setOrden((o) => siguienteOrden(o, campo)));
 
   const [sel, setSel] = useState<Set<string>>(new Set());
   const [abierto, setAbierto] = useState<ContactoDirectorioItem | null>(null);
@@ -81,11 +88,10 @@ export default function ContactosClient({ initialContactos, organizaciones, canW
       return [c.nombre, c.cargo, c.email, c.telefono, c.whatsapp, c.cliente.nombre]
         .some((v) => v?.toLowerCase().includes(t));
     });
-    return arr.sort((a, b) =>
-      orden === "NOMBRE"
-        ? a.nombre.localeCompare(b.nombre)
-        : (b.ultima_actividad ?? "").localeCompare(a.ultima_actividad ?? "")
-    );
+    // El orden lo da el encabezado (cimiento compartido), arrancando por nombre asc — ver
+    // ORDEN_INICIAL_CONTACTOS: fijar el campo es lo que reubica las altas y las ediciones,
+    // que mutan `contactos` en el cliente sin volver a pedirle la lista al server.
+    return ordenarFilas(arr, orden, EXTRACTORES_CONTACTO);
   }, [contactos, q, estatus, orgId, responsableId, rol, conCorreo, conTelefono, conDeals, orden]);
 
   const correosSel = useMemo(
@@ -173,11 +179,6 @@ export default function ContactosClient({ initialContactos, organizaciones, canW
           <button onClick={() => setConTelefono((v) => !v)} className={chip(conTelefono)}>Con teléfono</button>
           <button onClick={() => setConDeals(conDeals === "CON" ? "TODOS" : "CON")} className={chip(conDeals === "CON")}>Con deals</button>
           <button onClick={() => setConDeals(conDeals === "SIN" ? "TODOS" : "SIN")} className={chip(conDeals === "SIN")}>Sin deals</button>
-          <span className="mx-1 h-5 w-px bg-surface-border" />
-          <select value={orden} onChange={(e) => setOrden(e.target.value as Orden)} className={selectCls} aria-label="Orden">
-            <option value="NOMBRE">Orden: A–Z</option>
-            <option value="ACTIVIDAD">Orden: última actividad</option>
-          </select>
         </div>
       </div>
 
@@ -206,12 +207,12 @@ export default function ContactosClient({ initialContactos, organizaciones, canW
                 <input type="checkbox" checked={todosSel}
                   onChange={() => setSel(todosSel ? new Set() : new Set(visiblesConCorreo))} aria-label="Seleccionar todos" />
               </th>
-              <th className="px-3 py-2.5">Contacto</th>
-              <th className="px-3 py-2.5">Organización</th>
-              <th className="px-3 py-2.5">Correo</th>
-              <th className="px-3 py-2.5">Teléfono</th>
-              <th className="px-3 py-2.5">Deals</th>
-              <th className="px-3 py-2.5">Última actividad</th>
+              <ThOrdenable {...th("nombre")}>Contacto</ThOrdenable>
+              <ThOrdenable {...th("organizacion")}>Organización</ThOrdenable>
+              <ThOrdenable {...th("email")}>Correo</ThOrdenable>
+              <ThOrdenable {...th("telefono")}>Teléfono</ThOrdenable>
+              <ThOrdenable {...th("deals")}>Deals</ThOrdenable>
+              <ThOrdenable {...th("actividad")}>Última actividad</ThOrdenable>
             </tr>
           </thead>
           <tbody className="divide-y divide-surface-border">

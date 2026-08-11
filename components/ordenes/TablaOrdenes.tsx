@@ -6,11 +6,13 @@ import { useEffect, useMemo, useState } from "react";
 import StatusBadge from "./StatusBadge";
 import { formatFecha, formatMoneda, formatMXN } from "@/lib/utils";
 import { netAmount, netAmountMxn } from "@/lib/net-amounts";
-import { fechaFiltroOrden } from "@/lib/filter-utils";
+import ThOrdenable from "@/components/ui/ThOrdenable";
+import {
+  ordenarFilas, propsOrdenables, siguienteOrden, type OrdenTabla,
+} from "@/lib/tabla-orden";
+import { EXTRACTORES_ORDEN, type CampoOrden } from "@/lib/ventas-orden";
 import type { EstatusOrden, OrdenResumen } from "@/types/ordenes";
 
-type SortKey = "folio" | "descripcion" | "tipo" | "condicion" | "total" | "estatus" | "fecha";
-type SortDir = "asc" | "desc";
 
 interface TablaOrdenesProps {
   ordenes: OrdenResumen[];
@@ -122,73 +124,6 @@ function groupByCliente(ordenes: OrdenResumen[]) {
   return Array.from(map.entries()).map(([clienteId, data]) => ({ clienteId, ...data }));
 }
 
-function valueForSort(orden: OrdenResumen, key: SortKey) {
-  switch (key) {
-    case "folio":
-      return orden.folio;
-    case "descripcion":
-      return orden.descripcion;
-    case "tipo":
-      return orden.tipo_cotizacion.nombre;
-    case "condicion":
-      return orden.condicion_pago.nombre;
-    case "total":
-      return netAmountMxn(orden);
-    case "estatus":
-      return orden.estatus;
-    case "fecha":
-      return new Date(fechaFiltroOrden(orden)).getTime();
-  }
-}
-
-function sortOrdenes(ordenes: OrdenResumen[], key: SortKey | null, dir: SortDir) {
-  if (!key) return ordenes;
-  return [...ordenes].sort((a, b) => {
-    const av = valueForSort(a, key);
-    const bv = valueForSort(b, key);
-    const result = typeof av === "number" && typeof bv === "number"
-      ? av - bv
-      : String(av).localeCompare(String(bv), "es", { numeric: true });
-    return dir === "asc" ? result : -result;
-  });
-}
-
-function nextSort(current: { key: SortKey | null; dir: SortDir }, key: SortKey) {
-  if (current.key !== key) return { key, dir: "asc" as SortDir };
-  if (current.dir === "asc") return { key, dir: "desc" as SortDir };
-  return { key: null, dir: "asc" as SortDir };
-}
-
-function SortHeader({
-  label,
-  column,
-  sort,
-  onSort,
-  align = "left",
-}: {
-  label: string;
-  column: SortKey;
-  sort: { key: SortKey | null; dir: SortDir };
-  onSort: (column: SortKey) => void;
-  align?: "left" | "right";
-}) {
-  const active = sort.key === column;
-  return (
-    <th className={`${align === "right" ? "text-right" : "text-left"} px-3 py-2.5 font-medium`}>
-      <button
-        type="button"
-        onClick={() => onSort(column)}
-        className={`inline-flex items-center gap-1 rounded px-1 py-0.5 transition-colors hover:bg-navy/5 hover:text-navy ${
-          active ? "text-navy" : ""
-        }`}
-      >
-        {label}
-        <span className="text-[10px]">{active ? (sort.dir === "asc" ? "↑" : "↓") : "↕"}</span>
-      </button>
-    </th>
-  );
-}
-
 export default function TablaOrdenes({
   ordenes,
   defaultCollapsed = false,
@@ -200,7 +135,10 @@ export default function TablaOrdenes({
   onError,
 }: TablaOrdenesProps) {
   const [duplicatingIds, setDuplicatingIds] = useState<Set<string>>(new Set());
-  const [sort, setSort] = useState<{ key: SortKey | null; dir: SortDir }>({ key: null, dir: "asc" });
+  // Orden por encabezado (cimiento compartido: lib/tabla-orden). `campo: null` = el orden que
+  // trae el server. Estado local: es una ayuda de lectura, no una vista que se comparta.
+  const [orden, setOrden] = useState<OrdenTabla<CampoOrden>>({ campo: null, sentido: "asc" });
+  const th = propsOrdenables(orden, (campo) => setOrden((o) => siguienteOrden(o, campo)));
   const [collapsed, setCollapsed] = useState<Set<string>>(() => {
     if (typeof sessionStorage !== "undefined") {
       const saved = sessionStorage.getItem("ventas.collapsedGroups");
@@ -216,13 +154,15 @@ export default function TablaOrdenes({
     sessionStorage.setItem("ventas.collapsedGroups", JSON.stringify(Array.from(collapsed)));
   }, [collapsed]);
 
+  // El orden se aplica DENTRO de cada grupo de cliente, nunca entre grupos: la invariante del
+  // cimiento es que ordenar por columna no cruza un límite estructural.
   const grupos = useMemo(
     () =>
       gruposBase.map((grupo) => ({
         ...grupo,
-        ordenes: sortOrdenes(grupo.ordenes, sort.key, sort.dir),
+        ordenes: ordenarFilas(grupo.ordenes, orden, EXTRACTORES_ORDEN),
       })),
-    [gruposBase, sort]
+    [gruposBase, orden]
   );
 
   const handleDuplicar = async (orden: OrdenResumen) => {
@@ -385,13 +325,13 @@ export default function TablaOrdenes({
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-surface-border text-xs text-gray-500">
-                      <SortHeader label="Folio" column="folio" sort={sort} onSort={(column) => setSort((current) => nextSort(current, column))} />
-                      <SortHeader label="Descripción" column="descripcion" sort={sort} onSort={(column) => setSort((current) => nextSort(current, column))} />
-                      <SortHeader label="Tipo" column="tipo" sort={sort} onSort={(column) => setSort((current) => nextSort(current, column))} />
-                      <SortHeader label="Condición" column="condicion" sort={sort} onSort={(column) => setSort((current) => nextSort(current, column))} />
-                      <SortHeader label="Total" column="total" sort={sort} onSort={(column) => setSort((current) => nextSort(current, column))} align="right" />
-                      <SortHeader label="Estatus" column="estatus" sort={sort} onSort={(column) => setSort((current) => nextSort(current, column))} />
-                      <SortHeader label="Fecha" column="fecha" sort={sort} onSort={(column) => setSort((current) => nextSort(current, column))} />
+                      <ThOrdenable {...th("folio")}>Folio</ThOrdenable>
+                      <ThOrdenable {...th("descripcion")}>Descripción</ThOrdenable>
+                      <ThOrdenable {...th("tipo")}>Tipo</ThOrdenable>
+                      <ThOrdenable {...th("condicion")}>Condición</ThOrdenable>
+                      <ThOrdenable {...th("total")} align="right">Total</ThOrdenable>
+                      <ThOrdenable {...th("estatus")}>Estatus</ThOrdenable>
+                      <ThOrdenable {...th("fecha")}>Fecha</ThOrdenable>
                       <th className="px-5 py-2.5 text-right font-medium">Acciones</th>
                     </tr>
                   </thead>
