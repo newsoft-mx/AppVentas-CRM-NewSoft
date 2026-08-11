@@ -26,14 +26,14 @@ import { patchActividad, borrarActividad } from "@/lib/actividad-cliente";
 import ActividadCompositor, {
   type TipoAccionOpcion, type ResultadoAccionOpcion, type RespuestaGuardado,
 } from "@/components/pipeline/ActividadCompositor";
-import { formatCompacto, formatFechaHora } from "@/lib/utils";
+import { formatCompacto, formatFechaHora, TRANSICIONES_RESULTADO_DEAL } from "@/lib/utils";
 import { TIPO_ACTIVIDAD_META, tipoMovimiento } from "@/lib/actividad-tipos";
 import { esTareaPendiente, estaVencida, estadoTarea } from "@/lib/tareas";
 import {
-  TEMPERATURA_META, ATENCION_META,
+  TEMPERATURA_META, ATENCION_META, ESTADO_DEAL_META,
   EFECTO_META, TAMANO_EMPRESA_LABEL,
   type DealDetalle, type DealActividadItem, type StageResumen, type TipoActividad,
-  type Temperatura,
+  type Temperatura, type DealResultado, type ClaseBorrado,
 } from "@/types/crm";
 // El panel de IA (DealAIPanel) está construido pero se libera en Fase 2.
 
@@ -46,8 +46,13 @@ interface Props {
   deal: DealDetalle;
   stages: StageResumen[];
   canWrite: boolean;
+  /**
+   * Qué pasaría si se borra este deal, decidido por el SERVER (`clasificarBorrado`).
+   * `null` = este rol no borra deals. La UI no re-deriva la regla: solo la muestra.
+   */
+  borrado?: ClaseBorrado | null;
   /** Solo ADMIN puede forzar la destrucción de un deal ya trabajado. */
-  esAdmin?: boolean;
+  puedeForzar?: boolean;
   vendedores?: { id: string; nombre: string }[];
   clientes?: { id: string; nombre: string }[];
   tipos?: { id: string; nombre: string }[];
@@ -61,6 +66,16 @@ interface Props {
   /** ¿El score ya cruza el umbral de avance? Derivado en el server (dealScoreView). */
   sugerirAvanceInicial?: boolean;
 }
+
+// Cómo se ve cada destino en el menú "Cambiar estado". Es solo presentación: QUÉ destinos
+// se ofrecen lo decide TRANSICIONES_RESULTADO_DEAL (SSOT). Cubre los 4 resultados para que
+// habilitar una transición nueva no requiera tocar este mapa.
+const TRANSICION_META: Record<DealResultado, { label: string; icon: LucideIcon; clase: string }> = {
+  GANADO: { label: "Ganado", icon: Trophy, clase: "text-emerald-700 hover:bg-emerald-50" },
+  PERDIDO: { label: "Perdido", icon: XCircle, clase: "text-red-700 hover:bg-red-50" },
+  SUSPENDIDO: { label: "Suspender (hold)", icon: PauseCircle, clase: "text-blue-700 hover:bg-blue-50" },
+  ABIERTO: { label: "Reactivar", icon: Play, clase: "text-gray-700 hover:bg-gray-50" },
+};
 
 function fmtFull(n: number): string {
   return "$" + n.toLocaleString("es-MX", { minimumFractionDigits: 0 });
@@ -92,7 +107,7 @@ interface FiltroBitacora {
 }
 
 export default function DealDetalleClient({
-  deal, stages, canWrite, esAdmin = false,
+  deal, stages, canWrite, borrado = null, puedeForzar = false,
   vendedores = [], clientes = [], tipos = [], canales = [], origenes = [], motivos = [],
   tiposAccion = [], resultadosAccion = [], sugerirAvanceInicial = false,
 }: Props) {
@@ -130,14 +145,13 @@ export default function DealDetalleClient({
   const [modalBorrar, setModalBorrar] = useState(false);
   const [motivoBorrar, setMotivoBorrar] = useState("");
   const [forzarBorrar, setForzarBorrar] = useState(false);
-  // Actividades REALES (sin las SISTEMA automáticas): el modal muestra qué se llevaría el
-  // borrado, misma cuenta que usa el server para decidir destruir vs. marcar.
-  const actividadesReales = deal.actividades.filter((a) => a.tipo !== "SISTEMA").length;
-  // Caso sensible (ganado / con orden de venta): se borra igual, pero se MARCA (recuperable)
-  // y solo lo hace un ADMIN. El server tiene la verdad completa (incluye orden vinculada).
-  const borradoSensible = deal.resultado === "GANADO";
-  // Con actividad o sensible, el borrado por defecto es "marcar" (no destruye).
-  const seMarcara = actividadesReales > 0 || borradoSensible;
+  // Qué pasaría al confirmar: espeja `destruir` del endpoint (route.ts). Solo gobierna el
+  // copy del modal — la decisión real la toma el server, acá no se re-deriva ninguna regla.
+  const destruira = borrado?.clase === "FISICO" || forzarBorrar;
+  // Transiciones válidas desde el estado actual, leídas del SSOT. Si está vacío (GANADO /
+  // PERDIDO son terminales) el menú "Cambiar estado" no se muestra: antes se ofrecía igual
+  // y el server rechazaba con 409.
+  const transiciones = TRANSICIONES_RESULTADO_DEAL[deal.resultado] ?? [];
   // Siguiente etapa (por orden) para el banner de avance
   const siguienteStage = stages
     .filter((s) => s.orden > deal.stage.orden)
@@ -255,6 +269,19 @@ export default function DealDetalleClient({
       setActividades(prev);
       setToast({ type: "error", message: "No se pudo eliminar la entrada." });
     }
+  }
+
+  // Un destino del menú → su gesto. PERDIDO es el único que necesita datos antes de aplicar
+  // (la razón alimenta el reporte de motivos), así que abre el modal en vez de disparar.
+  function aplicarTransicion(destino: DealResultado) {
+    if (destino === "PERDIDO") {
+      setMenuOpen(false);
+      setRazon("");
+      setComentarioP("");
+      setModalPerdida(true);
+      return;
+    }
+    cambiarResultado(destino);
   }
 
   async function cambiarResultado(
@@ -401,7 +428,16 @@ export default function DealDetalleClient({
           <span>›</span>
           <span className="font-semibold text-navy">{deal.nombre}</span>
         </nav>
-        {canWrite && (deal.resultado === "ABIERTO" || deal.resultado === "SUSPENDIDO") && (
+        {/* Estado del deal: solo cuando ya está cerrado o en pausa. En un deal activo el
+            chip no aporta y recargaba el encabezado (pedido de Roldán). */}
+        {deal.resultado !== "ABIERTO" && (
+          <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${ESTADO_DEAL_META[deal.resultado].color}`}>
+            {ESTADO_DEAL_META[deal.resultado].label}
+          </span>
+        )}
+        {/* Cambiar estado: las opciones SALEN de la máquina de estados, no se repiten a mano.
+            Si el estado es terminal la lista viene vacía y el botón no se muestra. */}
+        {canWrite && transiciones.length > 0 && (
           <div className="relative">
             <button
               onClick={() => setMenuOpen((o) => !o)}
@@ -412,37 +448,33 @@ export default function DealDetalleClient({
             </button>
             {menuOpen && (
               <div className="absolute right-0 z-20 mt-1 w-52 overflow-hidden rounded-lg border border-surface-border bg-white py-1 shadow-lg">
-                <button onClick={() => cambiarResultado("GANADO")} className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-sm text-emerald-700 hover:bg-emerald-50"><Trophy size={15} /> Ganado</button>
-                <button onClick={() => { setMenuOpen(false); setRazon(""); setComentarioP(""); setModalPerdida(true); }} className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-sm text-red-700 hover:bg-red-50"><XCircle size={15} /> Perdido</button>
-                {deal.resultado === "ABIERTO" ? (
-                  <button onClick={() => cambiarResultado("SUSPENDIDO")} className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-sm text-blue-700 hover:bg-blue-50"><PauseCircle size={15} /> Suspender (hold)</button>
-                ) : (
-                  <button onClick={() => cambiarResultado("ABIERTO")} className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-50"><Play size={15} /> Reactivar</button>
-                )}
-                <div className="my-1 border-t border-surface-border" />
-                <button
-                  onClick={() => {
-                    setMenuOpen(false);
-                    setMotivoBorrar("");
-                    setForzarBorrar(false);
-                    setModalBorrar(true);
-                  }}
-                  className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-sm
-                             text-red-700 hover:bg-red-50"
-                >
-                  <Trash2 size={15} /> Borrar lead
-                </button>
+                {transiciones.map((destino) => {
+                  const { label, icon: Icono, clase } = TRANSICION_META[destino];
+                  return (
+                    <button
+                      key={destino}
+                      onClick={() => aplicarTransicion(destino)}
+                      className={`flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-sm ${clase}`}
+                    >
+                      <Icono size={15} /> {label}
+                    </button>
+                  );
+                })}
               </div>
             )}
           </div>
         )}
-        {canWrite && (deal.resultado === "GANADO" || deal.resultado === "PERDIDO") && (
+        {/* Borrar: acción propia, NO una opción de "cambiar estado". Estaba dentro de ese menú
+            y heredaba su gate, así que un deal GANADO/PERDIDO no se podía borrar aunque el
+            server lo permitiera. `borrado` viene del server: si es null, este rol no borra. */}
+        {canWrite && borrado && (
           <button
-            onClick={() => cambiarResultado("ABIERTO")}
+            onClick={() => { setMotivoBorrar(""); setForzarBorrar(false); setModalBorrar(true); }}
             disabled={procesando}
-            className="rounded-lg border border-surface-border px-3.5 py-2 text-sm font-semibold text-gray-600 hover:bg-surface disabled:opacity-50"
+            className="flex items-center gap-1.5 rounded-lg border border-red-200 px-3.5 py-2
+                       text-sm font-semibold text-red-700 hover:bg-red-50 disabled:opacity-50"
           >
-            Reabrir deal
+            <Trash2 size={15} /> Borrar lead
           </button>
         )}
       </header>
@@ -824,34 +856,26 @@ export default function DealDetalleClient({
         </Modal>
       )}
 
-      {modalBorrar && (
+      {modalBorrar && borrado && (
         <Modal title="Borrar lead" onClose={() => setModalBorrar(false)} size="md">
           <div className="space-y-4">
-            {borradoSensible && !esAdmin ? (
+            {borrado.soloAdmin && !puedeForzar ? (
               // Se puede borrar en cualquier etapa, pero lo sensible lo hace un ADMIN.
               <p className="rounded-lg bg-amber-50 px-3 py-2.5 text-sm text-amber-800">
-                Este deal está <b>ganado</b> (puede tener una orden de venta asociada).
-                Solo un <b>administrador</b> puede borrarlo — pedíselo a quien administre el CRM.
+                {borrado.motivo} Solo un <b>administrador</b> puede borrarlo — pedíselo a quien
+                administre el CRM.
               </p>
             ) : (
               <>
-                {/* Muestra el costo: qué se lleva el borrado. Sin actividad real y sin ser
-                    sensible, el server lo destruye; si no, lo marca (recuperable). */}
+                {/* El costo del borrado lo explica el SERVER (`motivo`): distingue "tiene una
+                    orden vinculada" de "está ganado" o "tiene N actividades", cosa que el
+                    cliente no puede saber. Acá solo se agrega qué va a pasar al confirmar. */}
                 <p className="text-sm text-gray-600">
-                  {borradoSensible ? (
-                    <>
-                      Este deal está <b>ganado</b> (puede tener una orden de venta).
-                      Desaparecerá del pipeline pero <b>se conserva</b>: no se destruye la
-                      trazabilidad del ingreso, y se puede recuperar.
-                    </>
-                  ) : actividadesReales === 0 ? (
-                    <>Este lead <b>no tiene actividad registrada</b>. Se eliminará definitivamente.</>
+                  {borrado.motivo}{" "}
+                  {destruira ? (
+                    <b>Se eliminará definitivamente.</b>
                   ) : (
-                    <>
-                      Este lead tiene{" "}
-                      <b>{actividadesReales} {actividadesReales === 1 ? "actividad" : "actividades"}</b>.
-                      Desaparecerá del pipeline; un administrador puede recuperarlo.
-                    </>
+                    <>Desaparecerá del pipeline; un administrador puede recuperarlo.</>
                   )}
                 </p>
                 <div>
@@ -866,9 +890,13 @@ export default function DealDetalleClient({
                   />
                 </div>
                 {/* Última instancia: un ADMIN puede destruir CUALQUIER deal, sin importar su
-                    etapa. Se ofrece siempre que el borrado por defecto sería "marcar" (con 0
-                    actividades y sin ser sensible, el server ya destruye sin forzar). */}
-                {esAdmin && seMarcara && (
+                    etapa. Se ofrece solo cuando el borrado por defecto sería "marcar" (si el
+                    server ya va a destruir, forzar no agrega nada).
+                    El aviso es preciso a propósito: la orden de venta NO se borra
+                    (schema: OrdenVenta.deal es back-relation sin FK, y Deal.orden_id es
+                    onDelete: SetNull). Lo que se pierde es el vínculo deal↔orden. Decir
+                    "se pierde el ingreso" asustaría con algo que no pasa. */}
+                {puedeForzar && borrado.clase === "MARCAR" && (
                   <label className="flex items-start gap-2 rounded-lg bg-red-50 px-3 py-2.5 text-sm text-red-800">
                     <input
                       type="checkbox"
@@ -878,7 +906,9 @@ export default function DealDetalleClient({
                     />
                     <span>
                       Eliminar definitivamente (no se podrá recuperar)
-                      {borradoSensible && <> — <b>se pierde el rastro del ingreso</b></>}.
+                      {borrado.soloAdmin && (
+                        <> — la orden de venta se conserva, pero <b>se pierde el vínculo con este deal</b></>
+                      )}.
                     </span>
                   </label>
                 )}

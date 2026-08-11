@@ -115,6 +115,26 @@ export const TAMANO_EMPRESA_LABEL: Record<TamanoEmpresa, string> = {
 // esta lista (no re-hardcodean el enum).
 export const RESULTADOS_DEAL: DealResultado[] = ["ABIERTO", "GANADO", "PERDIDO", "SUSPENDIDO"];
 
+// Borrado de leads. El tipo vive acá (y no en lib/deals) porque la DECISIÓN la toma el
+// server con `clasificarBorrado` y viaja hasta el cliente: la UI muestra el motivo real
+// en vez de re-derivar la regla, que es como se rompía antes. types/crm no importa nada,
+// así que sirve para los dos lados.
+export interface ClaseBorrado {
+  /** FISICO: se destruye (no hay nada que recuperar). MARCAR: desaparece pero es recuperable. */
+  clase: "FISICO" | "MARCAR";
+  motivo: string;
+  /** Casos sensibles (ganado / con orden de venta): solo un ADMIN puede borrarlos. */
+  soloAdmin: boolean;
+}
+
+/** Lo mínimo para decidir. `actividades_reales` excluye las entradas SISTEMA. */
+export interface DealParaBorrar {
+  resultado: string;
+  orden_id: string | null;
+  actividades_reales: number;
+  contactos: number;
+}
+
 // Metadata del estado de una tarea (SOL-21/23). Solo dos: se está por hacer, o ya está.
 // El estado se DERIVA de es_tarea+completada (lib/tareas → estadoTarea), no se almacena.
 export const ESTADO_TAREA_META: Record<EstadoTarea, { label: string; dot: string; chip: string }> = {

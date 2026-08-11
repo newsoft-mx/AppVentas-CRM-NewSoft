@@ -1,6 +1,6 @@
 import { Prisma } from "@prisma/client";
 import { crearContactoPrincipal, crearOEncontrarContacto, type ContactoInput } from "@/lib/contactos";
-import type { RolContacto, TamanoEmpresa } from "@/types/crm";
+import type { ClaseBorrado, DealParaBorrar, RolContacto, TamanoEmpresa } from "@/types/crm";
 
 // Error de validación dentro de la transacción de alta → se traduce a HTTP con campo.
 export class HttpError extends Error {
@@ -110,26 +110,13 @@ export async function crearDealTx(tx: Prisma.TransactionClient, input: CrearDeal
 // SSOT de "qué pasa cuando borrás un deal". El usuario hace UN gesto (Borrar) y no elige
 // mecanismo: lo decide el costo del error.
 
-/**
- * Qué se hace al borrar, y por qué. **Un deal se puede borrar SIEMPRE, en cualquier etapa**:
- * lo que decide la regla es *cómo* (destruir vs. marcar) y *quién* (los casos sensibles piden
- * ADMIN). Nada queda bloqueado — un callejón sin salida es peor que un borrado recuperable.
- */
-export interface ClaseBorrado {
-  /** FISICO: se destruye (no hay nada que recuperar). MARCAR: desaparece pero es recuperable. */
-  clase: "FISICO" | "MARCAR";
-  motivo: string;
-  /** Casos sensibles (ganado / con orden de venta): solo un ADMIN puede borrarlos. */
-  soloAdmin: boolean;
-}
-
-/** Lo mínimo para decidir. `actividades_reales` excluye las entradas SISTEMA (ver abajo). */
-export interface DealParaBorrar {
-  resultado: string;
-  orden_id: string | null;
-  actividades_reales: number;
-  contactos: number;
-}
+// Qué se hace al borrar, y por qué. **Un deal se puede borrar SIEMPRE, en cualquier etapa**:
+// lo que decide la regla es *cómo* (destruir vs. marcar) y *quién* (los casos sensibles piden
+// ADMIN). Nada queda bloqueado — un callejón sin salida es peor que un borrado recuperable.
+//
+// Los tipos viven en types/crm (que no importa nada) para que la decisión pueda viajar del
+// server al cliente. Se re-exportan acá porque este módulo es el dueño de la REGLA.
+export type { ClaseBorrado, DealParaBorrar } from "@/types/crm";
 
 /**
  * La regla. Un lead del form web llega virgen (0 actividades reales: el intake solo deja un

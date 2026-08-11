@@ -5,6 +5,7 @@
 
 import Decimal from "decimal.js";
 import { TZ_NEGOCIO } from "@/lib/tz";
+import type { DealResultado } from "@/types/crm";
 
 // ── Configuración de Decimal.js ──────────────────────────────
 Decimal.set({ precision: 20, rounding: Decimal.ROUND_HALF_UP });
@@ -242,11 +243,16 @@ export function transicionOrdenPermitida(desde: string, hacia: string): boolean 
   return desde === hacia || (TRANSICIONES_PERMITIDAS[desde] ?? []).includes(hacia);
 }
 
-// Máquina de estados del resultado del deal (Bloque E). Coincide con lo que ofrece
-// la UI: solo ABIERTO/SUSPENDIDO son mutables; GANADO/PERDIDO son terminales (no se
-// reabren por esta vía — hacerlo dejaría la orden ganada colgando). SSOT usado por
-// /resultado y /ganar para que ninguna ruta acepte transiciones ilegales.
-export const TRANSICIONES_RESULTADO_DEAL: Record<string, string[]> = {
+// Máquina de estados del resultado del deal (Bloque E). Solo ABIERTO/SUSPENDIDO son
+// mutables; GANADO/PERDIDO son terminales (reabrirlos dejaría la orden ganada colgando
+// y volvería mutable el histórico de win-rate).
+//
+// SSOT usado por /resultado y /ganar para que ninguna ruta acepte transiciones ilegales,
+// y —desde el arreglo del borrado— también por la UI: el menú "Cambiar estado" se DERIVA
+// de este mapa en vez de repetirlo a mano. Antes había tres copias en el encabezado del
+// detalle, y por eso el botón "Reabrir deal" ofrecía una transición que el server rechaza
+// siempre con 409. Agregar acá una transición la habilita en la UI sola.
+export const TRANSICIONES_RESULTADO_DEAL: Record<DealResultado, DealResultado[]> = {
   ABIERTO: ["GANADO", "PERDIDO", "SUSPENDIDO"],
   SUSPENDIDO: ["GANADO", "PERDIDO", "ABIERTO"],
   GANADO: [],
@@ -254,5 +260,6 @@ export const TRANSICIONES_RESULTADO_DEAL: Record<string, string[]> = {
 };
 
 export function transicionResultadoPermitida(desde: string, hacia: string): boolean {
-  return desde === hacia || (TRANSICIONES_RESULTADO_DEAL[desde] ?? []).includes(hacia);
+  const salidas: string[] = TRANSICIONES_RESULTADO_DEAL[desde as DealResultado] ?? [];
+  return desde === hacia || salidas.includes(hacia);
 }
