@@ -141,6 +141,24 @@ export interface DealParaBorrar {
   contactos: number;
 }
 
+// Reapertura de un deal cerrado. Igual que el borrado, la DECISIÓN la toma el server y viaja
+// al cliente: la UI muestra el aviso real (que depende de la orden vinculada, algo que el
+// cliente no puede saber) en vez de re-derivar la regla.
+export interface ClaseReapertura {
+  /** Casos con plata ya facturada: solo un ADMIN. */
+  soloAdmin: boolean;
+  /** Cuando hay ingreso contado, queda registrado POR QUÉ se reabrió. */
+  pideMotivo: boolean;
+  /** Qué tiene que saber quien confirma. `null` = reapertura sin consecuencias. */
+  aviso: string | null;
+}
+
+/** Lo mínimo para decidir una reapertura. `orden` es la orden vinculada, si hay. */
+export interface DealParaReabrir {
+  resultado: string;
+  orden: { folio: string; estatus: string } | null;
+}
+
 // Metadata del estado de una tarea (SOL-21/23). Solo dos: se está por hacer, o ya está.
 // El estado se DERIVA de es_tarea+completada (lib/tareas → estadoTarea), no se almacena.
 export const ESTADO_TAREA_META: Record<EstadoTarea, { label: string; dot: string; chip: string }> = {

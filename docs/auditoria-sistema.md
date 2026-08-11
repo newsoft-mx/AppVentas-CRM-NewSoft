@@ -92,7 +92,14 @@ En vez de criterios caso-por-caso, cada bloque es un **enunciado universal** + c
 
 ### Bloque T — Traducción deal↔orden (P0)
 - **Invariante:** *"Un deal GANADO tiene exactamente una orden vinculada (`orden_id`), y ganar⇒crear-orden es atómico o reconciliable."*
-- Enforce: persistir `orden_id` al crear la orden desde el hand-off (una transacción o un paso de reconciliación); al reabrir un ganado, desvincular explícitamente.
+- Enforce: persistir `orden_id` al crear la orden desde el hand-off (una transacción o un paso de reconciliación).
+- **Al reabrir un ganado NO se desvincula** (revisado ago-2026, con la reapertura ya habilitada).
+  Desvincular parecía lo prolijo, pero el `orden_id` es el único rastro de que esa orden nació de
+  este deal —la FK vive en `Deal`, `OrdenVenta.deal` es back-relation sin FK— y borrarlo es
+  justamente lo que provoca el ingreso duplicado: al volver a ganar, el hand-off no encontraría la
+  orden previa y mandaría a crear una segunda. El vínculo se conserva y `handoffGanado` (lib/deals)
+  retoma la orden existente. Corolario: **un deal ABIERTO con `orden_id` es un estado válido**, no
+  una violación del invariante.
 - Observa: health-check "deals GANADO sin `orden_id`" y "órdenes con `deal_id` colgante".
 
 ### Bloque E — Integridad de estado (P1)

@@ -1,6 +1,10 @@
 import { Prisma } from "@prisma/client";
 import { crearContactoPrincipal, crearOEncontrarContacto, type ContactoInput } from "@/lib/contactos";
-import type { ClaseBorrado, DealParaBorrar, RolContacto, TamanoEmpresa } from "@/types/crm";
+import { RESULTADOS_CERRADOS } from "@/types/crm";
+import type {
+  ClaseBorrado, ClaseReapertura, DealParaBorrar, DealParaReabrir, DealResultado,
+  RolContacto, TamanoEmpresa,
+} from "@/types/crm";
 
 // Error de validación dentro de la transacción de alta → se traduce a HTTP con campo.
 export class HttpError extends Error {
@@ -168,6 +172,98 @@ export function clasificarBorrado(d: DealParaBorrar): ClaseBorrado {
     motivo: `Tiene ${d.actividades_reales} ${d.actividades_reales === 1 ? "actividad" : "actividades"} registradas.`,
     soloAdmin: false,
   };
+}
+
+// Reapertura de un deal cerrado.
+//
+// Roldán: "que se me regrese a los leads... volver al estado anterior... si no se cerró o se
+// pospuso, regresarlo al pipe". Volver a la etapa anterior sale gratis: `stage_id` nunca se
+// toca al cerrar, así que poner ABIERTO devuelve el deal a donde estaba.
+//
+// Lo que sí hay que cuidar es la plata. Un deal ganado tiene una orden de venta colgada, y
+// reabrirlo no la borra. La regla NO desvincula nunca: el vínculo es el único rastro de que
+// esa orden nació de este deal, y es lo que impide que re-ganar cree una segunda (ver
+// `handoffGanado`). Desvincular sería justamente lo que causa el duplicado.
+export type { ClaseReapertura, DealParaReabrir } from "@/types/crm";
+
+/**
+ * Quién puede reabrir y qué hay que avisarle. Nada se bloquea —misma política que el
+ * borrado: un callejón sin salida es peor que un estado recuperable—, pero cuanto más
+ * comprometida está la plata, más arriba tiene que estar quien lo hace.
+ */
+export function clasificarReapertura(d: DealParaReabrir): ClaseReapertura {
+  const libre: ClaseReapertura = { soloAdmin: false, pideMotivo: false, aviso: null };
+  // Solo un deal CERRADO se "reabre". Reactivar uno en pausa no es una reapertura y no lleva
+  // ninguna de estas reglas — si esto no mirara el resultado, un SUSPENDIDO con orden
+  // vinculada le pediría ADMIN a quien quisiera reactivarlo, un bloqueo que el server ni
+  // siquiera aplica. La misma función la usan el endpoint y la pantalla: si decidieran
+  // distinto, la UI mostraría una regla que el backend no tiene.
+  if (!RESULTADOS_CERRADOS.includes(d.resultado as DealResultado)) return libre;
+  if (!d.orden) return libre;
+  if (d.orden.estatus === "VENTA") {
+    return {
+      soloAdmin: true,
+      pideMotivo: true,
+      aviso:
+        `La orden ${d.orden.folio} ya está registrada como venta y sigue contando como ingreso: ` +
+        `reabrir el deal no la cancela. Si la venta se cayó, hay que resolverla en Ventas.`,
+    };
+  }
+  return {
+    soloAdmin: false,
+    pideMotivo: false,
+    aviso:
+      `Tiene la orden ${d.orden.folio} (${d.orden.estatus.toLowerCase()}) vinculada. Se conserva: ` +
+      `si volvés a ganar el deal, se retoma esa orden en vez de crear una nueva.`,
+  };
+}
+
+/** Qué hacer después de ganar: retomar la orden que ya existe, o crear una nueva. */
+export type HandoffGanado =
+  | { orden_id: string }
+  | { deal_id: string; cliente_id: string; vendedor_id: string | null; descripcion: string; valor: number };
+
+/**
+ * El hand-off al ganar, idempotente. **Este es el freno del ingreso duplicado.**
+ *
+ * Ganar dos veces el mismo deal recién es posible desde que se puede reabrir. Sin este freno,
+ * la segunda victoria mandaría otra vez a "nueva orden" y quedarían DOS órdenes de venta para
+ * el mismo negocio, con el ingreso contado dos veces. Acá se retoma la que ya existe.
+ *
+ * Es la mitad de la garantía: cubre el camino de la UI. La otra mitad está en el alta
+ * (app/api/ordenes), donde el vínculo ya no exige que el deal siga GANADO — si lo exigiera,
+ * reabrir durante el hand-off dejaría la orden huérfana y el problema volvería por atrás.
+ *
+ * Vive acá y no en cada endpoint porque /resultado y /ganar arman el mismo hand-off por
+ * duplicado; si el freno estuviera en uno solo, el otro seguiría duplicando.
+ */
+export function handoffGanado(deal: {
+  id: string;
+  orden_id: string | null;
+  cliente_id: string;
+  vendedor_id: string | null;
+  nombre: string;
+  valor: unknown;
+}): HandoffGanado {
+  if (deal.orden_id) return { orden_id: deal.orden_id };
+  return {
+    deal_id: deal.id,
+    cliente_id: deal.cliente_id,
+    vendedor_id: deal.vendedor_id,
+    descripcion: deal.nombre,
+    valor: Number(deal.valor),
+  };
+}
+
+/**
+ * ¿Puede este rol reabrir un deal con plata ya facturada?
+ *
+ * La jefatura comercial y la administración, sí. Un VENDEDOR no: puede pedirlo, y lo aprueba
+ * quien tiene la vista completa del negocio. No es `isAdmin` a secas a propósito — el jefe de
+ * ventas es GERENTE_COMERCIAL, y con ADMIN estricto quedaba afuera justo quien pidió la función.
+ */
+export function puedeReabrirConVenta(rol: string): boolean {
+  return rol === "ADMIN" || rol === "GERENTE_COMERCIAL";
 }
 
 /** ¿Puede este rol borrar deals? El VENDEDOR solo los suyos — eso lo aplica scopeDealWhere. */

@@ -243,20 +243,24 @@ export function transicionOrdenPermitida(desde: string, hacia: string): boolean 
   return desde === hacia || (TRANSICIONES_PERMITIDAS[desde] ?? []).includes(hacia);
 }
 
-// Máquina de estados del resultado del deal (Bloque E). Solo ABIERTO/SUSPENDIDO son
-// mutables; GANADO/PERDIDO son terminales (reabrirlos dejaría la orden ganada colgando
-// y volvería mutable el histórico de win-rate).
+// Máquina de estados del resultado del deal (Bloque E).
 //
 // SSOT usado por /resultado y /ganar para que ninguna ruta acepte transiciones ilegales,
-// y —desde el arreglo del borrado— también por la UI: el menú "Cambiar estado" se DERIVA
-// de este mapa en vez de repetirlo a mano. Antes había tres copias en el encabezado del
-// detalle, y por eso el botón "Reabrir deal" ofrecía una transición que el server rechaza
-// siempre con 409. Agregar acá una transición la habilita en la UI sola.
+// y también por la UI: el menú "Cambiar estado" se DERIVA de este mapa en vez de repetirlo
+// a mano. Antes había tres copias en el encabezado del detalle, y por eso existía un botón
+// "Reabrir deal" que ofrecía una transición que el server rechazaba siempre con 409.
+//
+// Un deal cerrado SE PUEDE REABRIR ("que se me regrese a los leads, volver al estado
+// anterior" — Roldán). Vuelve solo a su misma etapa: `stage_id` nunca se toca al cerrar.
+// Lo que la reapertura NO puede hacer es duplicar plata: quién puede reabrir y qué pasa con
+// la orden vinculada lo decide `clasificarReapertura` (lib/deals), y que re-ganar no cree
+// una segunda orden lo garantiza `handoffGanado`. Reabrir NO es un atajo a GANADO: desde
+// PERDIDO hay que pasar por ABIERTO, así que el cierre siempre queda registrado.
 export const TRANSICIONES_RESULTADO_DEAL: Record<DealResultado, DealResultado[]> = {
   ABIERTO: ["GANADO", "PERDIDO", "SUSPENDIDO"],
   SUSPENDIDO: ["GANADO", "PERDIDO", "ABIERTO"],
-  GANADO: [],
-  PERDIDO: [],
+  GANADO: ["ABIERTO"],
+  PERDIDO: ["ABIERTO"],
 };
 
 export function transicionResultadoPermitida(desde: string, hacia: string): boolean {

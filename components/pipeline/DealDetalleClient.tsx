@@ -30,10 +30,10 @@ import { formatCompacto, formatFechaHora, TRANSICIONES_RESULTADO_DEAL } from "@/
 import { TIPO_ACTIVIDAD_META, tipoMovimiento } from "@/lib/actividad-tipos";
 import { esTareaPendiente, estaVencida, estadoTarea } from "@/lib/tareas";
 import {
-  TEMPERATURA_META, ATENCION_META, ESTADO_DEAL_META,
+  TEMPERATURA_META, ATENCION_META, ESTADO_DEAL_META, RESULTADOS_CERRADOS,
   EFECTO_META, TAMANO_EMPRESA_LABEL,
   type DealDetalle, type DealActividadItem, type StageResumen, type TipoActividad,
-  type Temperatura, type DealResultado, type ClaseBorrado,
+  type Temperatura, type DealResultado, type ClaseBorrado, type ClaseReapertura,
 } from "@/types/crm";
 // El panel de IA (DealAIPanel) está construido pero se libera en Fase 2.
 
@@ -51,8 +51,15 @@ interface Props {
    * `null` = este rol no borra deals. La UI no re-deriva la regla: solo la muestra.
    */
   borrado?: ClaseBorrado | null;
+  /**
+   * Qué implica reabrir este deal, decidido por el SERVER (`clasificarReapertura`): depende de
+   * la orden vinculada, que el cliente no ve.
+   */
+  reapertura?: ClaseReapertura | null;
   /** Solo ADMIN puede forzar la destrucción de un deal ya trabajado. */
   puedeForzar?: boolean;
+  /** Gerencia comercial o administración: los que pueden reabrir un deal ya facturado. */
+  puedeReabrirSensible?: boolean;
   vendedores?: { id: string; nombre: string }[];
   clientes?: { id: string; nombre: string }[];
   tipos?: { id: string; nombre: string }[];
@@ -107,7 +114,8 @@ interface FiltroBitacora {
 }
 
 export default function DealDetalleClient({
-  deal, stages, canWrite, borrado = null, puedeForzar = false,
+  deal, stages, canWrite, borrado = null, reapertura = null, puedeForzar = false,
+  puedeReabrirSensible = false,
   vendedores = [], clientes = [], tipos = [], canales = [], origenes = [], motivos = [],
   tiposAccion = [], resultadosAccion = [], sugerirAvanceInicial = false,
 }: Props) {
@@ -144,13 +152,15 @@ export default function DealDetalleClient({
   // Borrar lead: modal con motivo obligatorio + (solo ADMIN) forzar destrucción.
   const [modalBorrar, setModalBorrar] = useState(false);
   const [motivoBorrar, setMotivoBorrar] = useState("");
+  // Reabrir un deal cerrado con orden vinculada: se avisa qué pasa y se registra por qué.
+  const [modalReabrir, setModalReabrir] = useState(false);
+  const [motivoReapertura, setMotivoReapertura] = useState("");
   const [forzarBorrar, setForzarBorrar] = useState(false);
   // Qué pasaría al confirmar: espeja `destruir` del endpoint (route.ts). Solo gobierna el
   // copy del modal — la decisión real la toma el server, acá no se re-deriva ninguna regla.
   const destruira = borrado?.clase === "FISICO" || forzarBorrar;
-  // Transiciones válidas desde el estado actual, leídas del SSOT. Si está vacío (GANADO /
-  // PERDIDO son terminales) el menú "Cambiar estado" no se muestra: antes se ofrecía igual
-  // y el server rechazaba con 409.
+  // Transiciones válidas desde el estado actual, leídas del SSOT. Si la lista viene vacía el
+  // menú "Cambiar estado" no se muestra — antes se ofrecía igual y el server rechazaba con 409.
   const transiciones = TRANSICIONES_RESULTADO_DEAL[deal.resultado] ?? [];
   // Siguiente etapa (por orden) para el banner de avance
   const siguienteStage = stages
@@ -281,13 +291,22 @@ export default function DealDetalleClient({
       setModalPerdida(true);
       return;
     }
+    // Reabrir con plata comprometida: hay que avisar qué pasa con la orden y, si el server lo
+    // pide, registrar por qué. Sin este paso el POST volvía 422 y el usuario quedaba trabado.
+    if (destino === "ABIERTO" && reapertura?.aviso) {
+      setMenuOpen(false);
+      setMotivoReapertura("");
+      setModalReabrir(true);
+      return;
+    }
     cambiarResultado(destino);
   }
 
+  /** Devuelve true si el cambio se aplicó — el modal de reapertura lo usa para no cerrarse ante un error. */
   async function cambiarResultado(
     resultado: "GANADO" | "PERDIDO" | "SUSPENDIDO" | "ABIERTO",
-    extra?: { razon_perdida?: string; comentario_perdida?: string }
-  ) {
+    extra?: { razon_perdida?: string; comentario_perdida?: string; motivo?: string }
+  ): Promise<boolean> {
     setProcesando(true);
     setMenuOpen(false);
     try {
@@ -300,6 +319,12 @@ export default function DealDetalleClient({
       if (!res.ok) throw new Error(data?.error ?? "Error");
       if (resultado === "GANADO") {
         const h = data.handoff;
+        // El deal ya tenía orden (se ganó, se reabrió y se volvió a ganar): se retoma esa.
+        // Mandarlo a "nueva orden" acá creaba una segunda y duplicaba el ingreso.
+        if (h?.orden_id) {
+          router.push(`/ventas/${h.orden_id}`);
+          return true;
+        }
         const params = new URLSearchParams();
         if (h?.cliente_id) params.set("cliente_id", h.cliente_id);
         if (h?.vendedor_id) params.set("vendedor_id", h.vendedor_id);
@@ -310,9 +335,11 @@ export default function DealDetalleClient({
       } else {
         router.push("/pipeline");
       }
+      return true;
     } catch (e) {
       setToast({ type: "error", message: e instanceof Error ? e.message : "No se pudo cambiar el estado." });
       setProcesando(false);
+      return false;
     }
   }
 
@@ -436,7 +463,7 @@ export default function DealDetalleClient({
           </span>
         )}
         {/* Cambiar estado: las opciones SALEN de la máquina de estados, no se repiten a mano.
-            Si el estado es terminal la lista viene vacía y el botón no se muestra. */}
+            Si el estado no admite transiciones la lista viene vacía y el botón no se muestra. */}
         {canWrite && transiciones.length > 0 && (
           <div className="relative">
             <button
@@ -450,13 +477,19 @@ export default function DealDetalleClient({
               <div className="absolute right-0 z-20 mt-1 w-52 overflow-hidden rounded-lg border border-surface-border bg-white py-1 shadow-lg">
                 {transiciones.map((destino) => {
                   const { label, icon: Icono, clase } = TRANSICION_META[destino];
+                  // Volver a ABIERTO se llama distinto según de dónde: un deal en pausa se
+                  // "reactiva", uno cerrado se "reabre" (la palabra que usa el negocio).
+                  const texto =
+                    destino === "ABIERTO" && RESULTADOS_CERRADOS.includes(deal.resultado)
+                      ? "Reabrir deal"
+                      : label;
                   return (
                     <button
                       key={destino}
                       onClick={() => aplicarTransicion(destino)}
                       className={`flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-sm ${clase}`}
                     >
-                      <Icono size={15} /> {label}
+                      <Icono size={15} /> {texto}
                     </button>
                   );
                 })}
@@ -851,6 +884,66 @@ export default function DealDetalleClient({
               >
                 Marcar perdido
               </button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {modalReabrir && reapertura && (
+        <Modal title="Reabrir deal" onClose={() => setModalReabrir(false)} size="md">
+          <div className="space-y-4">
+            {/* El aviso lo redacta el server: sabe el folio y el estatus de la orden. */}
+            <p className="rounded-lg bg-amber-50 px-3 py-2.5 text-sm text-amber-800">
+              {reapertura.aviso}
+            </p>
+            {reapertura.soloAdmin && !puedeReabrirSensible ? (
+              <p className="text-sm text-gray-600">
+                Como ya hay una venta facturada, esto lo tiene que aprobar un{" "}
+                <b>gerente comercial</b> o un <b>administrador</b>. Pedíselo indicando el motivo.
+              </p>
+            ) : (
+              <>
+                <p className="text-sm text-gray-600">
+                  El deal vuelve al pipeline, a la etapa <b>{deal.stage.nombre}</b>.
+                </p>
+                {reapertura.pideMotivo && (
+                  <div>
+                    <label className="label">Motivo de la reapertura *</label>
+                    <input
+                      className="input"
+                      value={motivoReapertura}
+                      onChange={(e) => setMotivoReapertura(e.target.value)}
+                      placeholder="El cliente pidió renegociar, se cayó la venta…"
+                      maxLength={200}
+                      autoFocus
+                    />
+                  </div>
+                )}
+              </>
+            )}
+            <div className="flex justify-end gap-2">
+              <button onClick={() => setModalReabrir(false)} className="btn-secondary">
+                Cancelar
+              </button>
+              {!(reapertura.soloAdmin && !puedeReabrirSensible) && (
+                <button
+                  onClick={async () => {
+                    if (reapertura.pideMotivo && !motivoReapertura.trim()) return;
+                    // El modal NO se cierra acá: la decisión que bajó el server es un
+                    // snapshot del render, y el estatus de la orden pudo cambiar debajo
+                    // (VENTA↔COTIZADO son transiciones legales). Si vuelve 403/422, el
+                    // usuario sigue parado en el modal y puede corregir, en vez de quedarse
+                    // con un toast y el diálogo cerrado.
+                    const ok = await cambiarResultado("ABIERTO", { motivo: motivoReapertura.trim() });
+                    if (ok) setModalReabrir(false);
+                  }}
+                  disabled={procesando || (reapertura.pideMotivo && !motivoReapertura.trim())}
+                  className="rounded-lg bg-orange px-4 py-2 text-sm font-semibold text-white
+                             hover:bg-orange/90 disabled:opacity-50"
+                >
+                  Reabrir deal
+                </button>
+              )}
             </div>
           </div>
         </Modal>
