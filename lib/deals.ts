@@ -123,10 +123,15 @@ export type { ClaseBorrado, DealParaBorrar } from "@/types/crm";
  * registro SISTEMA) → destruirlo no pierde nada y no ensucia la BD de basura. Uno con
  * bitácora encima es trabajo de alguien: desaparece igual, pero se puede volver.
  *
- * Con orden vinculada o ya ganado NO se destruye: es plata facturada y el Deal es lo que la
- * ata al pipeline. Pero tampoco se bloquea — se MARCA (recuperable) y se pide ADMIN. Antes
- * esto devolvía BLOQUEADO con el texto "cambiale el estado", y esa salida no existía:
- * GANADO es terminal en la máquina de estados → era un callejón sin salida.
+ * **INVARIANTE: un deal CERRADO (ganado o perdido) nunca se destruye.** Cerrarlo es un hecho
+ * del negocio que los reportes cuentan; destruirlo borraría el pasado. Antes un PERDIDO sin
+ * bitácora manual caía en el caso "0 actividades" y se destruía de un clic —marcarlo perdido
+ * solo deja una entrada SISTEMA, que no cuenta— así que cualquier vendedor podía borrar una
+ * pérdida para siempre. Ahora se MARCA: desaparece de la operación y sigue en el histórico.
+ *
+ * Con orden vinculada o ya ganado, además, pide ADMIN: es plata facturada y el Deal es lo que
+ * la ata al pipeline. Pero nada se bloquea — un callejón sin salida es peor que un borrado
+ * recuperable.
  *
  * Por encima de todo esto, un ADMIN puede forzar la destrucción de cualquier cosa (última
  * instancia); eso lo resuelve el endpoint con `forzar`, no esta función.
@@ -144,6 +149,15 @@ export function clasificarBorrado(d: DealParaBorrar): ClaseBorrado {
       clase: "MARCAR",
       motivo: "Está marcado como ganado: se marca (recuperable), no se destruye.",
       soloAdmin: true,
+    };
+  }
+  // Perdido: lo puede borrar cualquiera (no es plata facturada), pero no se destruye —
+  // sigue contando en la tasa de cierre y en el desglose por motivo de pérdida.
+  if (d.resultado === "PERDIDO") {
+    return {
+      clase: "MARCAR",
+      motivo: "Está marcado como perdido: se marca (recuperable) y sigue contando en los reportes.",
+      soloAdmin: false,
     };
   }
   if (d.actividades_reales === 0) {

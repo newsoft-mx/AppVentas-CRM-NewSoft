@@ -115,6 +115,12 @@ export const TAMANO_EMPRESA_LABEL: Record<TamanoEmpresa, string> = {
 // esta lista (no re-hardcodean el enum).
 export const RESULTADOS_DEAL: DealResultado[] = ["ABIERTO", "GANADO", "PERDIDO", "SUSPENDIDO"];
 
+// Un deal CERRADO ya es historia del negocio: se ganó o se perdió, y los reportes de cierre
+// lo cuentan. De acá salen dos reglas que tienen que decir lo mismo: un cerrado no se destruye
+// al borrarlo (lib/deals) y sigue apareciendo en los reportes aunque esté borrado
+// (lib/access-control, alcance HISTORICO).
+export const RESULTADOS_CERRADOS: DealResultado[] = ["GANADO", "PERDIDO"];
+
 // Borrado de leads. El tipo vive acá (y no en lib/deals) porque la DECISIÓN la toma el
 // server con `clasificarBorrado` y viaja hasta el cliente: la UI muestra el motivo real
 // en vez de re-derivar la regla, que es como se rompía antes. types/crm no importa nada,

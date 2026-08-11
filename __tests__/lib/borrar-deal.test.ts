@@ -1,4 +1,5 @@
 import { clasificarBorrado, puedeBorrarDeals, puedeForzarDestruccion } from "@/lib/deals";
+import { RESULTADOS_CERRADOS } from "@/types/crm";
 
 // El usuario hace UN gesto ("Borrar") y no elige mecanismo: lo decide el costo del error.
 // Del form web va a llegar basura y hay que poder sacarla de verdad; pero un deal trabajado
@@ -10,9 +11,30 @@ describe("clasificarBorrado — qué pasa al borrar un deal", () => {
     it("un lead del form web, virgen: nadie lo trabajó", () => {
       expect(clasificarBorrado(base).clase).toBe("FISICO");
     });
+  });
 
-    it("también si está perdido y nunca se trabajó", () => {
-      expect(clasificarBorrado({ ...base, resultado: "PERDIDO" }).clase).toBe("FISICO");
+  describe("un deal CERRADO nunca se destruye: es historia del negocio", () => {
+    // Cambio deliberado respecto del #107, que devolvía FISICO acá. Marcar un deal como
+    // perdido solo deja una entrada SISTEMA, y esas no cuentan como "actividad real", así
+    // que un perdido sin bitácora manual caía en el caso "virgen" y CUALQUIER VENDEDOR lo
+    // destruía de un clic — borrando la pérdida de la estadística para siempre.
+    it("un perdido sin bitácora se marca, no se destruye", () => {
+      const r = clasificarBorrado({ ...base, resultado: "PERDIDO" });
+      expect(r.clase).toBe("MARCAR");
+      expect(r.motivo).toContain("sigue contando");
+    });
+
+    it("borrar un perdido no pide ADMIN: no es plata facturada, solo tiene que ser recuperable", () => {
+      expect(clasificarBorrado({ ...base, resultado: "PERDIDO" }).soloAdmin).toBe(false);
+    });
+
+    it("ningún resultado cerrado devuelve FISICO, con o sin actividad", () => {
+      for (const resultado of RESULTADOS_CERRADOS) {
+        for (const actividades_reales of [0, 3]) {
+          const r = clasificarBorrado({ ...base, resultado, actividades_reales });
+          expect(r.clase).toBe("MARCAR");
+        }
+      }
     });
   });
 

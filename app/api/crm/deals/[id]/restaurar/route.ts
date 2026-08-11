@@ -26,7 +26,7 @@ export async function POST(
 
   try {
     const deal = await prisma.deal.findFirst({
-      where: scopeDealWhere(session, { id }, { incluirEliminados: true }),
+      where: scopeDealWhere(session, { id }, { alcance: "PAPELERA" }),
       select: { id: true, nombre: true, eliminada: true },
     });
     if (!deal) return NextResponse.json({ error: "Deal no encontrado" }, { status: 404 });
