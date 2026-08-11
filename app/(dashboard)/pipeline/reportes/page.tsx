@@ -1,7 +1,8 @@
 import { prisma } from "@/lib/prisma";
 import { getServerSession } from "@/lib/server-session";
 import { puedeElegirVendedor } from "@/lib/reportes-funnel";
-import { parseFunnelFiltros } from "@/lib/funnel-filtros";
+import { FUNNEL_FILTROS } from "@/lib/funnel-filtros";
+import { filtrosIniciales } from "@/lib/filtros-servidor";
 import FunnelReportes from "@/components/reportes/FunnelReportes";
 import type { Metadata } from "next";
 
@@ -13,7 +14,7 @@ export default async function ReportesFunnelPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const initialFiltros = parseFunnelFiltros(await searchParams);
+  const initialFiltros = await filtrosIniciales(FUNNEL_FILTROS, await searchParams);
   const session = await getServerSession();
   const puedeElegir = puedeElegirVendedor(session);
 

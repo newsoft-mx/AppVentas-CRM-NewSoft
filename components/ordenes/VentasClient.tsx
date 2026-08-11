@@ -9,7 +9,8 @@ import TablaOrdenes from "./TablaOrdenes";
 import Toast, { ToastData } from "@/components/ui/Toast";
 import type { OrdenResumen, FiltroOrdenes, EstatusOrden } from "@/types/ordenes";
 import { calcularKpis } from "@/lib/kpis";
-import { appendArrayParams, fechaFiltroOrden, matchPeriod } from "@/lib/filter-utils";
+import { fechaFiltroOrden, matchPeriod } from "@/lib/filter-utils";
+import { ORDENES_FILTROS } from "@/lib/ordenes-filtros";
 import { formatMXN } from "@/lib/utils";
 import { netAmountMxn } from "@/lib/net-amounts";
 
@@ -37,19 +38,6 @@ function filtrarOrdenes(ordenes: OrdenResumen[], filtros: FiltroOrdenes): OrdenR
   });
 }
 
-// ── Construir query string a partir de filtros ────────────────
-function filtrosToQueryString(filtros: FiltroOrdenes): string {
-  const params = new URLSearchParams();
-  appendArrayParams(params, "ano", filtros.ano);
-  appendArrayParams(params, "q", filtros.q);
-  appendArrayParams(params, "mes", filtros.mes);
-  appendArrayParams(params, "estatus", filtros.estatus);
-  appendArrayParams(params, "cliente_id", filtros.cliente_id);
-  appendArrayParams(params, "tipo_cotizacion_id", filtros.tipo_cotizacion_id);
-  appendArrayParams(params, "vendedor_id", filtros.vendedor_id);
-  return params.toString();
-}
-
 export default function VentasClient({
   initialOrdenes,
   initialFiltros,
@@ -59,7 +47,7 @@ export default function VentasClient({
 }: VentasClientProps) {
   const [ordenes, setOrdenes] = useState<OrdenResumen[]>(initialOrdenes);
   // Filtros persistentes en la URL (mecanismo compartido — pilar 3)
-  const [filtros, setFiltros] = useUrlFilters(initialFiltros, filtrosToQueryString);
+  const [filtros, setFiltros] = useUrlFilters(initialFiltros, ORDENES_FILTROS);
   const [confirmDelete, setConfirmDelete] = useState<OrdenResumen | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [toast, setToast] = useState<ToastData | null>(null);

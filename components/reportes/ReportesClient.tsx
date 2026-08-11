@@ -20,20 +20,12 @@ import type {
   ConversionTipoItem,
   ReporteStats,
 } from "@/types/reportes";
-import { appendArrayParams } from "@/lib/filter-utils";
+import { REPORTES_FILTROS, serializeReporteFiltros } from "@/lib/reportes-filtros";
 import { formatMXNEntero as formatMXN } from "@/lib/utils";
 
 interface Props {
   initialData: ReportesInitialData;
   initialFiltros: FiltroReportes;
-}
-
-function buildQS(f: FiltroReportes) {
-  const p = new URLSearchParams();
-  appendArrayParams(p, "ano", f.ano);
-  appendArrayParams(p, "q", f.q);
-  appendArrayParams(p, "mes", f.mes);
-  return p.toString();
 }
 
 async function fetchJSON<T>(url: string): Promise<T> {
@@ -44,7 +36,7 @@ async function fetchJSON<T>(url: string): Promise<T> {
 
 export default function ReportesClient({ initialData, initialFiltros }: Props) {
   // Filtros persistentes en la URL (mecanismo compartido — pilar 3)
-  const [filtros, setFiltros, isPending] = useUrlFilters(initialFiltros, buildQS);
+  const [filtros, setFiltros, isPending] = useUrlFilters(initialFiltros, REPORTES_FILTROS);
   const [ventasMensuales, setVentasMensuales] = useState<VentasMensualesData>(initialData.ventasMensuales);
   const [pipeline, setPipeline] = useState<PipelineData>(initialData.pipeline);
   const [topClientes, setTopClientes] = useState<TopClienteItem[]>(initialData.topClientes);
@@ -55,7 +47,7 @@ export default function ReportesClient({ initialData, initialFiltros }: Props) {
 
   // ── Re-fetch on filter change ─────────────────────────────────
   const refetch = useCallback(async (f: FiltroReportes) => {
-    const qs = buildQS(f);
+    const qs = serializeReporteFiltros(f);
     const base = (path: string) => `${path}${qs ? `?${qs}` : ""}`;
 
     setLoading(true);

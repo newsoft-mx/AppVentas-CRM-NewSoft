@@ -5,7 +5,8 @@ import { scopeDealWhere } from "@/lib/access-control";
 import type { DealCompositor } from "@/components/pipeline/ActividadCompositor";
 import { getScoringContext, dealScoreView } from "@/lib/deal-score";
 import AccionesInbox from "@/components/pipeline/AccionesInbox";
-import { parseAccionesFiltros } from "@/lib/acciones-filtros";
+import { ACCIONES_FILTROS } from "@/lib/acciones-filtros";
+import { filtrosIniciales } from "@/lib/filtros-servidor";
 import { WHERE_TAREA_PENDIENTE } from "@/lib/tareas";
 import { ACTIVIDAD_INCLUDE, serializeActividad } from "@/lib/actividad-input";
 import type { Metadata } from "next";
@@ -19,7 +20,7 @@ export default async function AccionesPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const initialFiltros = parseAccionesFiltros(await searchParams);
+  const initialFiltros = await filtrosIniciales(ACCIONES_FILTROS, await searchParams);
   const session = await getServerSession();
   // Próximas Acciones: seguimientos pendientes / en proceso (no terminados) de
   // deals activos. Scope por vendedor en sesión (REQ-01): el VENDEDOR solo ve los

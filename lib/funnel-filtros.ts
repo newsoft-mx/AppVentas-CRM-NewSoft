@@ -2,6 +2,8 @@
  * Contrato de filtros del reporte de Funnel/conversión para persistirlos en la URL
  * (pilar 3). Puro; compartido por el server component (hidrata) y el cliente.
  */
+import type { ContratoFiltros, ParamMap } from "@/lib/filtros-memoria";
+
 const PRESETS = ["hoy", "semana", "mes", "semestre", "año", "custom"];
 
 export interface FunnelFiltros {
@@ -24,7 +26,6 @@ export function serializeFunnelFiltros(f: FunnelFiltros): string {
   return p.toString();
 }
 
-type ParamMap = Record<string, string | string[] | undefined>;
 const one = (v: string | string[] | undefined): string => (Array.isArray(v) ? v[0] ?? "" : v ?? "");
 const fecha = (v: string): string => (/^\d{4}-\d{2}-\d{2}$/.test(v) ? v : "");
 
@@ -37,3 +38,23 @@ export function parseFunnelFiltros(sp: ParamMap): FunnelFiltros {
     vendedor: one(sp.vendedor),
   };
 }
+
+export const CLAVES_FUNNEL = ["preset", "desde", "hasta", "vendedor"] as const;
+
+/**
+ * Se recuerda el PRESET (relativo: se re-evalúa cada vez) y el vendedor. Nunca `desde`/`hasta`,
+ * que son fechas absolutas: volver dentro de tres meses a un rango viejo sería una trampa.
+ * Por lo mismo, un preset "custom" tampoco se guarda: sin sus fechas no significa nada.
+ */
+export function serializeFunnelMemoria(f: FunnelFiltros): string {
+  const preset = f.preset === "custom" ? "mes" : f.preset;
+  return serializeFunnelFiltros({ preset, desde: "", hasta: "", vendedor: f.vendedor });
+}
+
+export const FUNNEL_FILTROS: ContratoFiltros<FunnelFiltros> = {
+  pantalla: "funnel",
+  claves: CLAVES_FUNNEL,
+  parse: parseFunnelFiltros,
+  serialize: serializeFunnelFiltros,
+  serializeMemoria: serializeFunnelMemoria,
+};

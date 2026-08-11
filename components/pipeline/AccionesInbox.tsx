@@ -21,7 +21,7 @@ import ActividadCompositor, {
 } from "@/components/pipeline/ActividadCompositor";
 import { formatFechaHora } from "@/lib/utils";
 import { useUrlFilters } from "@/hooks/useUrlFilters";
-import { serializeAccionesFiltros, type AccionesFiltros } from "@/lib/acciones-filtros";
+import { ACCIONES_FILTROS, type AccionesFiltros } from "@/lib/acciones-filtros";
 import { grupoUrgencia } from "@/lib/tareas";
 import {
   TIPO_ACTIVIDAD_META, TIPOS_CREABLES, tituloActividad, tipoMovimiento,
@@ -69,7 +69,7 @@ export default function AccionesInbox({
   const [editando, setEditando] = useState<AccionItem | null>(null);
 
   // Filtros persistentes en la URL (mecanismo compartido — pilar 3)
-  const [filtros, setFiltros] = useUrlFilters(initialFiltros, serializeAccionesFiltros);
+  const [filtros, setFiltros] = useUrlFilters(initialFiltros, ACCIONES_FILTROS);
   const { vista, vendedor: vendedorFiltro, tipo: tipoFiltro } = filtros;
   const setVista = (v: "lista" | "calendario") => setFiltros((f) => ({ ...f, vista: v }));
   const setVendedorFiltro = (v: string) => setFiltros((f) => ({ ...f, vendedor: v }));

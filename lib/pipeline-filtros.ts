@@ -5,6 +5,7 @@
  * y el cliente (espeja a la URL vía useUrlFilters).
  */
 import type { DealResultado } from "@/types/crm";
+import type { ContratoFiltros, ParamMap } from "@/lib/filtros-memoria";
 
 export type OrdenPipeline =
   | "none"
@@ -52,7 +53,6 @@ export function serializePipelineFiltros(f: PipelineFiltros): string {
   return p.toString();
 }
 
-type ParamMap = Record<string, string | string[] | undefined>;
 const one = (v: string | string[] | undefined): string => (Array.isArray(v) ? v[0] ?? "" : v ?? "");
 const many = (v: string | string[] | undefined): string[] => (Array.isArray(v) ? v : v ? [v] : []);
 
@@ -76,3 +76,23 @@ export function parsePipelineFiltros(sp: ParamMap): PipelineFiltros {
     vista: one(sp.vista) === "lista" ? "lista" : "tablero",
   };
 }
+
+/** Claves que esta pantalla reconoce en la URL. Si se agrega un filtro, va acá también. */
+export const CLAVES_PIPELINE = ["q", "estado", "orden", "vendedor", "tipo", "vista"] as const;
+
+/**
+ * Qué se recuerda entre visitas. `q` (la búsqueda) NO: es texto transitorio, y recordarlo
+ * lo convertiría en un filtro invisible que sigue al usuario entre sesiones.
+ * Se define reusando `serialize` sobre un objeto podado — no hay un segundo formato.
+ */
+export function serializePipelineMemoria(f: PipelineFiltros): string {
+  return serializePipelineFiltros({ ...f, q: "" });
+}
+
+export const PIPELINE_FILTROS: ContratoFiltros<PipelineFiltros> = {
+  pantalla: "pipeline",
+  claves: CLAVES_PIPELINE,
+  parse: parsePipelineFiltros,
+  serialize: serializePipelineFiltros,
+  serializeMemoria: serializePipelineMemoria,
+};

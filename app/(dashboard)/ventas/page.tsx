@@ -3,13 +3,10 @@ import VentasClient from "@/components/ordenes/VentasClient";
 import { serializeOrden } from "@/lib/serializers";
 import type { Metadata } from "next";
 import type { OrdenResumen, FiltroOrdenes } from "@/types/ordenes";
-import {
-  buildDateOrFilters,
-  emptyOrdenFilters,
-  parseEstatusList,
-  parseNumberList,
-  parseStringList,
-} from "@/lib/filter-utils";
+import { buildDateOrFilters } from "@/lib/filter-utils";
+import { ORDENES_FILTROS } from "@/lib/ordenes-filtros";
+import { filtrosIniciales } from "@/lib/filtros-servidor";
+import type { ParamMap } from "@/lib/filtros-memoria";
 import { getServerSession } from "@/lib/server-session";
 import { canWrite } from "@/lib/session";
 import { scopeOrdenWhere } from "@/lib/access-control";
@@ -39,41 +36,15 @@ function buildWhere(filtros: FiltroOrdenes) {
 }
 
 
-interface SearchParams {
-  ano?: string | string[];
-  "ano[]"?: string | string[];
-  q?: string | string[];
-  "q[]"?: string | string[];
-  mes?: string | string[];
-  "mes[]"?: string | string[];
-  estatus?: string | string[];
-  "estatus[]"?: string | string[];
-  cliente_id?: string | string[];
-  "cliente_id[]"?: string | string[];
-  tipo_cotizacion_id?: string | string[];
-  "tipo_cotizacion_id[]"?: string | string[];
-  vendedor_id?: string | string[];
-  "vendedor_id[]"?: string | string[];
-}
-
 export default async function VentasPage({
   searchParams,
 }: {
-  searchParams: Promise<SearchParams>;
+  searchParams: Promise<ParamMap>;
 }) {
-  const sp = await searchParams;
   const session = await getServerSession();
-  // Leer filtros iniciales de la URL
-  const initialFiltros: FiltroOrdenes = {
-    ...emptyOrdenFilters(),
-    ano: parseNumberList([sp.ano, sp["ano[]"]].filter(Boolean).flat()),
-    q: parseNumberList([sp.q, sp["q[]"]].filter(Boolean).flat()).filter((q) => q >= 1 && q <= 4),
-    mes: parseNumberList([sp.mes, sp["mes[]"]].filter(Boolean).flat()).filter((mes) => mes >= 1 && mes <= 12),
-    estatus: parseEstatusList([sp.estatus, sp["estatus[]"]].filter(Boolean).flat()),
-    cliente_id: parseStringList([sp.cliente_id, sp["cliente_id[]"]].filter(Boolean).flat()),
-    tipo_cotizacion_id: parseStringList([sp.tipo_cotizacion_id, sp["tipo_cotizacion_id[]"]].filter(Boolean).flat()),
-    vendedor_id: parseStringList([sp.vendedor_id, sp["vendedor_id[]"]].filter(Boolean).flat()),
-  };
+  // Filtros iniciales: URL > memoria de la pantalla > default. El códec vive en
+  // lib/ordenes-filtros (antes el parser estaba copiado acá y el serializador en el cliente).
+  const initialFiltros = await filtrosIniciales(ORDENES_FILTROS, await searchParams);
 
   // Cargar TODAS las órdenes (filtrado fine-grained se hace client-side)
   // Pero si hay filtros de fecha/estatus en URL los aplicamos en el servidor

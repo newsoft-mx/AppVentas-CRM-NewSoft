@@ -13,12 +13,10 @@ import type {
   ConversionTipoItem,
   ReporteStats,
 } from "@/types/reportes";
-import {
-  buildDateOrFilters,
-  emptyReporteFilters,
-  parseNumberList,
-  selectedMonths,
-} from "@/lib/filter-utils";
+import { buildDateOrFilters, selectedMonths } from "@/lib/filter-utils";
+import { REPORTES_FILTROS } from "@/lib/reportes-filtros";
+import { filtrosIniciales } from "@/lib/filtros-servidor";
+import type { ParamMap } from "@/lib/filtros-memoria";
 import { getServerSession } from "@/lib/server-session";
 import { scopeOrdenWhere } from "@/lib/access-control";
 import type { SessionPayload } from "@/lib/session";
@@ -273,26 +271,14 @@ async function fetchConversionAndStats(filtros: FiltroReportes, session: Session
   };
 }
 
-interface PageProps {
-  searchParams: Promise<{
-    ano?: string | string[];
-    "ano[]"?: string | string[];
-    q?: string | string[];
-    "q[]"?: string | string[];
-    mes?: string | string[];
-    "mes[]"?: string | string[];
-  }>;
-}
-
-export default async function ReportesPage({ searchParams }: PageProps) {
-  const sp = await searchParams;
+export default async function ReportesPage({
+  searchParams,
+}: {
+  searchParams: Promise<ParamMap>;
+}) {
   const session = await getServerSession();
-  const filtros: FiltroReportes = {
-    ...emptyReporteFilters(),
-    ano: parseNumberList([sp.ano, sp["ano[]"]].filter(Boolean).flat()),
-    q: parseNumberList([sp.q, sp["q[]"]].filter(Boolean).flat()).filter((q) => q >= 1 && q <= 4),
-    mes: parseNumberList([sp.mes, sp["mes[]"]].filter(Boolean).flat()).filter((mes) => mes >= 1 && mes <= 12),
-  };
+  // Esta pantalla NO recuerda filtros: los suyos son período absoluto (ver lib/reportes-filtros).
+  const filtros = await filtrosIniciales(REPORTES_FILTROS, await searchParams);
 
   const [ventasMensuales, pipeline, topClientes, ventasPorVendedor, ventasPorTipo, { conversion, stats }] = await Promise.all([
     fetchVentasMensuales(filtros, session),
