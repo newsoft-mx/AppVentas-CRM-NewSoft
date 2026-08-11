@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getServerSession } from "@/lib/server-session";
 import { canWrite } from "@/lib/session";
 import { scopeDealWhere } from "@/lib/access-control";
+import { clasificarBorrado, puedeBorrarDeals, puedeForzarDestruccion } from "@/lib/deals";
 import DealDetalleClient from "@/components/pipeline/DealDetalleClient";
 import { getScoringContext, dealScoreView } from "@/lib/deal-score";
 import { ACTIVIDAD_INCLUDE, serializeActividad } from "@/lib/actividad-input";
@@ -160,12 +161,27 @@ export default async function DealDetallePage({
 
   const stagesSerialized: StageResumen[] = stages;
 
+  // Borrado: la decisión la toma el SERVER con la misma función que el endpoint DELETE, y
+  // viaja al cliente. Antes la UI re-derivaba la regla (y solo miraba `resultado`, sin ver
+  // la orden vinculada), así que mostraba un motivo distinto al que aplicaba de verdad.
+  // El conteo espeja el del endpoint: la query ya filtra `eliminada: false` y acá se
+  // excluye SISTEMA (el intake y los cambios de etapa dejan entradas automáticas).
+  const borrado = puedeBorrarDeals(session?.rol ?? "")
+    ? clasificarBorrado({
+        resultado: deal.resultado,
+        orden_id: deal.orden_id,
+        actividades_reales: deal.actividades.filter((a) => a.tipo !== "SISTEMA").length,
+        contactos: deal.contactos.length,
+      })
+    : null;
+
   return (
     <DealDetalleClient
       deal={detalle}
       stages={stagesSerialized}
       canWrite={canWrite(session)}
-      esAdmin={session?.rol === "ADMIN"}
+      borrado={borrado}
+      puedeForzar={puedeForzarDestruccion(session?.rol ?? "")}
       vendedores={vendedores}
       clientes={clientes}
       tipos={tipos}
