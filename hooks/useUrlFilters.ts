@@ -2,25 +2,30 @@
 
 import { useEffect, useState, useTransition, type Dispatch, type SetStateAction } from "react";
 import { usePathname, useRouter } from "next/navigation";
+import { cookieDeMemoria, type ContratoFiltros } from "@/lib/filtros-memoria";
 
 /**
- * Filtros persistentes en la URL (pilar 3 — un solo mecanismo para todas las
- * superficies de listado). El estado inicial lo hidrata el server component desde
- * `searchParams`; este hook mantiene `[filtros, setFiltros]` y espeja cada cambio a
- * la query (`?…`) con `router.replace(..., { scroll: false })` dentro de una
- * transición. Así el estado (filtros + orden) sobrevive a salir y volver a la
- * pantalla, a recargar y a compartir el link.
+ * Filtros persistentes (pilar 3 — un solo mecanismo para todas las superficies de listado).
  *
- * `serialize` convierte los filtros a query string (sin el `?`). Debe ser PURA
- * (depende solo de `filtros`); por eso no va en las deps del effect.
+ * Dos capas, con el MISMO códec:
+ *  1. **URL** — para compartir el link y sobrevivir a un F5. Se espeja con
+ *     `router.replace(..., { scroll: false })` dentro de una transición.
+ *  2. **Cookie** — para sobrevivir a salir de la pantalla y volver por el menú lateral, que
+ *     navega a la ruta pelada. Es la capa que faltaba: sin ella, "cada vez que vuelves y
+ *     sales se resetean los filtros".
  *
- * Devuelve `[filtros, setFiltros, pending]`. `pending` es el estado de la transición
- * de navegación (para atenuar la vista mientras se aplica); los llamadores que no lo
- * necesiten simplemente lo ignoran.
+ * El estado inicial lo hidrata el server component (`filtrosIniciales`), que es quien resuelve
+ * la precedencia URL > cookie > default. **Este hook nunca lee la cookie**: solo la escribe.
+ * Por eso no hay mismatch de hidratación posible.
+ *
+ * `contrato.serialize` debe ser PURA sobre `filtros`; por eso no va en las deps del effect.
+ *
+ * Devuelve `[filtros, setFiltros, pending]`. `pending` es el estado de la transición de
+ * navegación (para atenuar la vista mientras se aplica).
  */
 export function useUrlFilters<T>(
   initial: T,
-  serialize: (filtros: T) => string
+  contrato: Pick<ContratoFiltros<T>, "pantalla" | "serialize" | "serializeMemoria">
 ): [T, Dispatch<SetStateAction<T>>, boolean] {
   const router = useRouter();
   const pathname = usePathname();
@@ -28,12 +33,23 @@ export function useUrlFilters<T>(
   const [filtros, setFiltros] = useState<T>(initial);
 
   useEffect(() => {
-    const qs = serialize(filtros);
-    const url = qs ? `${pathname}?${qs}` : pathname;
+    const qs = contrato.serialize(filtros);
+
+    // Memoria. Con `qs` vacío, cookieDeMemoria devuelve un borrado — así "limpié los filtros"
+    // no necesita ninguna bandera: el default no se recuerda. Si las cookies están
+    // deshabilitadas esto falla en silencio y todo degrada al comportamiento anterior.
+    if (contrato.serializeMemoria && typeof document !== "undefined") {
+      document.cookie = cookieDeMemoria(contrato.pantalla, contrato.serializeMemoria(filtros));
+    }
+
+    // Si la URL ya dice lo mismo, no navegar. Estas páginas son `force-dynamic`, así que un
+    // replace de más es un render completo de server al pedo: antes ocurría en CADA montaje,
+    // incluso entrando por un link que ya traía los filtros.
+    if (typeof window !== "undefined" && qs === window.location.search.replace(/^\?/, "")) return;
+
     startTransition(() => {
-      router.replace(url, { scroll: false });
+      router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
     });
-    // serialize es pura sobre `filtros`; solo re-sincronizamos cuando cambian los filtros.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filtros]);
 

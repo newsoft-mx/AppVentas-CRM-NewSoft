@@ -8,6 +8,7 @@
  * "En proceso", estado que se eliminó por no aplicar.
  */
 import type { TipoActividad } from "@/types/crm";
+import type { ContratoFiltros, ParamMap } from "@/lib/filtros-memoria";
 
 const TIPOS: TipoActividad[] = ["NOTA", "LLAMADA", "EMAIL", "WHATSAPP", "SISTEMA"];
 
@@ -29,7 +30,6 @@ export function serializeAccionesFiltros(f: AccionesFiltros): string {
   return p.toString();
 }
 
-type ParamMap = Record<string, string | string[] | undefined>;
 const one = (v: string | string[] | undefined): string => (Array.isArray(v) ? v[0] ?? "" : v ?? "");
 
 export function parseAccionesFiltros(sp: ParamMap): AccionesFiltros {
@@ -40,3 +40,14 @@ export function parseAccionesFiltros(sp: ParamMap): AccionesFiltros {
     tipo: TIPOS.includes(tipo) ? tipo : "todos",
   };
 }
+
+export const CLAVES_ACCIONES = ["vista", "vendedor", "tipo"] as const;
+
+export const ACCIONES_FILTROS: ContratoFiltros<AccionesFiltros> = {
+  pantalla: "acciones",
+  claves: CLAVES_ACCIONES,
+  parse: parseAccionesFiltros,
+  serialize: serializeAccionesFiltros,
+  // Los tres son preferencia de vista y ninguno es temporal → se recuerdan todos.
+  serializeMemoria: serializeAccionesFiltros,
+};

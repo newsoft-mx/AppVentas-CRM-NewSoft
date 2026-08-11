@@ -22,7 +22,7 @@ import { formatCompacto, formatFechaHora } from "@/lib/utils";
 import { useUrlFilters } from "@/hooks/useUrlFilters";
 import {
   ESTADOS_DEFAULT,
-  serializePipelineFiltros,
+  PIPELINE_FILTROS,
   type PipelineFiltros,
   type OrdenPipeline,
 } from "@/lib/pipeline-filtros";
@@ -61,7 +61,7 @@ export default function PipelineKanban({
   // Filtros + orden persistentes en la URL (mecanismo compartido — pilar 3). Los 6
   // controles viven en un solo objeto; los alias de lectura y los setters con el
   // mismo nombre mantienen el resto del componente intacto.
-  const [filtros, setFiltros] = useUrlFilters(initialFiltros, serializePipelineFiltros);
+  const [filtros, setFiltros] = useUrlFilters(initialFiltros, PIPELINE_FILTROS);
   const { q: busqueda, orden, vendedor: vendedorFiltro, tipo: tipoFiltro, vista } = filtros;
   const estadosSel = useMemo(() => new Set(filtros.estados), [filtros.estados]);
   const setBusqueda = (v: string) => setFiltros((f) => ({ ...f, q: v }));
@@ -143,14 +143,21 @@ export default function PipelineKanban({
 
   const estadoModificado =
     estadosSel.size !== ESTADOS_DEFAULT.length || !ESTADOS_DEFAULT.every((e) => estadosSel.has(e));
+  // La búsqueda CUENTA como filtro activo y se limpia con los demás. Antes no hacía ninguna
+  // de las dos cosas: se podía quedar un `?q=…` filtrando la vista con el badge en 0 y el
+  // botón "Limpiar" deshabilitado, o sea sin ninguna señal de por qué faltaban deals.
+  // `vista` queda afuera a propósito: es modo de visualización, no un filtro.
   const filtrosActivos =
+    (busqueda.trim() ? 1 : 0) +
     (tipoFiltro !== "todos" ? 1 : 0) +
     (vendedorFiltro !== "todos" ? 1 : 0) +
     (orden !== "none" ? 1 : 0) +
     (estadoModificado ? 1 : 0);
 
   function limpiarFiltros() {
-    setFiltros((f) => ({ ...f, tipo: "todos", vendedor: "todos", orden: "none", estados: [...ESTADOS_DEFAULT] }));
+    setFiltros((f) => ({
+      ...f, q: "", tipo: "todos", vendedor: "todos", orden: "none", estados: [...ESTADOS_DEFAULT],
+    }));
   }
 
   function sortDeals(arr: DealResumen[]): DealResumen[] {

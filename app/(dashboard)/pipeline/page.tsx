@@ -6,7 +6,8 @@ import { estadoAtencion } from "@/lib/atencion";
 import { WHERE_TAREA_PENDIENTE } from "@/lib/tareas";
 import { getScoringContext, dealScoreView } from "@/lib/deal-score";
 import PipelineKanban from "@/components/pipeline/PipelineKanban";
-import { parsePipelineFiltros } from "@/lib/pipeline-filtros";
+import { PIPELINE_FILTROS } from "@/lib/pipeline-filtros";
+import { filtrosIniciales } from "@/lib/filtros-servidor";
 import type { Metadata } from "next";
 import type { DealResumen, StageResumen } from "@/types/crm";
 
@@ -26,7 +27,7 @@ export default async function PipelinePage({
 }) {
   const session = await getServerSession();
   // Filtros + orden iniciales desde la URL (persistencia compartida — pilar 3)
-  const initialFiltros = parsePipelineFiltros(await searchParams);
+  const initialFiltros = await filtrosIniciales(PIPELINE_FILTROS, await searchParams);
 
   // Scoping por vendedor: el VENDEDOR solo ve SUS deals; ADMIN/GERENTE ven todos.
   const [stages, deals, vendedores, clientes, tipos, catalogoDeal] = await Promise.all([

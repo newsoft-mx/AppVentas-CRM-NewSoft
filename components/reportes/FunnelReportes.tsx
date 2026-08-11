@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { ArrowUp, ArrowDown } from "lucide-react";
 import { formatCompacto } from "@/lib/utils";
 import { useUrlFilters } from "@/hooks/useUrlFilters";
-import { serializeFunnelFiltros, type FunnelFiltros } from "@/lib/funnel-filtros";
+import { FUNNEL_FILTROS, type FunnelFiltros } from "@/lib/funnel-filtros";
 
 interface Vendedor {
   id: string;
@@ -179,7 +179,7 @@ export default function FunnelReportes({
   initialFiltros: FunnelFiltros;
 }) {
   // Filtros persistentes en la URL (mecanismo compartido — pilar 3)
-  const [filtros, setFiltros] = useUrlFilters(initialFiltros, serializeFunnelFiltros);
+  const [filtros, setFiltros] = useUrlFilters(initialFiltros, FUNNEL_FILTROS);
   const { preset, desde, hasta, vendedor } = filtros;
   const setPreset = (v: string) => setFiltros((f) => ({ ...f, preset: v }));
   const setDesde = (v: string) => setFiltros((f) => ({ ...f, desde: v }));
