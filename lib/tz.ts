@@ -32,6 +32,20 @@ function partesEnTZ(fecha: Date, tz: string): Record<string, string> {
 }
 
 /**
+ * Qué día es HOY para el negocio, como "YYYY-MM-DD".
+ *
+ * Es el ÚNICO punto donde el cálculo de rangos consulta el reloj: de acá en adelante la
+ * aritmética de calendario (lib/rangos-reporte) trabaja sobre strings, que no tienen ni
+ * hora ni zona. Antes esto se hacía con `new Date().toISOString()` en el navegador, y a
+ * partir de las 18:00 en México eso ya devuelve el día SIGUIENTE — el preset "Hoy"
+ * consultaba mañana y daba cero resultados desde el atardecer.
+ */
+export function hoyEnTZ(ahora: Date = new Date(), tz: string = TZ_NEGOCIO): string {
+  const p = partesEnTZ(ahora, tz);
+  return `${p.year}-${p.month}-${p.day}`;
+}
+
+/**
  * "Ahora" como string de <input type="datetime-local"> (YYYY-MM-DDTHH:mm) en la TZ
  * del negocio. Reemplaza el uso de la hora del navegador para precargar inputs.
  */

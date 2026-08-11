@@ -5,31 +5,23 @@
  */
 import type { SessionPayload } from "@/lib/session";
 import { scopeDealWhere } from "@/lib/access-control";
-import { limiteDiaNegocio } from "@/lib/tz";
-
-export type Periodo = "semana" | "mes" | "semestre";
-const PERIODOS: Periodo[] = ["semana", "mes", "semestre"];
-
-export function normalizarPeriodo(v: string | null): Periodo {
-  return PERIODOS.includes(v as Periodo) ? (v as Periodo) : "mes";
-}
-
-// Fecha "desde" del periodo (hasta = ahora).
-export function desdePeriodo(periodo: Periodo, ahora: Date): Date {
-  const d = new Date(ahora);
-  if (periodo === "semana") d.setDate(d.getDate() - 7);
-  else if (periodo === "semestre") d.setMonth(d.getMonth() - 6);
-  else d.setMonth(d.getMonth() - 1); // mes
-  return d;
-}
+import { hoyEnTZ, limiteDiaNegocio } from "@/lib/tz";
+import { normalizarPreset, rangoDePreset } from "@/lib/rangos-reporte";
 
 // Solo ADMIN/GERENTE pueden elegir ver un vendedor puntual o el agregado.
 export function puedeElegirVendedor(session: SessionPayload | null): boolean {
   return session?.rol === "ADMIN" || session?.rol === "GERENTE_COMERCIAL";
 }
 
-// Rango de fechas del reporte: rango personalizado (desde/hasta, formato YYYY-MM-DD)
-// tiene prioridad; si no, cae al preset de periodo. hasta = null → abierto hasta ahora.
+/**
+ * Rango de fechas del reporte. `desde`/`hasta` explícitos (YYYY-MM-DD) tienen prioridad; si
+ * no vienen, se resuelve el preset con el MISMO motor que usa la pantalla (lib/rangos-reporte)
+ * y se cierra con los mismos límites de día.
+ *
+ * Antes este camino tenía su propia definición de "mes" —rodante y con `hasta` abierto—, así
+ * que `?periodo=mes` y `?desde=…&hasta=…` devolvían cosas distintas para el mismo período.
+ * Eran dos verdades sobre la misma pregunta; ahora hay una.
+ */
 export function rangoFechas(
   sp: URLSearchParams,
   ahora: Date
@@ -44,7 +36,14 @@ export function rangoFechas(
       return { desde, hasta };
     }
   }
-  return { desde: desdePeriodo(normalizarPeriodo(sp.get("periodo")), ahora), hasta: null };
+  const preset = normalizarPreset(sp.get("periodo"));
+  const r = rangoDePreset(preset, hoyEnTZ(ahora));
+  // `custom` sin fechas es el único caso sin rango; acá cae al default del negocio.
+  const actual = r?.actual ?? rangoDePreset("mes", hoyEnTZ(ahora))!.actual;
+  return {
+    desde: limiteDiaNegocio(actual.desde, "inicio") ?? ahora,
+    hasta: limiteDiaNegocio(actual.hasta, "fin"),
+  };
 }
 
 // Filtro Prisma de rango sobre un campo de fecha.
