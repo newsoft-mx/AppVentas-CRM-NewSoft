@@ -55,6 +55,12 @@ export function filtroRango(r: { desde: Date; hasta: Date | null }) {
 type WhereInput = Record<string, unknown>;
 
 // where de deals para reportes: scope por rol + filtro opcional de vendedor.
+//
+// Alcance HISTORICO: un deal cerrado (ganado o perdido) sigue contando aunque después lo
+// borren. Borrar saca al deal de la operación, no del pasado — si no, borrar un perdido le
+// cambiaba la tasa de cierre a un mes que ya estaba cerrado. Es el único punto por donde
+// pasan los cuatro reportes de deals (funnel, resultados, anatomía, métricas), así que la
+// regla se fija acá y ninguna ruta la re-implementa.
 export function dealWhereReporte(
   session: SessionPayload | null,
   vendedorParam: string | null,
@@ -62,5 +68,5 @@ export function dealWhereReporte(
 ): WhereInput {
   const base: WhereInput = { ...extra };
   if (puedeElegirVendedor(session) && vendedorParam) base.vendedor_id = vendedorParam;
-  return scopeDealWhere(session, base);
+  return scopeDealWhere(session, base, { alcance: "HISTORICO" });
 }

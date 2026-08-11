@@ -26,8 +26,26 @@ describe("scopeDealWhere (guard anti-IDOR)", () => {
     });
   });
 
-  it("incluirEliminados saltea el filtro (vista 'Eliminados', solo ADMIN)", () => {
-    expect(scopeDealWhere(admin, { id: "d1" }, { incluirEliminados: true })).toEqual({ id: "d1" });
+  it("alcance PAPELERA saltea el filtro (vista 'Eliminados', solo ADMIN)", () => {
+    expect(scopeDealWhere(admin, { id: "d1" }, { alcance: "PAPELERA" })).toEqual({ id: "d1" });
+  });
+
+  it("alcance HISTORICO suma los cerrados aunque estén borrados (reportes)", () => {
+    // Borrar saca al deal de la operación, no del pasado: un ganado/perdido borrado
+    // sigue contando en la tasa de cierre del mes en que se cerró.
+    expect(scopeDealWhere(admin, { id: "d1" }, { alcance: "HISTORICO" })).toEqual({
+      AND: [
+        { id: "d1" },
+        { OR: [{ eliminada: false }, { resultado: { in: ["GANADO", "PERDIDO"] } }] },
+      ],
+    });
+  });
+
+  it("HISTORICO no afloja el scope del VENDEDOR (sigue sin ver deals ajenos)", () => {
+    const w = scopeDealWhere(vendedorSinFicha, { id: "d1" }, { alcance: "HISTORICO" }) as {
+      AND: Record<string, unknown>[];
+    };
+    expect(w.AND[1]).toEqual({ vendedor_id: "__sin-vendedor-asignado__" });
   });
 
   it("sin sesión bloquea todo", () => {

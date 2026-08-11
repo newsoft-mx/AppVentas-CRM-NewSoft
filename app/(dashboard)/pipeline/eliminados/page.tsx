@@ -18,7 +18,7 @@ export default async function EliminadosPage() {
 
   // incluirEliminados invierte el candado: acá QUEREMOS ver los que el resto oculta.
   const deals = await prisma.deal.findMany({
-    where: scopeDealWhere(session, { eliminada: true }, { incluirEliminados: true }),
+    where: scopeDealWhere(session, { eliminada: true }, { alcance: "PAPELERA" }),
     orderBy: { eliminada_at: "desc" },
     select: {
       id: true,

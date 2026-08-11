@@ -185,9 +185,11 @@ export async function PATCH(
 // DELETE /api/crm/deals/:id
 // Borrar un lead. Del form web entra basura y hay que poder sacarla.
 //
-// El cliente NO elige el mecanismo: lo decide clasificarBorrado() (lib/deals) según el
-// costo del error — un lead virgen se destruye, uno trabajado se marca, uno con orden no se
-// toca. `forzar` solo lo puede pedir un ADMIN, y es lo único que destruye algo trabajado.
+// El cliente NO elige el mecanismo: lo decide clasificarBorrado() (lib/deals) según el costo
+// del error — un lead virgen se destruye; uno trabajado o ya cerrado se marca (recuperable, y
+// si estaba cerrado sigue contando en los reportes); con orden vinculada o ganado, además,
+// pide ADMIN. Nada queda bloqueado. `forzar` solo lo puede pedir un ADMIN, y es lo único que
+// destruye de verdad algo trabajado.
 export async function DELETE(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
