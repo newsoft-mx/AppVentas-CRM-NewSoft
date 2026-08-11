@@ -210,12 +210,17 @@ export async function POST(req: NextRequest) {
       });
 
       // Vínculo deal↔orden (Bloque T): si la orden nace de un hand-off, dejar la
-      // trazabilidad en el mismo commit. Guardas: mismo cliente, GANADO y sin
-      // orden previa → best-effort (0 filas si no aplica; nunca rompe la creación
-      // ni el @unique de orden_id).
+      // trazabilidad en el mismo commit. Guardas: mismo cliente y sin orden previa →
+      // best-effort (0 filas si no aplica; nunca rompe la creación ni el @unique).
+      //
+      // NO se exige `resultado: "GANADO"`. Era un invariante seguro mientras GANADO era
+      // terminal, pero ahora un deal se puede reabrir: si eso pasa entre el hand-off y el
+      // alta, la guarda no matchearía, la orden quedaría huérfana EN SILENCIO y la próxima
+      // victoria crearía una segunda (justo el ingreso duplicado que esto evita). Un deal
+      // ABIERTO con su orden vinculada es un estado válido y deliberado desde la reapertura.
       if (dealId) {
         await tx.deal.updateMany({
-          where: { id: dealId, cliente_id: data.cliente_id, resultado: "GANADO", orden_id: null },
+          where: { id: dealId, cliente_id: data.cliente_id, orden_id: null },
           data: { orden_id: nuevaOrden.id },
         });
       }

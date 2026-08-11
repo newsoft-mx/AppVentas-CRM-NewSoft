@@ -3,7 +3,10 @@ import { prisma } from "@/lib/prisma";
 import { getServerSession } from "@/lib/server-session";
 import { canWrite } from "@/lib/session";
 import { scopeDealWhere } from "@/lib/access-control";
-import { clasificarBorrado, puedeBorrarDeals, puedeForzarDestruccion } from "@/lib/deals";
+import {
+  clasificarBorrado, clasificarReapertura, puedeBorrarDeals, puedeForzarDestruccion,
+  puedeReabrirConVenta,
+} from "@/lib/deals";
 import DealDetalleClient from "@/components/pipeline/DealDetalleClient";
 import { getScoringContext, dealScoreView } from "@/lib/deal-score";
 import { ACTIVIDAD_INCLUDE, serializeActividad } from "@/lib/actividad-input";
@@ -30,6 +33,8 @@ export default async function DealDetallePage({
     where: scopeDealWhere(session, { id }),
     include: {
       stage: { select: { id: true, nombre: true, orden: true } },
+      // La orden vinculada decide quién puede reabrir y qué hay que avisarle.
+      orden: { select: { folio: true, estatus: true } },
       cliente: { select: { id: true, nombre: true, estatus: true, website: true, tamano_empresa: true } },
       vendedor: { select: { id: true, nombre: true } },
       tipo_cotizacion: { select: { id: true, nombre: true } },
@@ -175,12 +180,18 @@ export default async function DealDetallePage({
       })
     : null;
 
+  // Reapertura: misma idea que el borrado. Qué implica reabrir depende de la orden vinculada
+  // (algo que el cliente no ve), así que la decide el server y baja ya tomada.
+  const reapertura = clasificarReapertura({ resultado: deal.resultado, orden: deal.orden });
+
   return (
     <DealDetalleClient
       deal={detalle}
       stages={stagesSerialized}
       canWrite={canWrite(session)}
       borrado={borrado}
+      reapertura={reapertura}
+      puedeReabrirSensible={puedeReabrirConVenta(session?.rol ?? "")}
       puedeForzar={puedeForzarDestruccion(session?.rol ?? "")}
       vendedores={vendedores}
       clientes={clientes}

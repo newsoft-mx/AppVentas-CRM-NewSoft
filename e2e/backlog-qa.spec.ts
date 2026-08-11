@@ -159,7 +159,7 @@ test.describe("QA lote SOL-14..20", () => {
     expect(res.status()).toBe(409);
   });
 
-  test("E · un deal PERDIDO no se reabre ni se gana (máquina de estados, 409)", async ({ request }) => {
+  test("E · un deal PERDIDO se reabre, pero no se gana de un salto (máquina de estados)", async ({ request }) => {
     const deal = await crearDealAPI(request, {
       nombre: `E2E Emaquina ${Date.now()}`,
       cliente_id: cat.clienteActivo!.id,
@@ -170,14 +170,19 @@ test.describe("QA lote SOL-14..20", () => {
       data: { resultado: "PERDIDO", razon_perdida: "Precio" },
     });
     expect(perder.status()).toBe(200);
-    // PERDIDO es terminal: reabrir (→ABIERTO) es ilegal
+    // Ganarlo de un salto sigue siendo ilegal: PERDIDO→GANADO no existe en la máquina.
+    // Hay que reabrirlo primero, así el cierre queda registrado y no se falsea el funnel.
+    const ganarDirecto = await request.post(`/api/crm/deals/${deal.id}/ganar`);
+    expect(ganarDirecto.status()).toBe(409);
+    // Reabrir SÍ se puede (pedido de Roldán: "regresarlo al pipe"). Sin orden vinculada no
+    // pide ADMIN ni motivo.
     const reabrir = await request.post(`/api/crm/deals/${deal.id}/resultado`, {
       data: { resultado: "ABIERTO" },
     });
-    expect(reabrir.status()).toBe(409);
-    // …y ganarlo por /ganar también es ilegal
+    expect(reabrir.status()).toBe(200);
+    // Y una vez abierto, ganarlo vuelve a ser legal.
     const ganar = await request.post(`/api/crm/deals/${deal.id}/ganar`);
-    expect(ganar.status()).toBe(409);
+    expect(ganar.status()).toBe(200);
   });
 
   test("T · orden creada desde un deal ganado queda vinculada (orden_id)", async ({ request }) => {
