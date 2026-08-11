@@ -5,6 +5,11 @@ import { ArrowUp, ArrowDown } from "lucide-react";
 import { formatCompacto } from "@/lib/utils";
 import { useUrlFilters } from "@/hooks/useUrlFilters";
 import { FUNNEL_FILTROS, type FunnelFiltros } from "@/lib/funnel-filtros";
+import {
+  etiquetaRango, normalizarPreset, rangoDePreset,
+  type PresetRango, type RangoComparado,
+} from "@/lib/rangos-reporte";
+import { hoyEnTZ } from "@/lib/tz";
 
 interface Vendedor {
   id: string;
@@ -47,10 +52,11 @@ interface Datos {
   metricas: MetricasData;
 }
 
-const PERIODOS: { value: string; label: string }[] = [
+const PERIODOS: { value: PresetRango; label: string }[] = [
   { value: "hoy", label: "Hoy" },
   { value: "semana", label: "Semana" },
   { value: "mes", label: "Mes" },
+  { value: "trimestre", label: "Trimestre" },
   { value: "semestre", label: "Semestre" },
   { value: "año", label: "Año" },
   { value: "custom", label: "Personalizado…" },
@@ -62,62 +68,6 @@ const TIPOS: { key: string; label: string }[] = [
   { key: "WHATSAPP", label: "WhatsApp" },
   { key: "NOTA", label: "Nota" },
 ];
-
-const iso = (d: Date) => d.toISOString().slice(0, 10);
-const DIA = 86_400_000;
-const menosDias = (d: Date, n: number) => new Date(d.getTime() - n * DIA);
-const menosMeses = (d: Date, m: number) => {
-  const x = new Date(d);
-  x.setMonth(x.getMonth() - m);
-  return x;
-};
-
-// Rango actual + rango anterior equivalente (para anclar cada KPI con su delta).
-function rangos(preset: string, desde: string, hasta: string) {
-  const hoy = new Date();
-  if (preset === "custom") {
-    if (!desde) return null;
-    const d0 = new Date(`${desde}T00:00:00`);
-    const d1 = hasta ? new Date(`${hasta}T00:00:00`) : hoy;
-    const len = Math.max(1, Math.round((d1.getTime() - d0.getTime()) / DIA) + 1);
-    return {
-      actual: { desde, hasta: hasta || iso(hoy) },
-      anterior: { desde: iso(menosDias(d0, len)), hasta: iso(menosDias(d0, 1)) },
-    };
-  }
-  if (preset === "hoy") {
-    return {
-      actual: { desde: iso(hoy), hasta: iso(hoy) },
-      anterior: { desde: iso(menosDias(hoy, 1)), hasta: iso(menosDias(hoy, 1)) },
-    };
-  }
-  if (preset === "semana") {
-    return {
-      actual: { desde: iso(menosDias(hoy, 7)), hasta: iso(hoy) },
-      anterior: { desde: iso(menosDias(hoy, 14)), hasta: iso(menosDias(hoy, 7)) },
-    };
-  }
-  if (preset === "semestre") {
-    return {
-      actual: { desde: iso(menosMeses(hoy, 6)), hasta: iso(hoy) },
-      anterior: { desde: iso(menosMeses(hoy, 12)), hasta: iso(menosMeses(hoy, 6)) },
-    };
-  }
-  if (preset === "año") {
-    // Año calendario actual (1-ene → hoy); anterior = mismo tramo del año pasado.
-    const inicio = new Date(hoy.getFullYear(), 0, 1);
-    const inicioPrev = new Date(hoy.getFullYear() - 1, 0, 1);
-    const hoyPrev = new Date(hoy.getFullYear() - 1, hoy.getMonth(), hoy.getDate());
-    return {
-      actual: { desde: iso(inicio), hasta: iso(hoy) },
-      anterior: { desde: iso(inicioPrev), hasta: iso(hoyPrev) },
-    };
-  }
-  return {
-    actual: { desde: iso(menosMeses(hoy, 1)), hasta: iso(hoy) },
-    anterior: { desde: iso(menosMeses(hoy, 2)), hasta: iso(menosMeses(hoy, 1)) },
-  };
-}
 
 async function traer(rango: { desde: string; hasta: string }, vendedor: string): Promise<Datos> {
   const qs = new URLSearchParams(rango);
@@ -138,12 +88,15 @@ function Scorecard({
   suffix,
   delta,
   mejorSiSube = true,
+  contra,
 }: {
   label: string;
   value: string | number;
   suffix?: string;
   delta: number | null; // puntos/porcentaje vs período anterior
   mejorSiSube?: boolean;
+  /** Contra qué se compara, en fechas ("1–11 jul"). Un delta sin esto es incontrastable. */
+  contra?: string;
 }) {
   const bueno = delta !== null && (mejorSiSube ? delta > 0 : delta < 0);
   const malo = delta !== null && (mejorSiSube ? delta < 0 : delta > 0);
@@ -160,10 +113,10 @@ function Scorecard({
         <p className={`mt-1 flex items-center gap-0.5 text-xs font-medium ${color}`}>
           <Icono size={12} />
           {Math.abs(delta)}
-          {suffix === "%" ? " pts" : "%"} vs período anterior
+          {suffix === "%" ? " pts" : "%"} vs {contra ?? "período anterior"}
         </p>
       ) : (
-        <p className="mt-1 text-xs text-gray-400">sin cambio vs anterior</p>
+        <p className="mt-1 text-xs text-gray-400">sin cambio vs {contra ?? "anterior"}</p>
       )}
     </div>
   );
@@ -190,9 +143,13 @@ export default function FunnelReportes({
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState("");
   const [actualizado, setActualizado] = useState("");
+  // El rango que se está mirando, guardado JUNTO con los datos. No se calcula en el render:
+  // depende del reloj, así que server y navegador darían strings distintos y rompería la
+  // hidratación. Hasta el primer fetch no hay rango que mostrar, y está bien.
+  const [rango, setRango] = useState<RangoComparado | null>(null);
 
   const cargar = useCallback(async () => {
-    const r = rangos(preset, desde, hasta);
+    const r = rangoDePreset(normalizarPreset(preset), hoyEnTZ(), { desde, hasta });
     if (!r) return; // custom sin fecha "desde" aún
     setCargando(true);
     setError("");
@@ -200,6 +157,7 @@ export default function FunnelReportes({
       const [a, p] = await Promise.all([traer(r.actual, vendedor), traer(r.anterior, vendedor)]);
       setAct(a);
       setPrev(p);
+      setRango(r);
       setActualizado(new Date().toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit" }));
     } catch {
       setError("No se pudieron cargar los reportes. Intentá de nuevo.");
@@ -224,6 +182,9 @@ export default function FunnelReportes({
   const an = act?.anatomia;
   const m = act?.metricas;
   const razonMax = rz?.por_razon[0]?.count ?? 1;
+  // Contra qué se compara cada delta, en fechas. Sale del MISMO rango que se fetcheó, así que
+  // no puede desfasarse de los números que muestra.
+  const vsAnterior = rango ? etiquetaRango(rango.anterior) : undefined;
 
   return (
     <div className="space-y-6">
@@ -232,8 +193,18 @@ export default function FunnelReportes({
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h1 className="text-lg font-bold text-navy">Reportes de Funnel</h1>
+            {/* Qué se está mirando, en fechas. Ninguna pantalla lo decía, y ese es el motivo
+                de fondo por el que el cliente no sabía que "mes" eran 30 días rodantes. */}
             <p className="text-xs text-gray-400">
-              {actualizado ? `Actualizado ${actualizado}` : "Conversión, resultados y anatomía"}
+              {rango ? (
+                <>
+                  <span className="font-medium text-gray-500">{etiquetaRango(rango.actual)}</span>
+                  {preset === "semana" && " · últimos 7 días"}
+                  {actualizado && ` · actualizado ${actualizado}`}
+                </>
+              ) : (
+                "Conversión, resultados y anatomía"
+              )}
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -286,10 +257,22 @@ export default function FunnelReportes({
           <div>
             <p className="mb-2 text-xs font-medium uppercase tracking-wider text-gray-400">Pipeline (activos en el período)</p>
             <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-              <Scorecard label="Valor del pipeline" value={formatCompacto(m.valor_pipeline)} delta={prev ? deltaPct(m.valor_pipeline, prev.metricas.valor_pipeline) : null} />
-              <Scorecard label="Deals activos" value={m.deals_activos} delta={prev ? deltaPct(m.deals_activos, prev.metricas.deals_activos) : null} />
-              <Scorecard label="Calientes" value={m.calientes} delta={prev ? deltaPct(m.calientes, prev.metricas.calientes) : null} />
-              <Scorecard label="Promedio deal" value={formatCompacto(m.promedio_deal)} delta={prev ? deltaPct(m.promedio_deal, prev.metricas.promedio_deal) : null} />
+              <Scorecard
+                contra={vsAnterior} label="Valor del pipeline" value={formatCompacto(m.valor_pipeline)}
+                delta={prev ? deltaPct(m.valor_pipeline, prev.metricas.valor_pipeline) : null}
+              />
+              <Scorecard
+                contra={vsAnterior} label="Deals activos" value={m.deals_activos}
+                delta={prev ? deltaPct(m.deals_activos, prev.metricas.deals_activos) : null}
+              />
+              <Scorecard
+                contra={vsAnterior} label="Calientes" value={m.calientes}
+                delta={prev ? deltaPct(m.calientes, prev.metricas.calientes) : null}
+              />
+              <Scorecard
+                contra={vsAnterior} label="Promedio deal" value={formatCompacto(m.promedio_deal)}
+                delta={prev ? deltaPct(m.promedio_deal, prev.metricas.promedio_deal) : null}
+              />
             </div>
           </div>
 
@@ -297,10 +280,22 @@ export default function FunnelReportes({
           <div>
             <p className="mb-2 text-xs font-medium uppercase tracking-wider text-gray-400">¿Cómo venimos?</p>
             <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-              <Scorecard label="Tasa de cierre" value={f.tasa_cierre} suffix="%" delta={prev ? deltaPts(f.tasa_cierre, prev.funnel.tasa_cierre) : null} />
-              <Scorecard label="Ganados" value={rz.ganados} delta={prev ? deltaPct(rz.ganados, prev.resultados.ganados) : null} />
-              <Scorecard label="Perdidos" value={rz.perdidos} delta={prev ? deltaPct(rz.perdidos, prev.resultados.perdidos) : null} mejorSiSube={false} />
-              <Scorecard label="Días al ganar" value={an.ganados.avg_dias} delta={prev ? deltaPct(an.ganados.avg_dias, prev.anatomia.ganados.avg_dias) : null} mejorSiSube={false} />
+              <Scorecard
+                contra={vsAnterior} label="Tasa de cierre" value={f.tasa_cierre} suffix="%"
+                delta={prev ? deltaPts(f.tasa_cierre, prev.funnel.tasa_cierre) : null}
+              />
+              <Scorecard
+                contra={vsAnterior} label="Ganados" value={rz.ganados}
+                delta={prev ? deltaPct(rz.ganados, prev.resultados.ganados) : null}
+              />
+              <Scorecard
+                contra={vsAnterior} label="Perdidos" value={rz.perdidos} mejorSiSube={false}
+                delta={prev ? deltaPct(rz.perdidos, prev.resultados.perdidos) : null}
+              />
+              <Scorecard
+                contra={vsAnterior} label="Días al ganar" value={an.ganados.avg_dias} mejorSiSube={false}
+                delta={prev ? deltaPct(an.ganados.avg_dias, prev.anatomia.ganados.avg_dias) : null}
+              />
             </div>
           </div>
 
