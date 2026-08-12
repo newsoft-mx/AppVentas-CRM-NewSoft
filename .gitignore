@@ -64,3 +64,9 @@ test-results/
 playwright-report/
 blob-report/
 .playwright/
+
+# Scripts de siembra para probar en local a escala (rankings, colapso de grupos, paginación).
+# NO se versionan: la app corre sobre datos reales y acá no entra data demo. Lo que crean va
+# con prefijo ZZLOCAL- y se borra con `--limpiar`; y por construcción solo pueden correr contra
+# localhost:5433. Ver docs/DESARROLLO-LOCAL.md.
+scripts/local/
