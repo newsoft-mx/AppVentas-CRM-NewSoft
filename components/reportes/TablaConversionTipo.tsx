@@ -1,5 +1,9 @@
 "use client";
 
+import { useState } from "react";
+import ThOrdenable from "@/components/ui/ThOrdenable";
+import { ordenarFilas, propsOrdenables, siguienteOrden, type OrdenTabla } from "@/lib/tabla-orden";
+import { EXTRACTORES_CONVERSION, type CampoConversion } from "@/lib/reportes-orden";
 import type { ConversionTipoItem } from "@/types/reportes";
 
 interface Props {
@@ -22,6 +26,16 @@ function TasaBadge({ tasa }: { tasa: number }) {
 }
 
 export default function TablaConversionTipo({ data }: Props) {
+  const [orden, setOrden] = useState<OrdenTabla<CampoConversion>>({ campo: null, sentido: "asc" });
+  const th = propsOrdenables(orden, (campo) => setOrden((o) => siguienteOrden(o, campo)));
+
+  // Sin campo elegido se respeta el orden del server (tasa descendente).
+  // Sin `useMemo` a propósito: con `campo: null` ordenarFilas devuelve la MISMA referencia que
+  // recibe, y el React Compiler no puede preservar una memoización cuyo resultado a veces ES
+  // una de sus dependencias — abandonaba el archivo entero ("Compilation Skipped"), dejándolo
+  // sin ninguna optimización. Suelto, el compilador lo memoiza solo.
+  const filas = ordenarFilas(data, orden, EXTRACTORES_CONVERSION);
+
   return (
     <div className="bg-white rounded-xl border border-gray-200 p-5">
       <h2 className="text-base font-semibold text-navy mb-4">Conversión por tipo de cotización</h2>
@@ -35,16 +49,18 @@ export default function TablaConversionTipo({ data }: Props) {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-gray-100">
-                <th className="text-left py-2 px-3 text-xs font-medium text-gray-500">Tipo</th>
-                <th className="text-right py-2 px-3 text-xs font-medium text-gray-500">Total</th>
-                <th className="text-right py-2 px-3 text-xs font-medium text-gray-500">Cotizadas</th>
-                <th className="text-right py-2 px-3 text-xs font-medium text-gray-500">Ventas</th>
-                <th className="text-right py-2 px-3 text-xs font-medium text-gray-500">Tasa</th>
+                <ThOrdenable {...th("tipo")} className="text-xs text-gray-500">Tipo</ThOrdenable>
+                <ThOrdenable {...th("total")} align="right" className="text-xs text-gray-500">Total</ThOrdenable>
+                <ThOrdenable {...th("cotizadas")} align="right" className="text-xs text-gray-500">
+                  Cotizadas
+                </ThOrdenable>
+                <ThOrdenable {...th("ventas")} align="right" className="text-xs text-gray-500">Ventas</ThOrdenable>
+                <ThOrdenable {...th("tasa")} align="right" className="text-xs text-gray-500">Tasa</ThOrdenable>
                 <th className="py-2 px-3 text-xs font-medium text-gray-500 w-32">Progreso</th>
               </tr>
             </thead>
             <tbody>
-              {data.map((row) => (
+              {filas.map((row) => (
                 <tr
                   key={row.tipo_id}
                   className="border-b border-gray-50 hover:bg-gray-50 transition-colors"

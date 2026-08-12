@@ -1,9 +1,15 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { Plus, Pencil, CreditCard } from "lucide-react";
 import Modal from "@/components/ui/Modal";
 import Toast, { ToastData } from "@/components/ui/Toast";
+import ThOrdenable from "@/components/ui/ThOrdenable";
+import {
+  ordenarPorTramos, propsOrdenables, siguienteOrden, type OrdenTabla,
+} from "@/lib/tabla-orden";
+import { EXTRACTORES_CONDICION, type CampoCondicion } from "@/lib/configuracion-orden";
+import { TH_CONFIG } from "./estilos-tabla";
 import type { CondicionComercial } from "@/types/configuracion";
 
 interface TabCondicionesProps {
@@ -16,6 +22,10 @@ interface FormState {
   descripcion: string;
   activo: boolean;
 }
+
+// Las clases propias que ya tenían los <th> de esta tabla. ThOrdenable trae `px-3 py-2.5
+// font-medium`; estas las pisan (en el CSS de Tailwind px-4/py-3/font-semibold van después),
+// para que el encabezado se siga viendo igual que las columnas no ordenables.
 
 const emptyForm: FormState = {
   nombre: "",
@@ -32,6 +42,10 @@ export default function TabCondiciones({ initialCondiciones }: TabCondicionesPro
   const [formError, setFormError] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [toast, setToast] = useState<ToastData | null>(null);
+  // Orden por encabezado (cimiento compartido: lib/tabla-orden). `campo: null` = el orden que
+  // trae el server. Estado local: es una ayuda de lectura, no una vista que se comparta.
+  const [orden, setOrden] = useState<OrdenTabla<CampoCondicion>>({ campo: null, sentido: "asc" });
+  const th = propsOrdenables(orden, (campo) => setOrden((o) => siguienteOrden(o, campo)));
 
   const closeToast = useCallback(() => setToast(null), []);
 
@@ -170,8 +184,17 @@ export default function TabCondiciones({ initialCondiciones }: TabCondicionesPro
     }
   };
 
-  const activas = condiciones.filter((c) => c.activo);
-  const inactivas = condiciones.filter((c) => !c.activo);
+  // El orden se aplica DENTRO de cada tramo, nunca entre ellos: la fila separadora "Inactivas"
+  // es un límite estructural y si el orden lo cruzara, los inactivos se intercalarían.
+  const [activas, inactivas] = useMemo(
+    () =>
+      ordenarPorTramos(
+        [condiciones.filter((c) => c.activo), condiciones.filter((c) => !c.activo)],
+        orden,
+        EXTRACTORES_CONDICION
+      ),
+    [condiciones, orden]
+  );
 
   return (
     <>
@@ -204,21 +227,17 @@ export default function TabCondiciones({ initialCondiciones }: TabCondicionesPro
         <table className="w-full text-sm">
           <thead>
             <tr className="bg-gray-50 border-b border-surface-border">
-              <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">
+              <ThOrdenable {...th("nombre")} className={TH_CONFIG}>
                 Nombre
-              </th>
-              <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide w-32">
+              </ThOrdenable>
+              <ThOrdenable {...th("dias_credito")} className={`${TH_CONFIG} w-32`}>
                 Días crédito
-              </th>
-              <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">
+              </ThOrdenable>
+              <ThOrdenable {...th("descripcion")} className={TH_CONFIG}>
                 Descripción
-              </th>
-              <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide w-24">
-                Estado
-              </th>
-              <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide w-28">
-                Acciones
-              </th>
+              </ThOrdenable>
+              <th className={`${TH_CONFIG} text-center w-24`}>Estado</th>
+              <th className={`${TH_CONFIG} text-right w-28`}>Acciones</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-surface-border">

@@ -39,9 +39,15 @@ export default function ThOrdenable<K extends string>({
       : "ordenar descendente";
 
   const alineacion = align === "right" ? "text-right" : align === "center" ? "text-center" : "text-left";
+  // El espaciado del encabezado es de la TABLA, no del cimiento: si quien lo usa pasa su propio
+  // `className`, se queda con el control completo y estas clases ni se emiten. Concatenarlas
+  // siempre dejaba a `px-3` peleando contra un `px-4` del caller, y quién gana lo decide el
+  // orden del CSS generado, no el del atributo — o sea, funciona hasta que alguien actualice
+  // Tailwind. Sin className, el default sigue siendo el de Órdenes y Contactos.
+  const espaciado = className ? "" : "px-3 py-2.5 font-medium";
 
   return (
-    <th scope="col" aria-sort={ariaSort} className={`${alineacion} px-3 py-2.5 font-medium ${className}`}>
+    <th scope="col" aria-sort={ariaSort} className={`${alineacion} ${espaciado} ${className}`}>
       <button
         type="button"
         onClick={() => onOrdenar(campo)}
