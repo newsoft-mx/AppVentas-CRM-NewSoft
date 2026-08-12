@@ -12,7 +12,7 @@ import { calcularKpis } from "@/lib/kpis";
 import { fechaFiltroOrden, matchPeriod } from "@/lib/filter-utils";
 import { ORDENES_FILTROS } from "@/lib/ordenes-filtros";
 import { formatMXN } from "@/lib/utils";
-import { netAmountMxn } from "@/lib/net-amounts";
+import { sumaNetaMxn } from "@/lib/net-amounts";
 
 interface VentasClientProps {
   initialOrdenes: OrdenResumen[];
@@ -139,7 +139,7 @@ export default function VentasClient({
     }
   };
 
-  const totalOrdenesMxn = ordenesFiltradas.reduce((sum, orden) => sum + netAmountMxn(orden), 0);
+  const totalOrdenesMxn = sumaNetaMxn(ordenesFiltradas).mxn;
 
   return (
     <>

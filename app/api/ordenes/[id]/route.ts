@@ -133,6 +133,22 @@ export async function PUT(
       orden_display: p.orden_display,
     }));
 
+    // Una orden en USD SIN tipo de cambio no se puede expresar en pesos, así que queda fuera
+    // de todos los agregados (ventas del mes, ranking de clientes, KPIs). El alta ya lo
+    // impedía, pero OrdenUpdateSchema es un `.partial()` del mismo shape SIN su superRefine:
+    // por acá entraba igual. El chequeo va después de mezclar porque el estado resultante
+    // depende de lo que ya estaba guardado (se puede mandar solo `moneda`, o solo anular el TC).
+    const monedaFinal = data.moneda ?? ordenExistente.moneda;
+    const tcFinal = data.tipo_cambio !== undefined
+      ? data.tipo_cambio
+      : ordenExistente.tipo_cambio?.toNumber();
+    if (monedaFinal === "USD" && !tcFinal) {
+      return NextResponse.json(
+        { error: "El tipo de cambio es requerido para órdenes en USD", campo: "tipo_cambio" },
+        { status: 422 }
+      );
+    }
+
     // Calcular con los nuevos datos (mezclando actuales + nuevos)
     const calculo = calcularOrden({
       partidas: partidasParaCalculo,

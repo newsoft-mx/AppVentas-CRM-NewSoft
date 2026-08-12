@@ -4,7 +4,7 @@
 
 ## Conceptos base
 
-- **Monto neto (sin IVA):** `netAmount(order)` = `subtotal_con_descuento` en moneda original; `netAmountMxn(order)` lo normaliza a MXN (×`tipo_cambio` si USD). Todos los agregados usan el neto. Ver [motor-de-montos.md](motor-de-montos.md).
+- **Monto neto (sin IVA):** `netAmount(order)` = `subtotal_con_descuento` en moneda original; `netAmountMxn(order)` lo normaliza a MXN, y devuelve **`null`** para una orden en USD sin `tipo_cambio` (no es convertible: queda **fuera** de todos los agregados). Por eso se suma con `sumaNetaMxn`, que además devuelve `sin_tipo_cambio` para poder declarar cuántas se omitieron. Todos los agregados usan el neto. Ver [motor-de-montos.md](motor-de-montos.md).
 - **Estatus:** `BORRADOR`, `COTIZADO`, `VENTA`.
 
 ## 1. KPIs del apartado Ventas
@@ -39,7 +39,7 @@ Todos: requieren sesión, aplican `scopeOrdenWhere` (scoping por rol), aceptan f
 | **pipeline** | sin filtro | `fecha_venta` + fallback | estatus (conteos + montos COTIZADO/VENTA) |
 | **conversion** | sin filtro | `fecha_venta` + fallback | tipo de cotización (tasa = ventas/total) |
 
-Todos los montos son `netAmountMxn`. `conversion` también da `ticket_promedio_mxn`, `tiempo_promedio_cierre_dias` (`fecha_venta − created_at`, mín. 0), y conteos.
+Todos los montos son `netAmountMxn`, agregados con `sumaNetaMxn` (las órdenes USD sin tipo de cambio quedan fuera). `conversion` también da `ticket_promedio_mxn` — promedio **solo sobre las ventas convertibles a pesos**, con `ticket_sin_tipo_cambio` diciendo cuántas quedaron fuera de ese promedio—, `tiempo_promedio_cierre_dias` (`fecha_venta − created_at`, mín. 0), y conteos.
 
 ## 3. Motor de filtros
 

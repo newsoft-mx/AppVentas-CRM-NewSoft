@@ -20,6 +20,8 @@ export default function ClienteCard({ cliente, onEdit, onDesactivar }: ClienteCa
 
   const tieneMXN = stats.total_mxn > 0;
   const tieneUSD = stats.total_usd > 0;
+  // Órdenes en USD que no se pudieron pasar a pesos y por lo tanto NO están en grand_total_mxn.
+  const omitidas = stats.ordenes_sin_tipo_cambio;
 
   return (
     <div className="bg-white rounded-xl border border-surface-border shadow-sm hover:shadow-md transition-shadow duration-200 flex flex-col overflow-hidden">
@@ -91,11 +93,16 @@ export default function ClienteCard({ cliente, onEdit, onDesactivar }: ClienteCa
                   {formatUSD(stats.total_usd)}{" "}
                   <span className="text-gray-400 font-normal">USD</span>
                 </p>
-                {/* Equivalente en MXN solo si hay USD */}
+                {/* Equivalente en MXN solo si hay USD. Sin tipo de cambio no hay equivalente:
+                    decir "≈ $0.00" sería afirmar que esos dólares valen cero pesos. */}
                 {tieneUSD && !tieneMXN && (
-                  <p className="text-xs text-gray-400">
-                    ≈ {formatMXN(stats.grand_total_mxn)} MXN
-                  </p>
+                  omitidas > 0 ? (
+                    <p className="text-xs font-medium text-amber-700">sin tipo de cambio</p>
+                  ) : (
+                    <p className="text-xs text-gray-400">
+                      ≈ {formatMXN(stats.grand_total_mxn)} MXN
+                    </p>
+                  )
                 )}
               </div>
             )}
@@ -103,6 +110,14 @@ export default function ClienteCard({ cliente, onEdit, onDesactivar }: ClienteCa
             {tieneMXN && tieneUSD && (
               <p className="text-xs text-orange font-semibold">
                 Total: {formatMXN(stats.grand_total_mxn)} MXN
+              </p>
+            )}
+            {/* Mismo criterio que el pie de la tabla de Órdenes: el total omite lo que no se
+                puede convertir, y omitir en silencio es mentir por omisión. */}
+            {omitidas > 0 && (
+              <p className="text-[11px] font-medium text-amber-700">
+                {omitidas} {omitidas === 1 ? "orden" : "órdenes"} en USD sin tipo de cambio
+                {omitidas === 1 ? " queda" : " quedan"} fuera del total
               </p>
             )}
           </div>

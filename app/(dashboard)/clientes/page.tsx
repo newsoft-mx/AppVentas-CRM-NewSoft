@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import ClientesClient from "@/components/clientes/ClientesClient";
-import { netAmount, netAmountMxn } from "@/lib/net-amounts";
+import { statsDeOrdenes } from "@/lib/clientes-stats";
 import type { Metadata } from "next";
 import { getServerSession } from "@/lib/server-session";
 import { canManageClients } from "@/lib/session";
@@ -34,21 +34,12 @@ export default async function ClientesPage() {
   ]);
 
   // Serializar y agregar stats en el servidor
-  const clientesSerializados = clientes.map(({ ordenes, ...c }) => {
-    const mxnOrdenes = ordenes.filter((o) => o.moneda === "MXN");
-    const usdOrdenes = ordenes.filter((o) => o.moneda === "USD");
-    return {
-      ...c,
-      created_at: c.created_at.toISOString(),
-      updated_at: c.updated_at.toISOString(),
-      stats: {
-        num_ordenes: ordenes.length,
-        total_mxn: mxnOrdenes.reduce((s, o) => s + netAmount(o), 0),
-        total_usd: usdOrdenes.reduce((s, o) => s + netAmount(o), 0),
-        grand_total_mxn: ordenes.reduce((s, o) => s + netAmountMxn(o), 0),
-      },
-    };
-  });
+  const clientesSerializados = clientes.map(({ ordenes, ...c }) => ({
+    ...c,
+    created_at: c.created_at.toISOString(),
+    updated_at: c.updated_at.toISOString(),
+    stats: statsDeOrdenes(ordenes),
+  }));
 
   return (
     <ClientesClient

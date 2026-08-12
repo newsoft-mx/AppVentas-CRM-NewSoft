@@ -90,3 +90,32 @@ describe("pinning: las 7 columnas de Órdenes ordenan como hoy", () => {
     }
   });
 });
+
+/**
+ * La columna Total, con monedas mezcladas.
+ *
+ * El FIXTURE de arriba es todo MXN, y para una orden en MXN `netAmountMxn` y `netAmount` dan lo
+ * mismo: esos casos NO pueden distinguir el extractor correcto de uno que compare montos
+ * nominales de monedas distintas. Estos sí.
+ */
+describe("EXTRACTORES_ORDEN.total con USD", () => {
+  const MEZCLA: OrdenResumen[] = [
+    orden({ folio: "MXN-5K", subtotal_con_descuento: 5000 }),
+    orden({ folio: "USD-500", moneda: "USD", tipo_cambio: 20, subtotal_con_descuento: 500 }),
+    orden({ folio: "USD-SIN-TC", moneda: "USD", tipo_cambio: null, subtotal_con_descuento: 900 }),
+  ];
+  const porFolioMezcla = (sentido: "asc" | "desc") =>
+    ordenarFilas(MEZCLA, { campo: "total", sentido }, EXTRACTORES_ORDEN).map((o) => o.folio);
+
+  it("compara el valor convertido, no el número que trae la orden", () => {
+    // USD 500 × 20 = 10.000 MXN, o sea MÁS que los 5.000 pesos, aunque 500 < 5000.
+    expect(porFolioMezcla("asc").slice(0, 2)).toEqual(["MXN-5K", "USD-500"]);
+    expect(porFolioMezcla("desc").slice(0, 2)).toEqual(["USD-500", "MXN-5K"]);
+  });
+
+  it("la que no se puede convertir queda última en los DOS sentidos", () => {
+    // No es "la más chica": es que no hay monto con el cual compararla.
+    expect(porFolioMezcla("asc")[2]).toBe("USD-SIN-TC");
+    expect(porFolioMezcla("desc")[2]).toBe("USD-SIN-TC");
+  });
+});

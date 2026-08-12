@@ -66,7 +66,10 @@ export interface ConversionTipoItem {
 
 /** KPIs adicionales del módulo de reportes */
 export interface ReporteStats {
+  /** Promedio SOLO sobre las ventas expresables en pesos (ver `ticket_sin_tipo_cambio`) */
   ticket_promedio_mxn: number;
+  /** Ventas en USD sin tipo de cambio: no entran ni al numerador ni al denominador */
+  ticket_sin_tipo_cambio: number;
   tiempo_promedio_cierre_dias: number | null;
   total_ventas: number;
   total_cotizadas: number;
