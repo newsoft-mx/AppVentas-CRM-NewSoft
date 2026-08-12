@@ -7,6 +7,18 @@ import StatusBadge from "./StatusBadge";
 import { formatFecha, formatMoneda, formatMXN } from "@/lib/utils";
 import { netAmount, netAmountMxn, sumaNetaMxn, tieneTipoCambio } from "@/lib/net-amounts";
 import ThOrdenable from "@/components/ui/ThOrdenable";
+import type { ClienteAgrupado } from "@/lib/ranking-clientes";
+import type { ModoVista } from "@/lib/ventas-vista";
+
+/** El bloque único del modo lista: no representa a un cliente, así que no lleva encabezado. */
+const GRUPO_UNICO = {
+  cliente_id: "__todas__",
+  nombre: "",
+  posicion: 0,
+  facturado_mxn: 0,
+  ordenes_venta: 0,
+  sin_tipo_cambio: 0,
+} as const;
 import {
   ordenarFilas, propsOrdenables, siguienteOrden, type OrdenTabla,
 } from "@/lib/tabla-orden";
@@ -15,7 +27,15 @@ import type { EstatusOrden, OrdenResumen } from "@/types/ordenes";
 
 
 interface TablaOrdenesProps {
+  /** Todas las órdenes filtradas, planas. Es lo que se pinta en modo lista y lo que suma el pie. */
   ordenes: OrdenResumen[];
+  /**
+   * Los grupos ya armados y rankeados por `lib/ranking-clientes`. La tabla no los calcula: si lo
+   * hiciera, el ranking de esta pantalla podría diferir del de Reportes, que es el bug que este
+   * cambio viene a cerrar.
+   */
+  gruposBase: ClienteAgrupado<OrdenResumen>[];
+  modo: ModoVista;
   defaultCollapsed?: boolean;
   canWrite?: boolean;
   onEstatusChanged: (id: string, estatus: EstatusOrden, fechaVenta?: string) => void;
@@ -114,18 +134,11 @@ function DescripcionEditable({
   );
 }
 
-function groupByCliente(ordenes: OrdenResumen[]) {
-  const map = new Map<string, { nombre: string; ordenes: OrdenResumen[] }>();
-  for (const orden of ordenes) {
-    const key = orden.cliente.id;
-    if (!map.has(key)) map.set(key, { nombre: orden.cliente.nombre, ordenes: [] });
-    map.get(key)!.ordenes.push(orden);
-  }
-  return Array.from(map.entries()).map(([clienteId, data]) => ({ clienteId, ...data }));
-}
 
 export default function TablaOrdenes({
   ordenes,
+  gruposBase,
+  modo,
   defaultCollapsed = false,
   canWrite = true,
   onEstatusChanged,
@@ -144,11 +157,9 @@ export default function TablaOrdenes({
       const saved = sessionStorage.getItem("ventas.collapsedGroups");
       if (saved) return new Set(JSON.parse(saved) as string[]);
     }
-    if (defaultCollapsed) return new Set(groupByCliente(ordenes).map((grupo) => grupo.clienteId));
+    if (defaultCollapsed) return new Set(gruposBase.map((grupo) => grupo.cliente_id));
     return new Set();
   });
-
-  const gruposBase = useMemo(() => groupByCliente(ordenes), [ordenes]);
 
   useEffect(() => {
     sessionStorage.setItem("ventas.collapsedGroups", JSON.stringify(Array.from(collapsed)));
@@ -163,6 +174,12 @@ export default function TablaOrdenes({
         ordenes: ordenarFilas(grupo.ordenes, orden, EXTRACTORES_ORDEN),
       })),
     [gruposBase, orden]
+  );
+
+  // En modo lista no hay tramos que respetar: el orden se aplica a todo el conjunto.
+  const filasPlanas = useMemo(
+    () => ordenarFilas(ordenes, orden, EXTRACTORES_ORDEN),
+    [ordenes, orden]
   );
 
   const handleDuplicar = async (orden: OrdenResumen) => {
@@ -201,17 +218,25 @@ export default function TablaOrdenes({
   // para poder decirlo: un total que las omite en silencio miente por omisión.
   const { mxn: grandTotal, sin_tipo_cambio: sinTipoCambio } = sumaNetaMxn(ordenes);
 
+  const enLista = modo === "lista";
+  // Desagrupar es pintar UN bloque con todas las filas, sin encabezado de cliente. Reusar el
+  // mismo markup en vez de escribir una segunda tabla mantiene los dos modos imposibles de
+  // desincronizar — y no duplica 150 líneas de filas.
+  const bloques = enLista
+    ? [{ ...GRUPO_UNICO, ordenes_totales: ordenes.length, ordenes: filasPlanas }]
+    : grupos;
+
   return (
     <div className="space-y-4">
       <div className="flex flex-col items-stretch justify-between gap-2 sm:flex-row sm:items-center">
         <p className="text-xs text-gray-500">
-          Click en encabezados para ordenar. Subtotales netos sin IVA.
+          Click en encabezados para ordenar. Montos netos sin IVA.
         </p>
-        <div className="grid grid-cols-2 gap-2 sm:flex">
+        <div className={enLista ? "hidden" : "grid grid-cols-2 gap-2 sm:flex"}>
           <button
             type="button"
             className="btn-secondary py-1.5 text-xs"
-            onClick={() => setCollapsed(new Set(gruposBase.map((grupo) => grupo.clienteId)))}
+            onClick={() => setCollapsed(new Set(gruposBase.map((grupo) => grupo.cliente_id)))}
           >
             Colapsar todos
           </button>
@@ -225,12 +250,18 @@ export default function TablaOrdenes({
         </div>
       </div>
 
-      {grupos.map(({ clienteId, nombre, ordenes: ordenesCliente }) => {
-        const { mxn: subtotalCliente, sin_tipo_cambio: sinTcCliente } = sumaNetaMxn(ordenesCliente);
-        const isCollapsed = collapsed.has(clienteId);
+      {bloques.map((grupo) => {
+        const {
+          cliente_id: clienteId, nombre, posicion,
+          facturado_mxn: facturado, ordenes_venta: ventas, ordenes_totales: totales,
+          sin_tipo_cambio: sinTcCliente, ordenes: ordenesCliente,
+        } = grupo;
+        // En modo lista no hay nada que colapsar: el bloque único siempre está abierto.
+        const isCollapsed = !enLista && collapsed.has(clienteId);
 
         return (
           <div key={clienteId} className="overflow-hidden rounded-xl border border-surface-border bg-white shadow-sm">
+            {!enLista && (
             <button
               type="button"
               onClick={() => toggleGroup(clienteId)}
@@ -238,18 +269,26 @@ export default function TablaOrdenes({
             >
               <span className="flex min-w-0 items-center gap-2">
                 {isCollapsed ? <ChevronRight size={16} className="text-gray-400" /> : <ChevronDown size={16} className="text-gray-400" />}
+                {/* La posición en el ranking por monto facturado: es lo que Roldán pidió ver. */}
+                <span className="shrink-0 rounded bg-navy/10 px-1.5 py-0.5 text-xs font-bold text-navy">
+                  #{posicion}
+                </span>
                 <span className="truncate text-sm font-semibold text-navy">{nombre}</span>
               </span>
               <span className="text-xs text-gray-500 sm:shrink-0">
-                {ordenesCliente.length} orden{ordenesCliente.length === 1 ? "" : "es"} · Subtotal:{" "}
-                <span className="font-medium text-gray-700">{formatMXN(subtotalCliente)} MXN</span>
-                {/* Con el grupo colapsado no se ven las filas: si el subtotal omite algo, acá es
+                {/* "Facturado" es siempre VENTA. El conteo "N de M" está al lado a propósito:
+                    sin él, el monto parece más chico de lo que el usuario espera al ver M filas. */}
+                Facturado:{" "}
+                <span className="font-medium text-gray-700">{formatMXN(facturado)} MXN</span>
+                {" · "}{ventas} de {totales} {totales === 1 ? "orden" : "órdenes"}
+                {/* Con el grupo colapsado no se ven las filas: si el monto omite algo, acá es
                     el único lugar donde puede decirse. */}
                 {sinTcCliente > 0 && (
                   <span className="font-medium text-amber-700"> · {sinTcCliente} sin tipo de cambio</span>
                 )}
               </span>
             </button>
+            )}
 
             {!isCollapsed && (
               <>

@@ -13,6 +13,8 @@ import { fechaFiltroOrden, matchPeriod } from "@/lib/filter-utils";
 import { ORDENES_FILTROS } from "@/lib/ordenes-filtros";
 import { formatMXN } from "@/lib/utils";
 import { sumaNetaMxn } from "@/lib/net-amounts";
+import { agruparPorCliente } from "@/lib/ranking-clientes";
+import { MODOS_VISTA } from "@/lib/ventas-vista";
 
 interface VentasClientProps {
   initialOrdenes: OrdenResumen[];
@@ -70,6 +72,14 @@ export default function VentasClient({
 
   // ── KPIs calculados siempre del estado actual filtrado ───────
   const kpis = useMemo(() => calcularKpis(ordenesFiltradas), [ordenesFiltradas]);
+
+  // El ranking sale del MISMO helper que "Top clientes" de Reportes. `incluirSinVenta: true`
+  // porque acá la tabla muestra todas las órdenes: esconder al cliente que solo tiene
+  // cotizaciones haría desaparecer filas que el usuario está viendo.
+  const gruposBase = useMemo(
+    () => agruparPorCliente(ordenesFiltradas, { incluirSinVenta: true }),
+    [ordenesFiltradas]
+  );
 
   // ── Handlers ─────────────────────────────────────────────────
 
@@ -157,14 +167,37 @@ export default function VentasClient({
             )}
           </p>
         </div>
-        {canWrite && (
-          <div className="flex w-full flex-wrap gap-2 sm:w-auto">
+        <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
+          {/* Agrupar/desagrupar. Vive en los filtros, así que viaja en la URL (se comparte) y
+              la cookie de memoria lo recuerda para la próxima visita. */}
+          <div
+            role="group"
+            aria-label="Vista de la lista"
+            className="inline-flex overflow-hidden rounded-lg border border-surface-border"
+          >
+            {MODOS_VISTA.map((m) => (
+              <button
+                key={m}
+                type="button"
+                aria-pressed={filtros.vista === m}
+                onClick={() => setFiltros({ ...filtros, vista: m })}
+                className={`px-3 py-1.5 text-xs transition-colors ${
+                  filtros.vista === m
+                    ? "bg-navy text-white"
+                    : "bg-white text-gray-500 hover:bg-gray-50 hover:text-navy"
+                }`}
+              >
+                {m === "agrupado" ? "Por cliente" : "Lista"}
+              </button>
+            ))}
+          </div>
+          {canWrite && (
             <Link href="/ventas/nueva" className="btn-primary w-full justify-center sm:w-auto">
               <Plus size={16} />
               Nueva orden
             </Link>
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
       {/* ── Resumen ── */}
@@ -212,9 +245,11 @@ export default function VentasClient({
         />
       </div>
 
-      {/* ── Tabla agrupada ── */}
+      {/* ── Tabla: agrupada por cliente o lista plana ── */}
       <TablaOrdenes
         ordenes={ordenesFiltradas}
+        gruposBase={gruposBase}
+        modo={filtros.vista}
         defaultCollapsed={clientesOptions.length > 10}
         canWrite={canWrite}
         onEstatusChanged={handleEstatusChanged}

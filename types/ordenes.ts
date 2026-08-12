@@ -2,6 +2,7 @@
  * Tipos de datos para el módulo de Órdenes de Venta.
  * Todos los campos Decimal/Date ya serializados como primitivos JS.
  */
+import type { ModoVista } from "@/lib/ventas-vista";
 
 export type EstatusOrden = "BORRADOR" | "COTIZADO" | "VENTA";
 export type Moneda = "MXN" | "USD";
@@ -124,4 +125,9 @@ export interface FiltroOrdenes {
   cliente_id: string[];
   tipo_cotizacion_id: string[];
   vendedor_id: string[];
+  /**
+   * Agrupado por cliente o lista plana. Vive acá y no en el estado del componente para viajar
+   * en la URL (es un link que se comparte) y de paso ser recordado por la cookie de memoria.
+   */
+  vista: ModoVista;
 }
