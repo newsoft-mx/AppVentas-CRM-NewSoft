@@ -52,13 +52,13 @@ export async function GET(req: NextRequest) {
           nombre: o.cliente.nombre,
           ordenes_totales: 1,
           ordenes_venta: o.estatus === "VENTA" ? 1 : 0,
-          total_mxn: o.estatus === "VENTA" ? netAmountMxn(o) : 0,
+          total_mxn: o.estatus === "VENTA" ? netAmountMxn(o) ?? 0 : 0,
         });
       } else {
         existing.ordenes_totales += 1;
         if (o.estatus === "VENTA") {
           existing.ordenes_venta += 1;
-          existing.total_mxn += netAmountMxn(o);
+          existing.total_mxn += netAmountMxn(o) ?? 0; // USD sin TC: se omite, no se inventa 1:1
         }
       }
     }

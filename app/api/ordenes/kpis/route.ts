@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 import type { KpisData } from "@/types/ordenes";
 import { requireAuth } from "@/lib/session";
 import { scopeOrdenWhere } from "@/lib/access-control";
-import { netAmount, netAmountMxn } from "@/lib/net-amounts";
+import { netAmount, sumaNetaMxn } from "@/lib/net-amounts";
 import {
   buildDateOrFilters,
   getAllParam,
@@ -71,13 +71,9 @@ export async function GET(req: NextRequest) {
     const cotizadas = ordenes.filter((o) => o.estatus === "COTIZADO").length;
     const ventas = ordenes.filter((o) => o.estatus === "VENTA").length;
 
-    const ventas_mxn = ordenes
-      .filter((o) => o.estatus === "VENTA")
-      .reduce((s, o) => s + netAmountMxn(o), 0);
+    const ventas_mxn = sumaNetaMxn(ordenes.filter((o) => o.estatus === "VENTA")).mxn;
 
-    const pipeline_mxn = ordenes
-      .filter((o) => o.estatus === "COTIZADO")
-      .reduce((s, o) => s + netAmountMxn(o), 0);
+    const pipeline_mxn = sumaNetaMxn(ordenes.filter((o) => o.estatus === "COTIZADO")).mxn;
 
     // Fórmula correcta según doc funcional: ventas / total_ordenes * 100
     const tasa_conversion =

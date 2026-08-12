@@ -1,5 +1,5 @@
 import type { OrdenResumen, KpisData } from "@/types/ordenes";
-import { netAmountMxn } from "@/lib/net-amounts";
+import { sumaNetaMxn } from "@/lib/net-amounts";
 
 export function calcularKpis(ordenes: OrdenResumen[]): KpisData {
   const total_ordenes = ordenes.length;
@@ -7,13 +7,9 @@ export function calcularKpis(ordenes: OrdenResumen[]): KpisData {
   const cotizadas = ordenes.filter((o) => o.estatus === "COTIZADO").length;
   const ventas = ordenes.filter((o) => o.estatus === "VENTA").length;
 
-  const ventas_mxn = ordenes
-    .filter((o) => o.estatus === "VENTA")
-    .reduce((s, o) => s + netAmountMxn(o), 0);
+  const ventas_mxn = sumaNetaMxn(ordenes.filter((o) => o.estatus === "VENTA")).mxn;
 
-  const pipeline_mxn = ordenes
-    .filter((o) => o.estatus === "COTIZADO")
-    .reduce((s, o) => s + netAmountMxn(o), 0);
+  const pipeline_mxn = sumaNetaMxn(ordenes.filter((o) => o.estatus === "COTIZADO")).mxn;
 
   const tasa_conversion =
     total_ordenes > 0 ? Math.round((ventas / total_ordenes) * 100) : 0;

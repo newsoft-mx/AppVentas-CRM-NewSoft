@@ -5,7 +5,7 @@ import { ChevronDown, ChevronRight, Copy, Eye, FileDown, Loader2, Trash2 } from 
 import { useEffect, useMemo, useState } from "react";
 import StatusBadge from "./StatusBadge";
 import { formatFecha, formatMoneda, formatMXN } from "@/lib/utils";
-import { netAmount, netAmountMxn } from "@/lib/net-amounts";
+import { netAmount, netAmountMxn, sumaNetaMxn, tieneTipoCambio } from "@/lib/net-amounts";
 import ThOrdenable from "@/components/ui/ThOrdenable";
 import {
   ordenarFilas, propsOrdenables, siguienteOrden, type OrdenTabla,
@@ -197,7 +197,9 @@ export default function TablaOrdenes({
     );
   }
 
-  const grandTotal = ordenes.reduce((s, o) => s + netAmountMxn(o), 0);
+  // `sinTipoCambio` son las órdenes en USD que no se pueden expresar en pesos. Se cuentan
+  // para poder decirlo: un total que las omite en silencio miente por omisión.
+  const { mxn: grandTotal, sin_tipo_cambio: sinTipoCambio } = sumaNetaMxn(ordenes);
 
   return (
     <div className="space-y-4">
@@ -224,7 +226,7 @@ export default function TablaOrdenes({
       </div>
 
       {grupos.map(({ clienteId, nombre, ordenes: ordenesCliente }) => {
-        const subtotalCliente = ordenesCliente.reduce((s, o) => s + netAmountMxn(o), 0);
+        const { mxn: subtotalCliente, sin_tipo_cambio: sinTcCliente } = sumaNetaMxn(ordenesCliente);
         const isCollapsed = collapsed.has(clienteId);
 
         return (
@@ -241,6 +243,11 @@ export default function TablaOrdenes({
               <span className="text-xs text-gray-500 sm:shrink-0">
                 {ordenesCliente.length} orden{ordenesCliente.length === 1 ? "" : "es"} · Subtotal:{" "}
                 <span className="font-medium text-gray-700">{formatMXN(subtotalCliente)} MXN</span>
+                {/* Con el grupo colapsado no se ven las filas: si el subtotal omite algo, acá es
+                    el único lugar donde puede decirse. */}
+                {sinTcCliente > 0 && (
+                  <span className="font-medium text-amber-700"> · {sinTcCliente} sin tipo de cambio</span>
+                )}
               </span>
             </button>
 
@@ -293,7 +300,11 @@ export default function TablaOrdenes({
                             <span className="font-normal text-gray-400">{orden.moneda}</span>
                           </p>
                           {orden.moneda === "USD" && (
-                            <p className="mt-0.5 text-gray-400">≈ {formatMXN(netAmountMxn(orden))}</p>
+                            <p className="mt-0.5 text-gray-400">
+                              {tieneTipoCambio(orden)
+                                ? `≈ ${formatMXN(netAmountMxn(orden)!)}`
+                                : "sin tipo de cambio"}
+                            </p>
                           )}
                         </div>
                       </div>
@@ -363,7 +374,11 @@ export default function TablaOrdenes({
                               <span className="font-normal text-gray-400">{orden.moneda}</span>
                             </span>
                             {orden.moneda === "USD" && (
-                              <p className="mt-0.5 text-xs text-gray-400">≈ {formatMXN(netAmountMxn(orden))}</p>
+                              <p className="mt-0.5 text-xs text-gray-400">
+                                {tieneTipoCambio(orden)
+                                  ? `≈ ${formatMXN(netAmountMxn(orden)!)}`
+                                  : "sin tipo de cambio"}
+                              </p>
                             )}
                           </td>
                           <td className="px-3 py-3">
@@ -409,7 +424,18 @@ export default function TablaOrdenes({
         );
       })}
 
-      <div className="flex justify-end rounded-xl border border-navy/10 bg-navy/5 px-5 py-3">
+      <div
+        className="flex flex-wrap items-center justify-end gap-x-3 gap-y-1
+                   rounded-xl border border-navy/10 bg-navy/5 px-5 py-3"
+      >
+        {/* El total omite lo que no se puede convertir. Decirlo es la diferencia entre un
+            número incompleto y uno que miente. */}
+        {sinTipoCambio > 0 && (
+          <p className="text-xs font-medium text-amber-700">
+            {sinTipoCambio} {sinTipoCambio === 1 ? "orden" : "órdenes"} en USD sin tipo de cambio
+            {sinTipoCambio === 1 ? " queda" : " quedan"} fuera del total
+          </p>
+        )}
         <p className="text-sm font-semibold text-navy">
           Total general (MXN): <span className="text-orange">{formatMXN(grandTotal)}</span>
         </p>

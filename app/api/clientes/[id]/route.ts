@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { scopeClienteWhere } from "@/lib/access-control";
 import { clienteUpdateSchema } from "@/lib/validations/clientes";
 import { canManageClients, requireAuth } from "@/lib/session";
-import { netAmount, netAmountMxn } from "@/lib/net-amounts";
+import { statsDeOrdenes } from "@/lib/clientes-stats";
 import { asegurarPrincipalDesdeCliente } from "@/lib/contactos";
 import { diffCampos, registrarAuditoria } from "@/lib/auditoria";
 
@@ -35,19 +35,12 @@ export async function GET(
     }
 
     const { ordenes, ...c } = cliente;
-    const mxnOrdenes = ordenes.filter((o) => o.moneda === "MXN");
-    const usdOrdenes = ordenes.filter((o) => o.moneda === "USD");
 
     return NextResponse.json({
       ...c,
       created_at: c.created_at.toISOString(),
       updated_at: c.updated_at.toISOString(),
-      stats: {
-        num_ordenes: ordenes.length,
-        total_mxn: mxnOrdenes.reduce((s, o) => s + netAmount(o), 0),
-        total_usd: usdOrdenes.reduce((s, o) => s + netAmount(o), 0),
-        grand_total_mxn: ordenes.reduce((s, o) => s + netAmountMxn(o), 0),
-      },
+      stats: statsDeOrdenes(ordenes),
     });
   } catch {
     return NextResponse.json(
@@ -169,19 +162,12 @@ export async function PUT(
       ),
     });
 
-    const mxnOrdenes = ordenes.filter((o) => o.moneda === "MXN");
-    const usdOrdenes = ordenes.filter((o) => o.moneda === "USD");
 
     return NextResponse.json({
       ...c,
       created_at: c.created_at.toISOString(),
       updated_at: c.updated_at.toISOString(),
-      stats: {
-        num_ordenes: ordenes.length,
-        total_mxn: mxnOrdenes.reduce((s, o) => s + netAmount(o), 0),
-        total_usd: usdOrdenes.reduce((s, o) => s + netAmount(o), 0),
-        grand_total_mxn: ordenes.reduce((s, o) => s + netAmountMxn(o), 0),
-      },
+      stats: statsDeOrdenes(ordenes),
     });
   } catch {
     return NextResponse.json(

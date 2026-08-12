@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 import type { ConversionTipoItem, ReporteStats } from "@/types/reportes";
 import { requireAuth } from "@/lib/session";
 import { scopeOrdenWhere } from "@/lib/access-control";
-import { netAmountMxn } from "@/lib/net-amounts";
+import { ticketPromedioMxn } from "@/lib/net-amounts";
 import { buildDateOrFilters, getAllParam, parseNumberList } from "@/lib/filter-utils";
 
 // ── GET /api/reportes/conversion ──────────────────────────────
@@ -78,10 +78,8 @@ export async function GET(req: NextRequest) {
     const ventas = ordenes.filter((o) => o.estatus === "VENTA");
     const cotizadas = ordenes.filter((o) => o.estatus === "COTIZADO");
 
-    const ticket_promedio_mxn =
-      ventas.length > 0
-        ? ventas.reduce((s, o) => s + netAmountMxn(o), 0) / ventas.length
-        : 0;
+    const { promedio: ticket_promedio_mxn, sin_tipo_cambio: ticket_sin_tipo_cambio } =
+      ticketPromedioMxn(ventas);
 
     // Tiempo promedio de cierre: días entre created_at y fecha_venta
     const ventasConFecha = ventas.filter((o) => o.fecha_venta != null);
@@ -98,6 +96,7 @@ export async function GET(req: NextRequest) {
 
     const stats: ReporteStats = {
       ticket_promedio_mxn,
+      ticket_sin_tipo_cambio,
       tiempo_promedio_cierre_dias,
       total_ventas: ventas.length,
       total_cotizadas: cotizadas.length,

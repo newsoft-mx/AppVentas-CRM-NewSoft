@@ -42,7 +42,7 @@ export async function GET(req: NextRequest) {
         total_mxn: 0,
       };
       current.ordenes_venta += 1;
-      current.total_mxn += netAmountMxn(orden);
+      current.total_mxn += netAmountMxn(orden) ?? 0; // USD sin TC: se omite, no se inventa 1:1
       map.set(key, current);
     }
 

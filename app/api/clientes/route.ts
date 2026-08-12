@@ -5,26 +5,8 @@ import { Prisma } from "@prisma/client";
 import { clienteCreateSchema } from "@/lib/validations/clientes";
 import { canManageClients, requireAuth } from "@/lib/session";
 import { scopeClienteWhere } from "@/lib/access-control";
-import { netAmount, netAmountMxn } from "@/lib/net-amounts";
+import { statsDeOrdenes } from "@/lib/clientes-stats";
 import { asegurarPrincipalDesdeCliente } from "@/lib/contactos";
-
-// ── Helper: agrega stats de órdenes por cliente ──────────────
-function buildStats(
-  ordenes: Array<{
-    moneda: string;
-    tipo_cambio: { toNumber(): number } | null;
-    subtotal_con_descuento: { toNumber(): number };
-  }>
-) {
-  const mxnOrdenes = ordenes.filter((o) => o.moneda === "MXN");
-  const usdOrdenes = ordenes.filter((o) => o.moneda === "USD");
-  return {
-    num_ordenes: ordenes.length,
-    total_mxn: mxnOrdenes.reduce((s, o) => s + netAmount(o), 0),
-    total_usd: usdOrdenes.reduce((s, o) => s + netAmount(o), 0),
-    grand_total_mxn: ordenes.reduce((s, o) => s + netAmountMxn(o), 0),
-  };
-}
 
 // GET /api/clientes
 // Devuelve clientes activos con conteo y montos por moneda
@@ -58,7 +40,7 @@ export async function GET(req: NextRequest) {
       ...c,
       created_at: c.created_at.toISOString(),
       updated_at: c.updated_at.toISOString(),
-      stats: buildStats(ordenes),
+      stats: statsDeOrdenes(ordenes),
     }));
 
     return NextResponse.json(result);
@@ -138,7 +120,7 @@ export async function POST(req: NextRequest) {
         ...nuevo,
         created_at: nuevo.created_at.toISOString(),
         updated_at: nuevo.updated_at.toISOString(),
-        stats: { num_ordenes: 0, total_mxn: 0, total_usd: 0, grand_total_mxn: 0 },
+        stats: statsDeOrdenes([]),
       },
       { status: 201 }
     );

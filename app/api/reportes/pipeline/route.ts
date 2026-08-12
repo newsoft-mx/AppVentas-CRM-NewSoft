@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 import type { PipelineData } from "@/types/reportes";
 import { requireAuth } from "@/lib/session";
 import { scopeOrdenWhere } from "@/lib/access-control";
-import { netAmountMxn } from "@/lib/net-amounts";
+import { sumaNetaMxn } from "@/lib/net-amounts";
 import { buildDateOrFilters, getAllParam, parseNumberList } from "@/lib/filter-utils";
 
 // ── GET /api/reportes/pipeline ────────────────────────────────
@@ -38,13 +38,9 @@ export async function GET(req: NextRequest) {
     const cotizaciones_count = ordenes.filter((o) => o.estatus === "COTIZADO").length;
     const ventas_count = ordenes.filter((o) => o.estatus === "VENTA").length;
 
-    const cotizaciones_mxn = ordenes
-      .filter((o) => o.estatus === "COTIZADO")
-      .reduce((s, o) => s + netAmountMxn(o), 0);
+    const cotizaciones_mxn = sumaNetaMxn(ordenes.filter((o) => o.estatus === "COTIZADO")).mxn;
 
-    const ventas_mxn = ordenes
-      .filter((o) => o.estatus === "VENTA")
-      .reduce((s, o) => s + netAmountMxn(o), 0);
+    const ventas_mxn = sumaNetaMxn(ordenes.filter((o) => o.estatus === "VENTA")).mxn;
 
     const result: PipelineData = {
       borradores_count,

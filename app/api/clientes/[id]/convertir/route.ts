@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, canManageClients } from "@/lib/session";
 import { clienteUpdateSchema } from "@/lib/validations/clientes";
-import { netAmount, netAmountMxn } from "@/lib/net-amounts";
+import { statsDeOrdenes } from "@/lib/clientes-stats";
 import { asegurarPrincipalDesdeCliente } from "@/lib/contactos";
 
 export const dynamic = "force-dynamic";
@@ -64,18 +64,11 @@ export async function POST(
     });
 
     const { ordenes, ...c } = cliente;
-    const mxn = ordenes.filter((o) => o.moneda === "MXN");
-    const usd = ordenes.filter((o) => o.moneda === "USD");
     return NextResponse.json({
       ...c,
       created_at: c.created_at.toISOString(),
       updated_at: c.updated_at.toISOString(),
-      stats: {
-        num_ordenes: ordenes.length,
-        total_mxn: mxn.reduce((s, o) => s + netAmount(o), 0),
-        total_usd: usd.reduce((s, o) => s + netAmount(o), 0),
-        grand_total_mxn: ordenes.reduce((s, o) => s + netAmountMxn(o), 0),
-      },
+      stats: statsDeOrdenes(ordenes),
     });
   } catch {
     return NextResponse.json({ error: "Error al convertir el prospecto" }, { status: 500 });

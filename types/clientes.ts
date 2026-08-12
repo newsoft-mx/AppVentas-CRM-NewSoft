@@ -16,8 +16,13 @@ export interface ClienteStats {
   total_mxn: number;
   /** Suma neta sin IVA de órdenes en USD (en dólares) */
   total_usd: number;
-  /** Suma neta sin IVA de TODAS las órdenes (todo convertido a pesos) */
+  /**
+   * Suma neta sin IVA en pesos de las órdenes que se pueden expresar en pesos. Las órdenes en
+   * USD sin tipo de cambio quedan FUERA (ver `ordenes_sin_tipo_cambio`); no se convierten 1:1.
+   */
   grand_total_mxn: number;
+  /** Cuántas órdenes quedaron fuera de `grand_total_mxn`. Si es > 0, hay que decirlo en pantalla. */
+  ordenes_sin_tipo_cambio: number;
 }
 
 /** Cliente serializado con estadísticas de ventas */

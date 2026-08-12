@@ -22,7 +22,9 @@ async function getVentasPorMes(filtros: { ano: number[]; q: number[]; mes: numbe
   const porMes = Array.from({ length: 12 }, (_, i) => ({ mes: i + 1, total: 0 }));
   for (const o of ordenes) {
     const m = new Date(o.fecha_venta!).getUTCMonth(); // 0-indexed
-    porMes[m].total += netAmountMxn(o);
+    // Una orden USD sin tipo de cambio no se puede sumar a pesos: se omite en vez de
+    // inventar una paridad 1:1, que es lo que hacía antes en silencio.
+    porMes[m].total += netAmountMxn(o) ?? 0;
   }
   return porMes;
 }

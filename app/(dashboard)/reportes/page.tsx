@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import ReportesClient from "@/components/reportes/ReportesClient";
-import { netAmountMxn } from "@/lib/net-amounts";
+import { netAmountMxn, sumaNetaMxn, ticketPromedioMxn } from "@/lib/net-amounts";
 import type {
   FiltroReportes,
   ReportesInitialData,
@@ -65,8 +65,10 @@ async function fetchVentasMensuales(filtros: FiltroReportes, session: SessionPay
   const porMesActual = Array.from({ length: 12 }, (_, i) => ({ mes: i + 1, total: 0 }));
   const porMesAnterior = Array.from({ length: 12 }, (_, i) => ({ mes: i + 1, total: 0 }));
 
-  for (const o of actual) porMesActual[new Date(o.fecha_venta!).getUTCMonth()].total += netAmountMxn(o);
-  for (const o of anterior) porMesAnterior[new Date(o.fecha_venta!).getUTCMonth()].total += netAmountMxn(o);
+  // `?? 0`: una orden USD sin tipo de cambio no se puede sumar a pesos. Se omite en vez de
+  // inventar una paridad 1:1, que es lo que hacía antes en silencio.
+  for (const o of actual) porMesActual[new Date(o.fecha_venta!).getUTCMonth()].total += netAmountMxn(o) ?? 0;
+  for (const o of anterior) porMesAnterior[new Date(o.fecha_venta!).getUTCMonth()].total += netAmountMxn(o) ?? 0;
 
   const visibleMonths = selectedMonths(filtros);
   const data: MesVenta[] = visibleMonths.map((month) => ({
@@ -95,8 +97,8 @@ async function fetchPipeline(filtros: FiltroReportes, session: SessionPayload | 
     borradores_count: ordenes.filter((o) => o.estatus === "BORRADOR").length,
     cotizaciones_count: ordenes.filter((o) => o.estatus === "COTIZADO").length,
     ventas_count: ordenes.filter((o) => o.estatus === "VENTA").length,
-    cotizaciones_mxn: ordenes.filter((o) => o.estatus === "COTIZADO").reduce((s, o) => s + netAmountMxn(o), 0),
-    ventas_mxn: ordenes.filter((o) => o.estatus === "VENTA").reduce((s, o) => s + netAmountMxn(o), 0),
+    cotizaciones_mxn: sumaNetaMxn(ordenes.filter((o) => o.estatus === "COTIZADO")).mxn,
+    ventas_mxn: sumaNetaMxn(ordenes.filter((o) => o.estatus === "VENTA")).mxn,
     total_ordenes: ordenes.length,
   };
 }
@@ -123,13 +125,13 @@ async function fetchTopClientes(filtros: FiltroReportes, session: SessionPayload
         nombre: o.cliente.nombre,
         ordenes_totales: 1,
         ordenes_venta: o.estatus === "VENTA" ? 1 : 0,
-        total_mxn: o.estatus === "VENTA" ? netAmountMxn(o) : 0,
+        total_mxn: o.estatus === "VENTA" ? netAmountMxn(o) ?? 0 : 0,
       });
     } else {
       existing.ordenes_totales += 1;
       if (o.estatus === "VENTA") {
         existing.ordenes_venta += 1;
-        existing.total_mxn += netAmountMxn(o);
+        existing.total_mxn += netAmountMxn(o) ?? 0;
       }
     }
   }
@@ -161,7 +163,7 @@ async function fetchVentasPorVendedor(filtros: FiltroReportes, session: SessionP
       total_mxn: 0,
     };
     current.ordenes_venta += 1;
-    current.total_mxn += netAmountMxn(orden);
+    current.total_mxn += netAmountMxn(orden) ?? 0;
     map.set(key, current);
   }
 
@@ -190,7 +192,7 @@ async function fetchVentasPorTipo(filtros: FiltroReportes, session: SessionPaylo
       total_mxn: 0,
     };
     current.ordenes_venta += 1;
-    current.total_mxn += netAmountMxn(orden);
+    current.total_mxn += netAmountMxn(orden) ?? 0;
     map.set(key, current);
   }
 
@@ -243,10 +245,8 @@ async function fetchConversionAndStats(filtros: FiltroReportes, session: Session
   const ventas = ordenes.filter((o) => o.estatus === "VENTA");
   const cotizadas = ordenes.filter((o) => o.estatus === "COTIZADO");
 
-  const ticket_promedio_mxn =
-    ventas.length > 0
-      ? ventas.reduce((s, o) => s + netAmountMxn(o), 0) / ventas.length
-      : 0;
+  const { promedio: ticket_promedio_mxn, sin_tipo_cambio: ticket_sin_tipo_cambio } =
+    ticketPromedioMxn(ventas);
 
   const ventasConFecha = ventas.filter((o) => o.fecha_venta != null);
   let tiempo_promedio_cierre_dias: number | null = null;
@@ -264,6 +264,7 @@ async function fetchConversionAndStats(filtros: FiltroReportes, session: Session
     conversion,
     stats: {
       ticket_promedio_mxn,
+      ticket_sin_tipo_cambio,
       tiempo_promedio_cierre_dias,
       total_ventas: ventas.length,
       total_cotizadas: cotizadas.length,
