@@ -39,8 +39,14 @@ export interface ContratoFiltros<T> {
   /** Filtros → query string de la URL. */
   serialize: (f: T) => string;
   /**
-   * Subconjunto persistible. **Ausente = esta pantalla no recuerda nada** (es el caso de
-   * Reportes, que solo tiene filtros de período absoluto).
+   * Subconjunto persistible. **Ausente = esta pantalla no recuerda nada** — hoy no hay ninguna
+   * en ese caso, y conviene que siga así: que un listado se comporte distinto de los demás
+   * confunde más de lo que resuelve.
+   *
+   * La regla: se recuerda **todo lo que se puede elegir**. Lo único que queda afuera es el
+   * TEXTO LIBRE (la búsqueda del Pipeline), y no por criterio de producto sino porque el
+   * charset de `esValorCookieSeguro` no lo admite: un espacio o un acento harían que la cookie
+   * se borre en silencio y se pierda toda la memoria de esa pantalla.
    */
   serializeMemoria?: (f: T) => string;
 }

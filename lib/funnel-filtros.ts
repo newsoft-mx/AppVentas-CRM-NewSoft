@@ -42,13 +42,18 @@ export function parseFunnelFiltros(sp: ParamMap): FunnelFiltros {
 export const CLAVES_FUNNEL = ["preset", "desde", "hasta", "vendedor"] as const;
 
 /**
- * Se recuerda el PRESET (relativo: se re-evalúa cada vez) y el vendedor. Nunca `desde`/`hasta`,
- * que son fechas absolutas: volver dentro de tres meses a un rango viejo sería una trampa.
- * Por lo mismo, un preset "custom" tampoco se guarda: sin sus fechas no significa nada.
+ * Se recuerda todo lo que se eligió, incluido el rango personalizado.
+ *
+ * Antes `desde`/`hasta` quedaban afuera —y con ellos el preset "custom", que sin sus fechas no
+ * significa nada— con el argumento de que volver a un rango viejo era una trampa. Pero la
+ * pantalla **muestra el rango debajo del título**, así que de trampa no tiene nada: dice
+ * exactamente qué período está viendo. Y descartarlo obligaba a rearmar el rango a mano cada
+ * vez, que era la molestia real.
+ *
+ * Las fechas son `YYYY-MM-DD`, o sea que pasan el charset de la cookie sin escaparse.
  */
 export function serializeFunnelMemoria(f: FunnelFiltros): string {
-  const preset = f.preset === "custom" ? "mes" : f.preset;
-  return serializeFunnelFiltros({ preset, desde: "", hasta: "", vendedor: f.vendedor });
+  return serializeFunnelFiltros(f);
 }
 
 export const FUNNEL_FILTROS: ContratoFiltros<FunnelFiltros> = {

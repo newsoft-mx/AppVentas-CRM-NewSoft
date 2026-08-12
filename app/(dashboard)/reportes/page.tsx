@@ -263,7 +263,7 @@ export default async function ReportesPage({
   searchParams: Promise<ParamMap>;
 }) {
   const session = await getServerSession();
-  // Esta pantalla NO recuerda filtros: los suyos son período absoluto (ver lib/reportes-filtros).
+  // Hidrata con la precedencia URL > cookie > default, igual que el resto de los listados.
   const filtros = await filtrosIniciales(REPORTES_FILTROS, await searchParams);
 
   const [ventasMensuales, pipeline, topClientes, ventasPorVendedor, ventasPorTipo, { conversion, stats }] = await Promise.all([
