@@ -5,6 +5,7 @@ import { Pencil, Plus, ChevronUp, ChevronDown } from "lucide-react";
 import Modal from "@/components/ui/Modal";
 import Toast, { ToastData } from "@/components/ui/Toast";
 import type { PipelineStageConfig } from "@/types/configuracion";
+import { TH_CONFIG } from "./estilos-tabla";
 
 interface FormState {
   nombre: string;
@@ -136,12 +137,15 @@ export default function TabPipelineStages({ initialStages }: { initialStages: Pi
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-surface-border bg-gray-50">
-              <th className="w-28 px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Orden</th>
-              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Etapa</th>
-              <th className="w-20 px-4 py-3 text-center text-xs font-semibold uppercase tracking-wide text-gray-500">Prob.</th>
-              <th className="w-32 px-4 py-3 text-center text-xs font-semibold uppercase tracking-wide text-gray-500">Umbral avance</th>
-              <th className="w-24 px-4 py-3 text-center text-xs font-semibold uppercase tracking-wide text-gray-500">Estado</th>
-              <th className="w-28 px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-gray-500">Acciones</th>
+              {/* Esta tabla NO se ordena por encabezado a propósito: el orden de las etapas ES
+                  un dato del usuario, el que definen los botones subir/bajar de la columna
+                  "Orden". Dejar reordenarla borraría esa decisión de la vista. */}
+              <th className={`${TH_CONFIG} text-left w-28`}>Orden</th>
+              <th className={`${TH_CONFIG} text-left`}>Etapa</th>
+              <th className={`${TH_CONFIG} text-center w-20`}>Prob.</th>
+              <th className={`${TH_CONFIG} text-center w-32`}>Umbral avance</th>
+              <th className={`${TH_CONFIG} text-center w-24`}>Estado</th>
+              <th className={`${TH_CONFIG} text-right w-28`}>Acciones</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-surface-border">

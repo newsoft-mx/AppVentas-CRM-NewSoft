@@ -1,10 +1,16 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { Pencil, Plus, UserRound } from "lucide-react";
 import Modal from "@/components/ui/Modal";
 import Toast, { ToastData } from "@/components/ui/Toast";
+import ThOrdenable from "@/components/ui/ThOrdenable";
+import {
+  ordenarPorTramos, propsOrdenables, siguienteOrden, type OrdenTabla,
+} from "@/lib/tabla-orden";
+import { EXTRACTORES_VENDEDOR, type CampoVendedor } from "@/lib/configuracion-orden";
 import type { Vendedor } from "@/types/configuracion";
+import { TH_CONFIG } from "./estilos-tabla";
 
 interface TabVendedoresProps {
   initialVendedores: Vendedor[];
@@ -32,6 +38,10 @@ export default function TabVendedores({ initialVendedores }: TabVendedoresProps)
   const [formError, setFormError] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [toast, setToast] = useState<ToastData | null>(null);
+  // Orden por encabezado (cimiento compartido: lib/tabla-orden). `campo: null` = el orden que
+  // ya trae la lista. "Estado" no se ofrece: la partición activos/inactivos ya ES ese orden.
+  const [orden, setOrden] = useState<OrdenTabla<CampoVendedor>>({ campo: null, sentido: "asc" });
+  const th = propsOrdenables(orden, (campo) => setOrden((o) => siguienteOrden(o, campo)));
 
   const closeToast = useCallback(() => setToast(null), []);
 
@@ -133,9 +143,14 @@ export default function TabVendedores({ initialVendedores }: TabVendedoresProps)
     }
   };
 
-  const activas = vendedores.filter((v) => v.activo);
-  const inactivas = vendedores.filter((v) => !v.activo);
-  const ordered = [...activas, ...inactivas];
+  // Los activos van primero y los inactivos después: el orden por columna se aplica DENTRO de
+  // cada tramo, nunca entre ellos, así los inactivos no se intercalan. Una sola lista, que
+  // consumen la tabla y las tarjetas mobile.
+  const ordered = useMemo(() => {
+    const activas = vendedores.filter((v) => v.activo);
+    const inactivas = vendedores.filter((v) => !v.activo);
+    return ordenarPorTramos([activas, inactivas], orden, EXTRACTORES_VENDEDOR).flat();
+  }, [vendedores, orden]);
 
   return (
     <>
@@ -189,10 +204,10 @@ export default function TabVendedores({ initialVendedores }: TabVendedoresProps)
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-surface-border bg-gray-50">
-              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Nombre</th>
-              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Contacto</th>
-              <th className="w-24 px-4 py-3 text-center text-xs font-semibold uppercase tracking-wide text-gray-500">Estado</th>
-              <th className="w-28 px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-gray-500">Acciones</th>
+              <ThOrdenable {...th("nombre")} className={TH_CONFIG}>Nombre</ThOrdenable>
+              <ThOrdenable {...th("contacto")} className={TH_CONFIG}>Contacto</ThOrdenable>
+              <th className={`${TH_CONFIG} text-center w-24`}>Estado</th>
+              <th className={`${TH_CONFIG} text-right w-28`}>Acciones</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-surface-border">

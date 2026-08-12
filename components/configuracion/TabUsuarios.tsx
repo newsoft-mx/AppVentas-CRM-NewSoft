@@ -1,10 +1,16 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { Pencil, Plus, UserRound } from "lucide-react";
 import Modal from "@/components/ui/Modal";
 import Toast, { ToastData } from "@/components/ui/Toast";
+import ThOrdenable from "@/components/ui/ThOrdenable";
+import {
+  ordenarPorTramos, propsOrdenables, siguienteOrden, type OrdenTabla,
+} from "@/lib/tabla-orden";
+import { EXTRACTORES_USUARIO, type CampoUsuario } from "@/lib/configuracion-orden";
 import type { Usuario } from "@/types/configuracion";
+import { TH_CONFIG } from "./estilos-tabla";
 
 interface TabUsuariosProps {
   initialUsuarios: Usuario[];
@@ -48,6 +54,10 @@ export default function TabUsuarios({ initialUsuarios, vendedores }: TabUsuarios
   const [formError, setFormError] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [toast, setToast] = useState<ToastData | null>(null);
+  // Orden por encabezado (cimiento compartido: lib/tabla-orden). `campo: null` = el orden que
+  // ya trae la lista. Estado local: es una ayuda de lectura, no una vista que se comparta.
+  const [orden, setOrden] = useState<OrdenTabla<CampoUsuario>>({ campo: null, sentido: "asc" });
+  const th = propsOrdenables(orden, (campo) => setOrden((o) => siguienteOrden(o, campo)));
 
   const closeToast = useCallback(() => setToast(null), []);
 
@@ -169,7 +179,15 @@ export default function TabUsuarios({ initialUsuarios, vendedores }: TabUsuarios
     }
   };
 
-  const ordered = [...usuarios.filter((u) => u.activo), ...usuarios.filter((u) => !u.activo)];
+  // Activos primero, inactivos después: esa partición es un límite estructural aunque no haya
+  // fila separadora (los inactivos se pintan apagados al final). Por eso el orden se aplica
+  // DENTRO de cada tramo — sobre la lista plana, un inactivo se treparía arriba de los activos.
+  // La tabla y las tarjetas mobile consumen esta misma lista.
+  const ordered = useMemo(() => {
+    const activos = usuarios.filter((u) => u.activo);
+    const inactivos = usuarios.filter((u) => !u.activo);
+    return ordenarPorTramos([activos, inactivos], orden, EXTRACTORES_USUARIO).flat();
+  }, [usuarios, orden]);
 
   return (
     <>
@@ -189,9 +207,9 @@ export default function TabUsuarios({ initialUsuarios, vendedores }: TabUsuarios
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-surface-border bg-gray-50">
-              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Usuario</th>
-              <th className="w-24 px-4 py-3 text-center text-xs font-semibold uppercase tracking-wide text-gray-500">Estado</th>
-              <th className="w-32 px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-gray-500">Acciones</th>
+              <ThOrdenable {...th("usuario")} className={TH_CONFIG}>Usuario</ThOrdenable>
+              <th className={`${TH_CONFIG} text-center w-24`}>Estado</th>
+              <th className={`${TH_CONFIG} text-right w-32`}>Acciones</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-surface-border">

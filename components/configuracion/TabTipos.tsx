@@ -1,10 +1,16 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { Plus, Pencil } from "lucide-react";
 import Modal from "@/components/ui/Modal";
 import Toast, { ToastData } from "@/components/ui/Toast";
+import ThOrdenable from "@/components/ui/ThOrdenable";
+import {
+  ordenarPorTramos, propsOrdenables, siguienteOrden, type OrdenTabla,
+} from "@/lib/tabla-orden";
+import { EXTRACTORES_TIPO, type CampoTipo } from "@/lib/configuracion-orden";
 import type { TipoCotizacion } from "@/types/configuracion";
+import { TH_CONFIG } from "./estilos-tabla";
 
 interface TabTiposProps {
   initialTipos: TipoCotizacion[];
@@ -36,6 +42,10 @@ export default function TabTipos({ initialTipos }: TabTiposProps) {
   const [formError, setFormError] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [toast, setToast] = useState<ToastData | null>(null);
+  // Orden por encabezado (cimiento compartido: lib/tabla-orden). `campo: null` = el orden que
+  // trae el server. "Estado" no es ordenable: la partición activos/inactivos ya ES ese orden.
+  const [orden, setOrden] = useState<OrdenTabla<CampoTipo>>({ campo: null, sentido: "asc" });
+  const th = propsOrdenables(orden, (campo) => setOrden((o) => siguienteOrden(o, campo)));
 
   const closeToast = useCallback(() => setToast(null), []);
 
@@ -167,9 +177,18 @@ export default function TabTipos({ initialTipos }: TabTiposProps) {
     }
   };
 
-  // Separar activos e inactivos
-  const activos = tipos.filter((t) => t.activo);
-  const inactivos = tipos.filter((t) => !t.activo);
+  // Separar activos e inactivos. El orden se aplica DENTRO de cada tramo, nunca entre ellos:
+  // si cruzara la fila separadora, los inactivos se intercalarían con los activos.
+  // Las tarjetas de mobile consumen estos mismos tramos, así que muestran el mismo orden.
+  const [activos, inactivos] = useMemo(
+    () =>
+      ordenarPorTramos(
+        [tipos.filter((t) => t.activo), tipos.filter((t) => !t.activo)],
+        orden,
+        EXTRACTORES_TIPO
+      ),
+    [tipos, orden]
+  );
 
   return (
     <>
@@ -204,18 +223,14 @@ export default function TabTipos({ initialTipos }: TabTiposProps) {
         <table className="w-full text-sm">
           <thead>
             <tr className="bg-gray-50 border-b border-surface-border">
-              <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">
+              <ThOrdenable {...th("nombre")} className={TH_CONFIG}>
                 Nombre
-              </th>
-              <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">
+              </ThOrdenable>
+              <ThOrdenable {...th("descripcion")} className={TH_CONFIG}>
                 Descripción
-              </th>
-              <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide w-24">
-                Estado
-              </th>
-              <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide w-28">
-                Acciones
-              </th>
+              </ThOrdenable>
+              <th className={`${TH_CONFIG} text-center w-24`}>Estado</th>
+              <th className={`${TH_CONFIG} text-right w-28`}>Acciones</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-surface-border">
