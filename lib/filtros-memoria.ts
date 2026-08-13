@@ -10,11 +10,16 @@
  * dejaste, recortada a lo que es seguro recordar". No hay un segundo formato que mantener.
  *
  * Qué se recuerda, y qué no:
- *  · SÍ — preferencia de vista: estado, tipo, vendedor, orden, modo de vista, preset relativo.
- *  · NO — texto de búsqueda: es transitorio; recordarlo lo convierte en un filtro invisible.
- *  · NO — período ABSOLUTO (año, trimestre, mes, desde/hasta): guardar "2026" es una trampa,
- *    porque en enero volvés a una pantalla vacía sin ninguna causa visible. Los presets
- *    RELATIVOS ("mes en curso") sí se guardan: se re-evalúan solos.
+ *  · SÍ — **todo lo que se puede elegir**: estado, tipo, vendedor, cliente, modo de vista,
+ *    preset, y también el PERÍODO (año, trimestre, mes, desde/hasta).
+ *  · NO — el TEXTO LIBRE de búsqueda, y no por criterio de producto: el charset de
+ *    `esValorCookieSeguro` no admite espacios ni acentos, así que guardarlo haría que la
+ *    cookie se borre en silencio y la pantalla pierda TODA su memoria.
+ *
+ * El período estuvo excluido un tiempo, con el argumento de que guardar "2026" te devolvía a
+ * una pantalla vacía. Era falso en las dos mitades: abre con los datos de 2026, no vacía, y el
+ * chip del año explica por qué. A cambio se rompía la expectativa básica —"dejé un filtro
+ * puesto y no está"— que es como se reportó el bug, dos veces.
  *
  * Módulo puro (sin next/headers ni DOM): lo importan tanto componentes cliente como el
  * helper de servidor, y así es testeable en jest, que corre en `node` y solo toma `.ts`.
