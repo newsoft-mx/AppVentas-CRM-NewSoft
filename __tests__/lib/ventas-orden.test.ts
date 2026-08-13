@@ -89,6 +89,22 @@ describe("pinning: las 7 columnas de Órdenes ordenan como hoy", () => {
       expect(typeof EXTRACTORES_ORDEN[campo]).toBe("function");
     }
   });
+
+  it("cliente — ordena por el NOMBRE, que es lo que la columna muestra", () => {
+    // La columna solo se pinta desagrupado: agrupado, el cliente es el encabezado del grupo.
+    // Sin ella, desagrupar dejaba una lista de órdenes sin decir de quién era ninguna.
+    const conClientes = [
+      orden({ folio: "A", cliente: { id: "c3", nombre: "Zeta SA" } }),
+      orden({ folio: "B", cliente: { id: "c1", nombre: "Ámbar SRL" } }),
+      orden({ folio: "C", cliente: { id: "c2", nombre: "Beta SA" } }),
+    ];
+    const porNombre = (sentido: "asc" | "desc") =>
+      ordenarFilas(conClientes, { campo: "cliente", sentido }, EXTRACTORES_ORDEN)
+        .map((o) => o.cliente.nombre);
+
+    expect(porNombre("asc")).toEqual(["Ámbar SRL", "Beta SA", "Zeta SA"]);
+    expect(porNombre("desc")).toEqual(["Zeta SA", "Beta SA", "Ámbar SRL"]);
+  });
 });
 
 /**

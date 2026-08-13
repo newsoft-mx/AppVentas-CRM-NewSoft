@@ -302,6 +302,12 @@ export default function TablaOrdenes({
                           <span className="rounded bg-navy/5 px-2 py-0.5 font-mono text-xs font-semibold text-navy">
                             {orden.folio}
                           </span>
+                          {/* Igual que en la tabla: desagrupado no hay encabezado de cliente. */}
+                          {enLista && (
+                            <p className="mt-1.5 truncate text-xs font-medium text-navy">
+                              {orden.cliente.nombre}
+                            </p>
+                          )}
                           <DescripcionEditable
                             id={orden.id}
                             valor={orden.descripcion}
@@ -376,6 +382,8 @@ export default function TablaOrdenes({
                   <thead>
                     <tr className="border-b border-surface-border text-xs text-gray-500">
                       <ThOrdenable {...th("folio")}>Folio</ThOrdenable>
+                      {/* Solo desagrupado: agrupado, el cliente es el encabezado del grupo. */}
+                      {enLista && <ThOrdenable {...th("cliente")}>Cliente</ThOrdenable>}
                       <ThOrdenable {...th("descripcion")}>Descripción</ThOrdenable>
                       <ThOrdenable {...th("tipo")}>Tipo</ThOrdenable>
                       <ThOrdenable {...th("condicion")}>Condición</ThOrdenable>
@@ -395,6 +403,11 @@ export default function TablaOrdenes({
                               {orden.folio}
                             </span>
                           </td>
+                          {enLista && (
+                            <td className="max-w-[180px] truncate px-3 py-3 font-medium text-navy">
+                              {orden.cliente.nombre}
+                            </td>
+                          )}
                           <td className="max-w-[200px] px-3 py-3 text-gray-700">
                             <DescripcionEditable
                               id={orden.id}
