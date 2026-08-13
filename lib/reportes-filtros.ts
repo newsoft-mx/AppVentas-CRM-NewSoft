@@ -3,9 +3,11 @@
  * component y el cliente. Mismo motivo de existir que lib/ordenes-filtros: acá el códec
  * también estaba partido entre el componente y la página.
  *
- * **Esta pantalla NO recuerda nada, y es a propósito**: sus tres filtros (`ano`/`q`/`mes`)
- * son período ABSOLUTO. Guardar "2026" haría que en enero se abra vacía sin causa visible.
- * Por eso el contrato no declara `serializeMemoria` — la ausencia es la decisión, no un olvido.
+ * Recuerda sus tres filtros, igual que el resto de las pantallas. Sus filtros son período
+ * absoluto, y durante un tiempo eso fue el motivo para NO recordarlos: se suponía que volver
+ * con "2026" puesto abría la pantalla vacía. No es así — abre con los datos de 2026, y el chip
+ * del año queda a la vista explicando por qué. Que una pantalla se comporte distinto de las
+ * otras cuesta más que el riesgo que evitaba.
  */
 import {
   appendArrayParams,
@@ -43,5 +45,6 @@ export const REPORTES_FILTROS: ContratoFiltros<FiltroReportes> = {
   claves: CLAVES_REPORTES,
   parse: parseReporteFiltros,
   serialize: serializeReporteFiltros,
-  // Sin serializeMemoria: ver el comentario del encabezado.
+  // Todos sus filtros son seleccionables (año, trimestre, mes): se recuerdan todos.
+  serializeMemoria: serializeReporteFiltros,
 };
