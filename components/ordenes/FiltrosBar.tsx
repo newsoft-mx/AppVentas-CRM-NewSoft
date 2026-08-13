@@ -48,8 +48,11 @@ export default function FiltrosBar({ filtros, clientes, tipos, vendedores, onCha
     filtros.tipo_cotizacion_id.length > 0 ||
     filtros.vendedor_id.length > 0;
 
+  // `vista` NO se limpia: es cómo se mira la lista, no qué se filtra. Que "Limpiar todo"
+  // reagrupara la tabla de golpe sería una sorpresa, no una limpieza.
   const clearAll = () =>
     onChange({
+      ...filtros,
       ano: [],
       q: [],
       mes: [],

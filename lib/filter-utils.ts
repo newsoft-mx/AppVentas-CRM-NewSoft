@@ -1,4 +1,5 @@
 import type { EstatusOrden, FiltroOrdenes, OrdenResumen } from "@/types/ordenes";
+import { MODO_VISTA_DEFAULT } from "@/lib/ventas-vista";
 import type { FiltroReportes } from "@/types/reportes";
 
 export const CURRENT_YEAR = new Date().getFullYear();
@@ -56,6 +57,7 @@ export function emptyOrdenFilters(): FiltroOrdenes {
     cliente_id: [],
     tipo_cotizacion_id: [],
     vendedor_id: [],
+    vista: MODO_VISTA_DEFAULT,
   };
 }
 

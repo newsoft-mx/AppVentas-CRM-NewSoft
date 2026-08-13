@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 import type { TopClienteItem } from "@/types/reportes";
 import { requireAuth } from "@/lib/session";
 import { scopeOrdenWhere } from "@/lib/access-control";
-import { netAmountMxn } from "@/lib/net-amounts";
+import { rankingClientes } from "@/lib/ranking-clientes";
 import { buildDateOrFilters, getAllParam, parseNumberList } from "@/lib/filter-utils";
 
 // ── GET /api/reportes/top-clientes ────────────────────────────
@@ -41,33 +41,15 @@ export async function GET(req: NextRequest) {
       },
     });
 
-    // Agrupar por cliente
-    const map = new Map<string, TopClienteItem>();
-    for (const o of ordenes) {
-      const key = o.cliente.id;
-      const existing = map.get(key);
-      if (!existing) {
-        map.set(key, {
-          cliente_id: key,
-          nombre: o.cliente.nombre,
-          ordenes_totales: 1,
-          ordenes_venta: o.estatus === "VENTA" ? 1 : 0,
-          total_mxn: o.estatus === "VENTA" ? netAmountMxn(o) ?? 0 : 0,
-        });
-      } else {
-        existing.ordenes_totales += 1;
-        if (o.estatus === "VENTA") {
-          existing.ordenes_venta += 1;
-          existing.total_mxn += netAmountMxn(o) ?? 0; // USD sin TC: se omite, no se inventa 1:1
-        }
-      }
-    }
-
-    // Ordenar por total_mxn DESC y tomar los top N
-    const resultado: TopClienteItem[] = Array.from(map.values())
-      .filter((c) => c.ordenes_venta > 0)
-      .sort((a, b) => b.total_mxn - a.total_mxn)
-      .slice(0, limit);
+    // El agrupado vive en lib/ranking-clientes: esta misma respuesta la produce también
+    // /reportes en el server, y antes eran dos copias que podían dar números distintos.
+    const resultado: TopClienteItem[] = rankingClientes(ordenes, limit).map((g) => ({
+      cliente_id: g.cliente_id,
+      nombre: g.nombre,
+      ordenes_totales: g.ordenes_totales,
+      ordenes_venta: g.ordenes_venta,
+      total_mxn: g.facturado_mxn,
+    }));
 
     return NextResponse.json(resultado);
   } catch {

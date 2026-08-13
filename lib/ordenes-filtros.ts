@@ -15,10 +15,11 @@ import {
   parseStringList,
 } from "@/lib/filter-utils";
 import type { ContratoFiltros, ParamMap } from "@/lib/filtros-memoria";
+import { parseModoVista, serializeModoVista } from "@/lib/ventas-vista";
 import type { FiltroOrdenes } from "@/types/ordenes";
 
 export const CLAVES_ORDENES = [
-  "ano", "q", "mes", "estatus", "cliente_id", "tipo_cotizacion_id", "vendedor_id",
+  "ano", "q", "mes", "estatus", "cliente_id", "tipo_cotizacion_id", "vendedor_id", "vista",
 ] as const;
 
 export function serializeOrdenFiltros(f: FiltroOrdenes): string {
@@ -30,6 +31,9 @@ export function serializeOrdenFiltros(f: FiltroOrdenes): string {
   appendArrayParams(p, "cliente_id", f.cliente_id);
   appendArrayParams(p, "tipo_cotizacion_id", f.tipo_cotizacion_id);
   appendArrayParams(p, "vendedor_id", f.vendedor_id);
+  // El modo agrupado (default) no se escribe: la URL queda limpia salvo que se lo cambie.
+  const vista = serializeModoVista(f.vista);
+  if (vista) p.set("vista", vista);
   return p.toString();
 }
 
@@ -43,6 +47,8 @@ export function serializeOrdenFiltros(f: FiltroOrdenes): string {
  * los años. Se recuerda el filtro que pidió el cliente, no el recorte temporal.
  */
 export function serializeOrdenMemoria(f: FiltroOrdenes): string {
+  // `vista` SÍ se recuerda: es una preferencia de lectura, no un recorte temporal. Quien
+  // desagrupó espera volver a encontrar la lista desagrupada.
   return serializeOrdenFiltros({ ...f, ano: [], q: [], mes: [] });
 }
 
@@ -61,6 +67,7 @@ export function parseOrdenFiltros(sp: ParamMap): FiltroOrdenes {
     cliente_id: parseStringList(lista(sp, "cliente_id").flat()),
     tipo_cotizacion_id: parseStringList(lista(sp, "tipo_cotizacion_id").flat()),
     vendedor_id: parseStringList(lista(sp, "vendedor_id").flat()),
+    vista: parseModoVista(typeof sp.vista === "string" ? sp.vista : undefined),
   };
 }
 

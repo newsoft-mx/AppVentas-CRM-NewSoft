@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import ReportesClient from "@/components/reportes/ReportesClient";
 import { netAmountMxn, sumaNetaMxn, ticketPromedioMxn } from "@/lib/net-amounts";
+import { rankingClientes } from "@/lib/ranking-clientes";
 import type {
   FiltroReportes,
   ReportesInitialData,
@@ -115,31 +116,15 @@ async function fetchTopClientes(filtros: FiltroReportes, session: SessionPayload
     },
   });
 
-  const map = new Map<string, TopClienteItem>();
-  for (const o of ordenes) {
-    const key = o.cliente.id;
-    const existing = map.get(key);
-    if (!existing) {
-      map.set(key, {
-        cliente_id: key,
-        nombre: o.cliente.nombre,
-        ordenes_totales: 1,
-        ordenes_venta: o.estatus === "VENTA" ? 1 : 0,
-        total_mxn: o.estatus === "VENTA" ? netAmountMxn(o) ?? 0 : 0,
-      });
-    } else {
-      existing.ordenes_totales += 1;
-      if (o.estatus === "VENTA") {
-        existing.ordenes_venta += 1;
-        existing.total_mxn += netAmountMxn(o) ?? 0;
-      }
-    }
-  }
-
-  return Array.from(map.values())
-    .filter((c) => c.ordenes_venta > 0)
-    .sort((a, b) => b.total_mxn - a.total_mxn)
-    .slice(0, 10);
+  // Mismo helper que GET /api/reportes/top-clientes: este payload es el render inicial de esa
+  // misma tabla, así que tienen que dar el mismo número por construcción, no por disciplina.
+  return rankingClientes(ordenes).map((g) => ({
+    cliente_id: g.cliente_id,
+    nombre: g.nombre,
+    ordenes_totales: g.ordenes_totales,
+    ordenes_venta: g.ordenes_venta,
+    total_mxn: g.facturado_mxn,
+  }));
 }
 
 async function fetchVentasPorVendedor(filtros: FiltroReportes, session: SessionPayload | null): Promise<VentasVendedorItem[]> {
