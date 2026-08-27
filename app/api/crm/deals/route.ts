@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { canWrite, requireAuth } from "@/lib/session";
 import { getScoringContext, dealScoreView } from "@/lib/deal-score";
-import { crearDealTx, HttpError } from "@/lib/deals";
+import { crearDealTx, fechaIngresoAInstante, HttpError } from "@/lib/deals";
 import { logger } from "@/lib/logger";
 import { TAMANOS_EMPRESA, type DealResumen, type TamanoEmpresa } from "@/types/crm";
 import type { RolContacto } from "@prisma/client";
@@ -84,6 +84,20 @@ export async function POST(req: NextRequest) {
     const fechaCierre = typeof body.fecha_cierre_estimada === "string" && body.fecha_cierre_estimada
       ? new Date(body.fecha_cierre_estimada) : null;
 
+    // Fecha de registro: quien carga a mano un lead que llegó antes la manda desde el alta.
+    // Si no viene, manda el default de la BD (now()). Si viene y no parsea, es un error del
+    // caller y se dice: aceptarla en silencio como "hoy" es exactamente el bug que se arregla.
+    let fechaIngreso: Date | null = null;
+    if (body.fecha_ingreso !== undefined && body.fecha_ingreso !== null && body.fecha_ingreso !== "") {
+      fechaIngreso = fechaIngresoAInstante(body.fecha_ingreso);
+      if (!fechaIngreso) {
+        return NextResponse.json(
+          { error: "Fecha de registro inválida", campo: "fecha_ingreso" },
+          { status: 422 }
+        );
+      }
+    }
+
     // Alta atómica vía el servicio compartido (SSOT — lo reusa el intake público web).
     const deal = await prisma.$transaction((tx) =>
       crearDealTx(tx, {
@@ -107,6 +121,7 @@ export async function POST(req: NextRequest) {
         canal_id: typeof body.canal_id === "string" && body.canal_id ? body.canal_id : null,
         origen_id: typeof body.origen_id === "string" && body.origen_id ? body.origen_id : null,
         fecha_cierre_estimada: fechaCierre,
+        fecha_ingreso: fechaIngreso,
       })
     );
 

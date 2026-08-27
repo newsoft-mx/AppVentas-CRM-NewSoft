@@ -8,6 +8,8 @@ import { getScoringContext, dealScoreView } from "@/lib/deal-score";
 import PipelineKanban from "@/components/pipeline/PipelineKanban";
 import { PIPELINE_FILTROS } from "@/lib/pipeline-filtros";
 import { filtrosIniciales } from "@/lib/filtros-servidor";
+import { hoyEnTZ, limiteDiaNegocio } from "@/lib/tz";
+import { rangoDePreset, type PresetRango } from "@/lib/rangos-reporte";
 import type { Metadata } from "next";
 import type { DealResumen, StageResumen } from "@/types/crm";
 
@@ -80,13 +82,20 @@ export default async function PipelinePage({
   const canales = catalogoDeal.filter((c) => c.tipo === "CANAL").map(({ id, nombre }) => ({ id, nombre }));
   const origenes = catalogoDeal.filter((c) => c.tipo === "ORIGEN").map(({ id, nombre }) => ({ id, nombre }));
 
-  // KPIs de altas por período (REQ-04): nuevos deals hoy / esta semana / este mes
+  // KPIs de altas por período (REQ-04): leads ingresados hoy / últimos 7 días / mes en curso.
+  //
+  // Los tres bordes salen del MISMO motor que los reportes (lib/rangos-reporte + lib/tz), no de
+  // aritmética con el reloj del proceso. `new Date(y, m, d)` daba medianoche en la TZ del server
+  // —UTC en Vercel—, o sea las 18:00 del día anterior en México: desde esa hora "hoy" ya contaba
+  // el día siguiente. Y "semana" acá era lunes-a-hoy mientras el reporte mostraba últimos 7 días,
+  // así que las dos pantallas respondían distinto a la misma pregunta.
   const ahora = new Date();
-  const inicioDia = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate());
-  const diaSemana = (inicioDia.getDay() + 6) % 7; // lunes = 0
-  const inicioSemana = new Date(inicioDia);
-  inicioSemana.setDate(inicioDia.getDate() - diaSemana);
-  const inicioMes = new Date(ahora.getFullYear(), ahora.getMonth(), 1);
+  const hoy = hoyEnTZ(ahora);
+  const desdeDe = (preset: PresetRango) =>
+    limiteDiaNegocio(rangoDePreset(preset, hoy)!.actual.desde, "inicio") ?? ahora;
+  const inicioDia = desdeDe("hoy");
+  const inicioSemana = desdeDe("semana");
+  const inicioMes = desdeDe("mes");
 
   // Última actividad por deal — acotada a los deals cargados; + config + conteos por período
   const dealIds = deals.map((d) => d.id);

@@ -8,15 +8,20 @@ import { logger } from "@/lib/logger";
 export const dynamic = "force-dynamic";
 
 // ── GET /api/reportes/funnel?periodo=&vendedor= ─────────────────
-// Embudo de conversión: de los deals creados en el periodo, cuántos
+// Embudo de conversión: de los leads que INGRESARON en el periodo, cuántos
 // alcanzaron cada etapa (usa el historial DealStageEvent) + tasa etapa→etapa.
+//
+// El corte es por fecha_ingreso (cuándo llegó el lead), no por created_at (cuándo se tecleó
+// el registro). Con leads cargados a mano en lote son días distintos, y filtrando por el
+// tecleo el reporte contaba el lead del viernes dentro de la semana siguiente: los números
+// del embudo no cerraban contra el mismo período visto en el pipeline.
 export async function GET(req: NextRequest) {
   const session = await requireAuth(req);
   if (!session) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
 
   const sp = req.nextUrl.searchParams;
   const where = dealWhereReporte(session, sp.get("vendedor"), {
-    created_at: filtroRango(rangoFechas(sp, new Date())),
+    fecha_ingreso: filtroRango(rangoFechas(sp, new Date())),
   });
 
   try {

@@ -13,7 +13,7 @@ const TIPOS = ["LLAMADA", "EMAIL", "WHATSAPP", "NOTA"] as const;
 
 type DealRow = {
   resultado: string;
-  created_at: Date;
+  fecha_ingreso: Date;
   fecha_cierre_real: Date | null;
   actividades: { tipo: string }[];
 };
@@ -28,8 +28,11 @@ function resumen(subset: DealRow[]) {
     for (const a of d.actividades) {
       if ((TIPOS as readonly string[]).includes(a.tipo)) porTipo[a.tipo]++;
     }
+    // Días de ciclo: desde que el lead INGRESÓ hasta que se cerró. Medirlo desde created_at
+    // daba ciclos de cero (o negativos, que el Math.max escondía) en los leads cargados a
+    // mano después de haberlos trabajado.
     if (d.fecha_cierre_real) {
-      diasTotal += Math.max(0, Math.round((d.fecha_cierre_real.getTime() - d.created_at.getTime()) / 86_400_000));
+      diasTotal += Math.max(0, Math.round((d.fecha_cierre_real.getTime() - d.fecha_ingreso.getTime()) / 86_400_000));
     }
   }
   const por_tipo: Record<string, number> = Object.fromEntries(
@@ -56,7 +59,7 @@ export async function GET(req: NextRequest) {
       where: where as Prisma.DealWhereInput,
       select: {
         resultado: true,
-        created_at: true,
+        fecha_ingreso: true,
         fecha_cierre_real: true,
         actividades: { select: { tipo: true } },
       },

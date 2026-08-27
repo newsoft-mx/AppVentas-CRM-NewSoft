@@ -20,7 +20,9 @@ export async function GET(req: NextRequest) {
 
   const sp = req.nextUrl.searchParams;
   const where = dealWhereReporte(session, sp.get("vendedor"), {
-    created_at: filtroRango(rangoFechas(sp, new Date())),
+    // Por fecha_ingreso, igual que el funnel y que el encabezado del pipeline: el período de
+    // un lead es cuándo LLEGÓ, no cuándo se tecleó su registro. Ver el comentario en funnel.
+    fecha_ingreso: filtroRango(rangoFechas(sp, new Date())),
   });
 
   try {
