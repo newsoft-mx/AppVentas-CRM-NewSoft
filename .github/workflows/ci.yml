@@ -45,3 +45,88 @@ jobs:
       - name: Lint (informativo)
         run: npm run lint
         continue-on-error: true
+
+  # ── E2E (Playwright) ──────────────────────────────────────────────────────
+  # Por qué existe: los e2e ya estaban escritos, pero como nadie los corría se
+  # pudrieron. Seis quedaron en rojo durante meses afirmando contratos que la app
+  # ya no tenía (ver PR #122), y una suite siempre roja deja de ser una señal.
+  # Tener los tests no sirve de nada si nadie los ejecuta; esto los ejecuta.
+  #
+  # Corre contra una Postgres EFÍMERA del runner: no toca Supabase ni ninguna base
+  # real. Se crea, se usa y se tira con el runner.
+  e2e:
+    name: E2E (Playwright)
+    runs-on: ubuntu-latest
+    # Informativo al principio, a propósito: no bloquea el merge. Un gate que falla
+    # de forma intermitente se empieza a ignorar, y ahí volvemos al punto de partida.
+    # Cuando acumule historial de estabilidad, quitar esta línea para volverlo gate.
+    continue-on-error: true
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ci
+          POSTGRES_DB: ci
+        ports: ["5432:5432"]
+        # Sin el health-check, los pasos arrancan antes de que Postgres acepte
+        # conexiones y la migración falla por carrera, no por un error real.
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      POSTGRES_PRISMA_URL: postgresql://ci:ci@localhost:5432/ci?schema=public
+      POSTGRES_URL_NON_POOLING: postgresql://ci:ci@localhost:5432/ci?schema=public
+      # Secreto descartable: firma las sesiones de esta corrida y muere con ella.
+      SESSION_SECRET: ci-secret-descartable-de-al-menos-32-caracteres
+      # El server de e2e lo levanta Playwright (webServer en playwright.config.ts).
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: Instalar el navegador
+        run: npx playwright install --with-deps chromium
+
+      - name: Migrar la base efímera
+        run: npx prisma migrate deploy
+
+      # Sí, el seed DEMO — y solo acá. La regla del repo ("nunca data demo a main")
+      # protege bases reales; esta se destruye en minutos. Los e2e necesitan un
+      # cliente ACTIVO, órdenes y el deal demo al que apuntan por id: sin eso la
+      # mitad de la suite no tiene contra qué correr.
+      - name: Sembrar config + demo
+        run: npm run db:seed:demo
+
+      # El PDF se rinde con un Chrome del sistema. En vez de confiar en lo que traiga
+      # la imagen del runner (que cambia sin avisar), se usa el mismo Chromium que ya
+      # bajó Playwright: una dependencia menos que se puede romper sola.
+      - name: Usar el Chromium de Playwright para el PDF
+        run: |
+          echo "CHROMIUM_PATH=$(node -e "console.log(require('@playwright/test').chromium.executablePath())")" >> "$GITHUB_ENV"
+
+      - name: E2E (Playwright)
+        run: npx playwright test
+
+      # Cuando algo falla, el reporte es la diferencia entre arreglarlo y adivinar:
+      # traza, screenshot y video del momento exacto.
+      - name: Guardar el reporte si algo falló
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7
