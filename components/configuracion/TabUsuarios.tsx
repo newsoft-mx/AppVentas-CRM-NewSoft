@@ -9,6 +9,7 @@ import {
   ordenarPorTramos, propsOrdenables, siguienteOrden, type OrdenTabla,
 } from "@/lib/tabla-orden";
 import { EXTRACTORES_USUARIO, type CampoUsuario } from "@/lib/configuracion-orden";
+import { ROLE_LABEL, type UserRole } from "@/lib/session";
 import type { Usuario } from "@/types/configuracion";
 import { TH_CONFIG } from "./estilos-tabla";
 
@@ -17,14 +18,20 @@ interface TabUsuariosProps {
   vendedores: { id: string; nombre: string }[];
 }
 
-type RolUsuario = "ADMIN" | "GERENTE_COMERCIAL" | "VENDEDOR" | "ADMINISTRATIVO";
+// El rol usa el tipo canónico (lib/session), y las opciones del selector salen de
+// ROLE_LABEL: es el mismo mapa que ya usan el sidebar y la vista de perfil. Acá vivía
+// una copia — misma lista, labels tipeados de nuevo —, así que agregar un rol obligaba
+// a acordarse de este archivo; olvidarlo no rompía nada visible: el selector
+// simplemente no lo ofrecía. ADMINISTRATIVO conserva el matiz "(consulta)", que es
+// propio de este selector y no del label general.
+type RolUsuario = UserRole;
 
-const ROLES: { value: RolUsuario; label: string }[] = [
-  { value: "ADMIN", label: "Administrador" },
-  { value: "GERENTE_COMERCIAL", label: "Gerente comercial" },
-  { value: "VENDEDOR", label: "Vendedor" },
-  { value: "ADMINISTRATIVO", label: "Administrativo (consulta)" },
-];
+const ROLES: { value: RolUsuario; label: string }[] = (Object.keys(ROLE_LABEL) as UserRole[]).map(
+  (value) => ({
+    value,
+    label: value === "ADMINISTRATIVO" ? `${ROLE_LABEL[value]} (consulta)` : ROLE_LABEL[value],
+  })
+);
 
 interface FormState {
   nombre: string;
