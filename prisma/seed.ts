@@ -760,7 +760,97 @@ async function main() {
     )
   );
 
-  console.log(`   ✓ ${deals.length} deals demo, ${tareasDef.length} tareas`);
+  // 6.6 Historial de etapas de los deals abiertos.
+  //
+  // El embudo se arma con DealStageEvent: cuenta en cada etapa los deals que ALGUNA VEZ
+  // la alcanzaron. Sin historial, la ruta cae a su fallback (solo la etapa actual) y el
+  // embudo local se ve plano —cada deal en un único escalón—, que no se parece en nada
+  // a como se ve con datos reales. Con esto, la pantalla demo muestra el embudo de verdad.
+  const dealIds = dealsDef.map((d) => d.id);
+  await prisma.dealStageEvent.deleteMany({ where: { deal_id: { in: dealIds } } });
+  await prisma.dealStageEvent.createMany({
+    data: dealsDef.flatMap((d) =>
+      // Un evento por cada etapa recorrida, 1..etapa actual.
+      Array.from({ length: d.stage }, (_, i) => {
+        const s = i + 1;
+        return {
+          deal_id: d.id,
+          from_stage_id: s === 1 ? null : stages[s - 2].id,
+          to_stage_id: stages[s - 1].id,
+          at: hace(d.dias + (d.stage - s) * 4), // más viejo cuanto más atrás la etapa
+        };
+      })
+    ),
+  });
+
+  // 6.7 Deals cerrados → alimentan Resultados y Anatomía, que sin deals cerrados no
+  // tienen nada que mostrar. Los GANADOS llevan más toques y más días que los PERDIDOS:
+  // esa asimetría ES lo que el reporte de anatomía intenta hacer visible.
+  const motivos = await prisma.motivoPerdida.findMany({ select: { id: true, nombre: true } });
+  const motivoPorNombre = new Map(motivos.map((m) => [m.nombre, m.id]));
+  const cerradosDef = [
+    { id: "60000000-0000-0000-0000-000000000011", nombre: "CRM Retail Norte", cliente: "30000000-0000-0000-0000-000000000001", vend: 0, res: "GANADO", razon: null as string | null, cerro: 9, abierto: 26, acts: { LLAMADA: 3, EMAIL: 2, WHATSAPP: 2, NOTA: 2 } },
+    { id: "60000000-0000-0000-0000-000000000012", nombre: "Portal Autogestión", cliente: "30000000-0000-0000-0000-000000000002", vend: 1, res: "GANADO", razon: null as string | null, cerro: 12, abierto: 28, acts: { LLAMADA: 4, EMAIL: 3, WHATSAPP: 1, NOTA: 2 } },
+    { id: "60000000-0000-0000-0000-000000000013", nombre: "Automatización RRHH", cliente: "30000000-0000-0000-0000-000000000003", vend: 0, res: "PERDIDO", razon: "Precio" as string | null, cerro: 7, abierto: 16, acts: { LLAMADA: 1, EMAIL: 1, NOTA: 1 } },
+    { id: "60000000-0000-0000-0000-000000000014", nombre: "Dashboard BI Ventas", cliente: "30000000-0000-0000-0000-000000000001", vend: 1, res: "PERDIDO", razon: "Competencia" as string | null, cerro: 14, abierto: 20, acts: { LLAMADA: 1, NOTA: 1 } },
+    { id: "60000000-0000-0000-0000-000000000015", nombre: "Migración e-commerce", cliente: "30000000-0000-0000-0000-000000000002", vend: 0, res: "PERDIDO", razon: "Precio" as string | null, cerro: 19, abierto: 22, acts: { LLAMADA: 1, EMAIL: 1 } },
+  ];
+  const cerradosIds = cerradosDef.map((d) => d.id);
+  await prisma.dealActividad.deleteMany({ where: { deal_id: { in: cerradosIds } } });
+  await prisma.dealStageEvent.deleteMany({ where: { deal_id: { in: cerradosIds } } });
+  for (const d of cerradosDef) {
+    // fecha_ingreso es la que leen los reportes (created_at es auditoría): sin backdatearla,
+    // estos cerrados caerían todos en el día del seed y el período no diría nada.
+    const comun = {
+      resultado: d.res as never,
+      fecha_cierre_real: hace(d.cerro),
+      fecha_ingreso: hace(d.abierto),
+      razon_perdida: d.razon,
+      motivo_perdida_id: d.razon ? motivoPorNombre.get(d.razon) ?? null : null,
+    };
+    await prisma.deal.upsert({
+      where: { id: d.id },
+      update: comun,
+      create: {
+        id: d.id,
+        nombre: d.nombre,
+        cliente_id: d.cliente,
+        vendedor_id: vendedores[d.vend].id,
+        stage_id: stages[5].id,
+        tipo_cotizacion_id: "10000000-0000-0000-0000-000000000001",
+        moneda: "MXN",
+        valor: 300000,
+        fecha_entrada_stage: hace(d.cerro),
+        ...comun,
+      },
+    });
+    // Progresión completa de etapas: entrada → … → cierre, repartida en el tiempo que
+    // el deal estuvo abierto.
+    const paso = Math.max(1, Math.floor((d.abierto - d.cerro) / 6));
+    await prisma.dealStageEvent.createMany({
+      data: stages.slice(0, 6).map((s, i) => ({
+        deal_id: d.id,
+        from_stage_id: i === 0 ? null : stages[i - 1].id,
+        to_stage_id: s.id,
+        at: hace(d.abierto - i * paso),
+      })),
+    });
+    await prisma.dealActividad.createMany({
+      data: Object.entries(d.acts).flatMap(([tipo, n]) =>
+        Array.from({ length: n }, () => ({
+          deal_id: d.id,
+          tipo: tipo as never,
+          autor: "Equipo comercial",
+          contenido: `${tipo} de seguimiento — ${d.nombre}`,
+        }))
+      ),
+    });
+  }
+
+  console.log(
+    `   ✓ ${deals.length + cerradosDef.length} deals demo (${cerradosDef.length} cerrados), ` +
+      `${tareasDef.length} tareas, historial de etapas`
+  );
   } // fin demo CRM (deals/bitácora/tareas)
 
   console.log("✅ Seed completado exitosamente!\n");
