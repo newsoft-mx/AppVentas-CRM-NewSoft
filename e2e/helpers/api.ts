@@ -1,7 +1,19 @@
 import { APIRequestContext, expect } from "@playwright/test";
+import { hoyEnTZ } from "@/lib/tz";
 
 // Helpers que hablan con la API del CRM usando el request context de Playwright
 // (hereda la cookie de sesión del proyecto autenticado).
+
+/**
+ * El "cuándo" que la API exige en toda actividad desde SOL-21: fecha (obligatoria) + hora
+ * (opcional). Se usa el día de HOY en la TZ del negocio —el mismo `hoyEnTZ` que usa la app,
+ * no el reloj de la máquina que corre los tests— porque la regla de agendado compara contra
+ * ese día: una fecha futura entra como PENDIENTE y no admite desenlace, que es justo lo que
+ * los tests de scoring necesitan registrar.
+ */
+export function hoyNegocio(): string {
+  return hoyEnTZ();
+}
 
 export type Funnel = {
   total: number;
@@ -90,6 +102,8 @@ export async function registrarAccionAPI(
     data: {
       tipo: opts.tipo,
       contenido: opts.contenido ?? "E2E acción",
+      // Hoy = algo que YA ocurrió → registro con desenlace, que es lo que mueve el score.
+      fecha: hoyNegocio(),
       tipo_accion_id: opts.tipo_accion_id,
       resultado_id: opts.resultado_id,
     },

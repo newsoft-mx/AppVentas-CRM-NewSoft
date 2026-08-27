@@ -1,6 +1,6 @@
 import { test, expect, type APIRequestContext } from "@playwright/test";
 import { db, catalogo, stageDeOrden, limpiarDatosDeTest, type Catalogo } from "./helpers/db";
-import { crearDealAPI } from "./helpers/api";
+import { crearDealAPI, hoyNegocio } from "./helpers/api";
 
 // QA del lote 2026-07-10 (SOL-14 a SOL-20). Verifica que cada cambio quedó
 // aplicado, contra el server local. Se auto-limpia (deals con prefijo E2E).
@@ -34,7 +34,9 @@ test.describe("QA lote SOL-14..20", () => {
       stage_id: stageDeOrden(cat, 1).id,
     });
     const md = "## Título QA\n\n- item **negrita**\n\n| a | b |\n| --- | --- |\n| 1 | 2 |";
-    const ok = await request.post(`/api/crm/deals/${deal.id}/actividades`, { data: { tipo: "NOTA", contenido: md } });
+    const ok = await request.post(`/api/crm/deals/${deal.id}/actividades`, {
+      data: { tipo: "NOTA", contenido: md, fecha: hoyNegocio() },
+    });
     expect(ok.status()).toBe(201);
 
     await page.goto(`/pipeline/${deal.id}`);
@@ -44,7 +46,7 @@ test.describe("QA lote SOL-14..20", () => {
 
     // SOL-20: el límite (20.000) rechaza con 422 y campo contenido
     const grande = await request.post(`/api/crm/deals/${deal.id}/actividades`, {
-      data: { tipo: "NOTA", contenido: "x".repeat(20_001) },
+      data: { tipo: "NOTA", contenido: "x".repeat(20_001), fecha: hoyNegocio() },
     });
     expect(grande.status()).toBe(422);
     expect((await grande.json()).campo).toBe("contenido");
@@ -289,10 +291,14 @@ test.describe("QA lote SOL-14..20", () => {
       cliente_id: cat.clienteActivo!.id,
       stage_id: stageDeOrden(cat, 1).id,
     });
-    // Futura + recordatorio → el front manda fecha_tarea → tarea (es_tarea) en Próximas Acciones
-    const fut = new Date(Date.now() + 3 * 86_400_000).toISOString().slice(0, 16);
+    // El contrato es fecha (obligatoria) + hora (opcional); la API decide sola si eso es una
+    // tarea o un registro. Antes este test mandaba `fecha_tarea`/`fecha_evento`, o sea elegía
+    // él el resultado: probaba su propia premisa en vez de la REGLA, que es lo que importa.
+
+    // Futura → pendiente en Próximas Acciones (la LLAMADA es agendable en el catálogo)
+    const fut = new Date(Date.now() + 3 * 86_400_000).toISOString().slice(0, 10);
     const r1 = await request.post(`/api/crm/deals/${deal.id}/actividades`, {
-      data: { tipo: "LLAMADA", contenido: "llamada futura agendada", fecha_tarea: fut },
+      data: { tipo: "LLAMADA", contenido: "llamada futura agendada", fecha: fut },
     });
     expect(r1.status()).toBe(201);
     const tarea = await db.dealActividad.findFirst({
@@ -302,10 +308,10 @@ test.describe("QA lote SOL-14..20", () => {
     expect(tarea?.es_tarea).toBe(true); // entra a Próximas Acciones / alertas
     expect(tarea?.fecha_tarea).toBeTruthy();
 
-    // Pasada = registro: Nota con fecha elegida → sin es_tarea, y respeta fecha_evento
+    // Pasada = registro: sin es_tarea, y la fecha elegida queda como fecha_evento
     const r2 = await request.post(`/api/crm/deals/${deal.id}/actividades`, {
       data: {
-        tipo: "NOTA", contenido: "nota fechada en el pasado", fecha_evento: "2026-07-01T10:00",
+        tipo: "NOTA", contenido: "nota fechada en el pasado", fecha: "2026-07-01", hora: "10:00",
       },
     });
     expect(r2.status()).toBe(201);
