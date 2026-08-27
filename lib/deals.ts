@@ -1,10 +1,29 @@
 import { Prisma } from "@prisma/client";
 import { crearContactoPrincipal, crearOEncontrarContacto, type ContactoInput } from "@/lib/contactos";
 import { RESULTADOS_CERRADOS } from "@/types/crm";
+import { limiteDiaNegocio } from "@/lib/tz";
 import type {
   ClaseBorrado, ClaseReapertura, DealParaBorrar, DealParaReabrir, DealResultado,
   RolContacto, TamanoEmpresa,
 } from "@/types/crm";
+
+/**
+ * La fecha de registro que teclea el usuario ("YYYY-MM-DD") → el instante que se guarda.
+ *
+ * Es el ÚNICO punto donde ese texto se convierte en fecha, porque el error acá es invisible:
+ * `new Date("2026-08-14T00:00:00")` resuelve la medianoche en la TZ del **proceso** —UTC en
+ * Vercel—, o sea las 18:00 del 13 en México. Los reportes cortan los días en la TZ del
+ * **negocio** (lib/tz), así que ese lead caía en el día anterior y no había forma de notarlo
+ * salvo contando a mano. Anclando el inicio del día en la misma TZ que corta los rangos, el
+ * lead cae donde el usuario lo puso.
+ *
+ * Devuelve null si el texto no es una fecha válida — el caller decide el mensaje de error.
+ */
+export function fechaIngresoAInstante(valor: unknown): Date | null {
+  if (typeof valor !== "string") return null;
+  const limpio = valor.trim();
+  return limpio ? limiteDiaNegocio(limpio, "inicio") : null;
+}
 
 // Error de validación dentro de la transacción de alta → se traduce a HTTP con campo.
 export class HttpError extends Error {
@@ -32,6 +51,10 @@ export interface CrearDealInput {
   canal_id?: string | null;
   origen_id?: string | null;
   fecha_cierre_estimada?: Date | null;
+  // Cuándo ingresó el lead de VERDAD. Se omite cuando el lead nace en el momento (intake web):
+  // ahí el default de la BD —now()— es la respuesta correcta. Se manda cuando alguien carga a
+  // mano un lead que llegó antes, que es el caso que hacía aparecer todo como "nuevo hoy".
+  fecha_ingreso?: Date | null;
   notas?: string | null;
 }
 
@@ -94,6 +117,9 @@ export async function crearDealTx(tx: Prisma.TransactionClient, input: CrearDeal
       canal_id: input.canal_id ?? null,
       origen_id: input.origen_id ?? null,
       fecha_cierre_estimada: input.fecha_cierre_estimada ?? null,
+      // Sin fecha explícita, el default de la columna (now()) decide: un lead que nace ahora
+      // ingresó ahora. `undefined` es justamente "no opines", que no es lo mismo que null.
+      ...(input.fecha_ingreso ? { fecha_ingreso: input.fecha_ingreso } : {}),
       notas: input.notas ?? null,
       contactos: {
         create: [{ contacto_id: contacto.id, rol: input.contactoRol as Prisma.DealContactoCreateInput["rol"] }],

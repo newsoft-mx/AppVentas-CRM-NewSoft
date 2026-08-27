@@ -132,6 +132,14 @@ export function limiteDiaNegocio(
   const match = FECHA_RE.exec(fechaStr);
   if (!match) return null;
   const [, y, mo, d] = match.map(Number);
+  // El regex solo mira la FORMA: "2026-13-01" y "2026-02-31" pasan, y la aritmética de fechas
+  // los desborda a otro mes en silencio (13 → enero del año siguiente). Un rango pedido por URL
+  // devolvía entonces datos de un período que nadie pidió, sin error a la vista. El round-trip
+  // rechaza lo que no existe en el calendario.
+  const prueba = new Date(Date.UTC(y, mo - 1, d));
+  if (prueba.getUTCFullYear() !== y || prueba.getUTCMonth() !== mo - 1 || prueba.getUTCDate() !== d) {
+    return null;
+  }
   const dt =
     borde === "inicio"
       ? wallEnTZaUtc(y, mo, d, 0, 0, 0, 0, tz)

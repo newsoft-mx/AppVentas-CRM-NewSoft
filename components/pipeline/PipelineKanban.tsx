@@ -301,7 +301,10 @@ export default function PipelineKanban({
         <MiniKpi value={formatCompacto(kpis.promedio_deal)} label="promedio" />
         <span className="h-6 w-px bg-borde" />
         {/* Altas por período — secundario (REQ-04) */}
-        <span className="text-xs text-gray-400">
+        <span
+          className="text-xs text-gray-400"
+          title="Leads por fecha de registro — hoy · últimos 7 días · mes en curso"
+        >
           Nuevos: <b className="text-gray-600">{altas.hoy}</b> hoy · <b className="text-gray-600">{altas.semana}</b> sem ·{" "}
           <b className="text-gray-600">{altas.mes}</b> mes
         </span>

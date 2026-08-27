@@ -27,4 +27,16 @@ describe("limiteDiaNegocio", () => {
     expect(limiteDiaNegocio("13/07/2026", "inicio", "UTC")).toBeNull();
     expect(limiteDiaNegocio("", "inicio", "UTC")).toBeNull();
   });
+
+  it("rechaza fechas con la FORMA correcta que no existen en el calendario", () => {
+    // El regex las dejaba pasar y la aritmética las desbordaba a otro mes en silencio:
+    // "2026-13-01" daba el 1-ene-2027 y "2026-02-31" el 3-mar. Un ?desde= así devolvía
+    // un período que nadie pidió, y sin error a la vista no había forma de notarlo.
+    expect(limiteDiaNegocio("2026-13-01", "inicio", "UTC")).toBeNull();
+    expect(limiteDiaNegocio("2026-02-31", "inicio", "UTC")).toBeNull();
+    expect(limiteDiaNegocio("2026-00-10", "inicio", "UTC")).toBeNull();
+    expect(limiteDiaNegocio("2026-07-32", "fin", "UTC")).toBeNull();
+    // El 29 de febrero SÍ existe en año bisiesto: la validación no puede pasarse de celosa.
+    expect(limiteDiaNegocio("2028-02-29", "inicio", "UTC")?.toISOString()).toBe("2028-02-29T00:00:00.000Z");
+  });
 });

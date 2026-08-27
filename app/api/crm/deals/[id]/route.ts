@@ -5,7 +5,7 @@ import { canWrite, requireAuth } from "@/lib/session";
 import { scopeDealWhere } from "@/lib/access-control";
 import { logger } from "@/lib/logger";
 import { TAMANOS_EMPRESA, type TamanoEmpresa } from "@/types/crm";
-import { clasificarBorrado, puedeBorrarDeals, puedeForzarDestruccion } from "@/lib/deals";
+import { clasificarBorrado, fechaIngresoAInstante, puedeBorrarDeals, puedeForzarDestruccion } from "@/lib/deals";
 
 export const dynamic = "force-dynamic";
 
@@ -113,8 +113,8 @@ export async function PATCH(
     const raw = b.fecha_ingreso;
     if (!raw) errores.push("La fecha de ingreso es obligatoria");
     else {
-      const d = new Date(`${raw as string}T00:00:00`);
-      if (Number.isNaN(d.getTime())) errores.push("fecha_ingreso inválida");
+      const d = fechaIngresoAInstante(raw);
+      if (!d) errores.push("fecha_ingreso inválida");
       else data.fecha_ingreso = d;
     }
   }

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Modal from "@/components/ui/Modal";
 import SearchableSelect from "@/components/ui/SearchableSelect";
+import { hoyEnTZ } from "@/lib/tz";
 import {
   TEMPERATURA_META, TEMPERATURAS, ROL_CONTACTO_LABEL,
   TAMANOS_EMPRESA, TAMANO_EMPRESA_LABEL,
@@ -69,7 +70,9 @@ export default function NuevoDealModal({
     canal_id: deal?.canal_id ?? "",
     origen_id: deal?.origen_id ?? "",
     fecha_cierre_estimada: deal?.fecha_cierre_estimada ?? "",
-    fecha_ingreso: deal?.fecha_ingreso ?? "",
+    // Al dar de alta arranca en HOY (del negocio, no del navegador): el caso normal es cargar
+    // un lead que acaba de llegar, y el que carga uno atrasado corrige el campo.
+    fecha_ingreso: deal?.fecha_ingreso ?? hoyEnTZ(),
     edit_website: deal?.cliente_website ?? "",
     edit_tamano: (deal?.cliente_tamano ?? "") as "" | TamanoEmpresa,
     contacto_nombre: "",
@@ -304,15 +307,19 @@ export default function NuevoDealModal({
           <input type="date" className={inputCls} value={form.fecha_cierre_estimada} onChange={(e) => set("fecha_cierre_estimada", e.target.value)} />
         </Campo>
 
-        {/* Datos editables solo en edición: fecha de registro (Deal) + empresa (Cliente). */}
+        {/* Cuándo llegó el lead. También al DAR DE ALTA: los leads se cargan en lote, días
+            después de haber llegado, y sin este campo nacían todos con la fecha del tecleo —
+            los KPIs de altas y el embudo mostraban una avalancha el día de la carga. */}
+        <Campo label="Fecha de registro">
+          <input
+            type="date" className={inputCls}
+            value={form.fecha_ingreso} onChange={(e) => set("fecha_ingreso", e.target.value)}
+          />
+        </Campo>
+
+        {/* Datos de la empresa: solo en edición (al dar de alta se piden en el bloque de cliente). */}
         {editando && (
           <>
-            <Campo label="Fecha de registro">
-              <input
-                type="date" className={inputCls}
-                value={form.fecha_ingreso} onChange={(e) => set("fecha_ingreso", e.target.value)}
-              />
-            </Campo>
             <Campo label="Website de la empresa">
               <input
                 className={inputCls} value={form.edit_website}
