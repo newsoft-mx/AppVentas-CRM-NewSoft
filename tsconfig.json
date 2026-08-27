@@ -1,4 +1,18 @@
 {
+  // Solo lo lee ts-node (tsc y Next ignoran esta clave), y solo para los scripts que
+  // corren fuera del bundler: el seed y `user:role`.
+  //
+  // `module` global es "esnext" porque lo pide el bundler de Next. Ejecutando con ts-node
+  // eso emite ESM, y Node se planta con ERR_UNKNOWN_FILE_EXTENSION al toparse un ".ts".
+  // No se notaba porque Node ≥22 entiende TypeScript por su cuenta y nunca llega a ts-node:
+  // el seed funcionaba de casualidad, según la versión de Node de cada máquina, y se caía
+  // en cualquier entorno con Node 20 (el CI, entre otros). Acá se fija CommonJS para esos
+  // scripts, que es lo que ts-node sabe ejecutar en cualquier versión.
+  "ts-node": {
+    "compilerOptions": {
+      "module": "commonjs"
+    }
+  },
   "compilerOptions": {
     "lib": [
       "dom",
