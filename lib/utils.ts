@@ -243,6 +243,30 @@ export function transicionOrdenPermitida(desde: string, hacia: string): boolean 
   return desde === hacia || (TRANSICIONES_PERMITIDAS[desde] ?? []).includes(hacia);
 }
 
+/**
+ * INVARIANTE: una orden en VENTA siempre tiene fecha de venta.
+ *
+ * No es una validación de formulario: es la condición para que la venta EXISTA en los
+ * reportes. Los tres reportes de ingreso (ventas-mensuales, ventas-tipo, ventas-vendedor)
+ * filtran por `estatus = VENTA` + rango sobre `fecha_venta`, así que una VENTA sin fecha se
+ * cae de todos ellos — mientras sigue contando en los KPIs por estatus. Dos pantallas, dos
+ * verdades, y ninguna dice que falta un dato.
+ *
+ * Vive acá, al lado de la máquina de estados, porque el problema era justamente que la regla
+ * estaba escrita a mano en cada puerta: el PUT la aplicaba solo si cambiaba el estatus,
+ * /estatus la aplicaba siempre, /fecha-venta no la aplicaba nunca —ni siquiera consultaba el
+ * estatus— y el alta la tenía por su cuenta. Cuatro puertas, tres criterios y un agujero.
+ *
+ * Devuelve el estado FINAL que quedaría; las rutas le pasan lo que ya está guardado mezclado
+ * con lo que llega en el body.
+ */
+export function ventaSinFecha(estatusFinal: string, fechaVentaFinal: Date | string | null | undefined): boolean {
+  return estatusFinal === "VENTA" && !fechaVentaFinal;
+}
+
+/** El mensaje es uno solo para que las cuatro puertas digan lo mismo. */
+export const MSG_VENTA_SIN_FECHA = "Se requiere la fecha de venta al confirmar como VENTA";
+
 // Máquina de estados del resultado del deal (Bloque E).
 //
 // SSOT usado por /resultado y /ganar para que ninguna ruta acepte transiciones ilegales,
