@@ -473,7 +473,7 @@ export default function PipelineKanban({
                       draggable={canWrite}
                       onDragStart={() => setDragId(deal.id)}
                       onDragEnd={() => setDragId(null)}
-                      onClick={() => router.push(`/pipeline/${deal.id}`)}
+                      href={`/pipeline/${deal.id}`}
                     />
                   ))}
                   {stageDeals.length === 0 && (
@@ -513,7 +513,7 @@ export default function PipelineKanban({
                       draggable={false}
                       onDragStart={() => {}}
                       onDragEnd={() => {}}
-                      onClick={() => router.push(`/pipeline/${deal.id}`)}
+                      href={`/pipeline/${deal.id}`}
                     />
                   ))}
                 </div>
@@ -657,13 +657,13 @@ function DealCard({
   draggable,
   onDragStart,
   onDragEnd,
-  onClick,
+  href,
 }: {
   deal: DealResumen;
   draggable: boolean;
   onDragStart: () => void;
   onDragEnd: () => void;
-  onClick: () => void;
+  href: string;
 }) {
   const temp = TEMPERATURA_META[deal.temperatura];
   const iniciales = deal.vendedor
@@ -675,12 +675,12 @@ function DealCard({
         .toUpperCase()
     : "—";
   return (
-    <div
+    <Link
+      href={href}
       draggable={draggable}
       onDragStart={onDragStart}
       onDragEnd={onDragEnd}
-      onClick={onClick}
-      className="group relative cursor-pointer overflow-hidden rounded-lg border border-surface-border bg-white p-3 transition-shadow hover:shadow-md"
+      className="group relative block cursor-pointer overflow-hidden rounded-lg border border-surface-border bg-white p-3 transition-shadow hover:shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-navy"
     >
       <span
         className="absolute inset-y-0 left-0 w-[3px]"
@@ -726,6 +726,6 @@ function DealCard({
           ? `${ATENCION_META[deal.atencion].label} · ${formatFechaHora(deal.proximo_seguimiento)}`
           : ATENCION_META[deal.atencion].label}
       </div>
-    </div>
+    </Link>
   );
 }
