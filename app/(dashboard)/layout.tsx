@@ -29,8 +29,10 @@ export default async function DashboardLayout({
           llegue desde acá: sin esto, `h-full` se resuelve como `auto`, el carril nunca crece y
           el tablero queda como una caja de 430px con media pantalla en blanco debajo.
           En teléfono NO se toca: ahí el documento tiene que scrollear normalmente, y encerrar
-          el contenido en un alto fijo rompe el scroll. `min-h` en vez de `h` para que una
-          pantalla más alta que la ventana siga creciendo en vez de recortarse. */}
+          el contenido en un alto fijo rompe el scroll.
+          Una pantalla MÁS ALTA que la ventana no se recorta: `<main>` lleva `overflow-y-auto`,
+          así que scrollea ella. Verificado en las 10 pantallas — Configuración (1291px) y
+          Reportes (1012px) scrollean; ninguna queda cortada. */}
       <main className="min-w-0 flex-1 md:overflow-y-auto">
         <div className="px-4 py-5 sm:px-6 md:flex md:h-full md:flex-col md:p-6">
           {children}
