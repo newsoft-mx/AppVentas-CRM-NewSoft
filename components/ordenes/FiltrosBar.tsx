@@ -3,6 +3,7 @@
 import { X } from "lucide-react";
 import type { FiltroOrdenes } from "@/types/ordenes";
 import MultiSelect, { MultiSelectOption } from "@/components/ui/MultiSelect";
+import { hayFiltrosDeOrdenes, limpiarFiltrosDeOrdenes } from "@/lib/ordenes-filtros";
 
 interface FiltrosBarProps {
   filtros: FiltroOrdenes;
@@ -39,28 +40,12 @@ export default function FiltrosBar({ filtros, clientes, tipos, vendedores, onCha
     onChange({ ...filtros, [key]: val });
   };
 
-  const hasFilters =
-    filtros.ano.length > 0 ||
-    filtros.q.length > 0 ||
-    filtros.mes.length > 0 ||
-    filtros.estatus.length > 0 ||
-    filtros.cliente_id.length > 0 ||
-    filtros.tipo_cotizacion_id.length > 0 ||
-    filtros.vendedor_id.length > 0;
+  // El predicado vive en lib: la tabla necesita el MISMO para su estado vacío.
+  const hasFilters = hayFiltrosDeOrdenes(filtros);
 
   // `vista` NO se limpia: es cómo se mira la lista, no qué se filtra. Que "Limpiar todo"
   // reagrupara la tabla de golpe sería una sorpresa, no una limpieza.
-  const clearAll = () =>
-    onChange({
-      ...filtros,
-      ano: [],
-      q: [],
-      mes: [],
-      estatus: [],
-      cliente_id: [],
-      tipo_cotizacion_id: [],
-      vendedor_id: [],
-    });
+  const clearAll = () => onChange(limpiarFiltrosDeOrdenes(filtros));
 
   return (
     <div className="flex flex-wrap items-center gap-2">
