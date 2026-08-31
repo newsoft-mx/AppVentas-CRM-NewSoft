@@ -715,17 +715,37 @@ function DealCard({
         </div>
       </div>
       {/* Estado de atención (stand-by): un seguimiento futuro deja el deal "en seguimiento"
-          (verde), no en rojo. Vencido = rojo. Sin próxima acción = ámbar. */}
-      <div
-        className={`mt-1.5 flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-semibold ${
-          ATENCION_META[deal.atencion].chip
-        }`}
-      >
-        <CalendarClock size={10} />
-        {deal.proximo_seguimiento
-          ? `${ATENCION_META[deal.atencion].label} · ${formatFechaHora(deal.proximo_seguimiento)}`
-          : ATENCION_META[deal.atencion].label}
-      </div>
+          (verde), no en rojo. Vencido = rojo. Sin próxima acción = ámbar.
+
+          Solo lo VENCIDO lleva chip lleno. Antes lo llevaban los tres, así que un tablero
+          sano era una pared de colores y el único deal que se estaba cayendo no resaltaba
+          más que sus vecinos sanos: si todo grita, nada grita.
+
+          Los otros dos usan el punto — que ya estaba definido en `ATENCION_META` y no lo
+          usaba nadie. "Sin próxima acción" sigue siendo visible (punto ámbar) porque es un
+          hueco real, pero no compite con lo urgente. */}
+      {deal.atencion === "VENCIDO" ? (
+        <div
+          className={`mt-1.5 flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-semibold ${
+            ATENCION_META.VENCIDO.chip
+          }`}
+        >
+          <CalendarClock size={10} />
+          {deal.proximo_seguimiento
+            ? `${ATENCION_META.VENCIDO.label} · ${formatFechaHora(deal.proximo_seguimiento)}`
+            : ATENCION_META.VENCIDO.label}
+        </div>
+      ) : (
+        <div className="mt-1.5 flex items-center gap-1.5 px-0.5 text-[10px] text-gray-500">
+          <span
+            className="h-1.5 w-1.5 shrink-0 rounded-full"
+            style={{ background: ATENCION_META[deal.atencion].dot }}
+          />
+          {deal.proximo_seguimiento
+            ? `${ATENCION_META[deal.atencion].label} · ${formatFechaHora(deal.proximo_seguimiento)}`
+            : ATENCION_META[deal.atencion].label}
+        </div>
+      )}
     </div>
   );
 }
