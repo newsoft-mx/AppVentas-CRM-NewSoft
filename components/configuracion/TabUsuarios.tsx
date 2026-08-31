@@ -224,7 +224,7 @@ export default function TabUsuarios({ initialUsuarios, vendedores }: TabUsuarios
               <tr key={usuario.id} className={!usuario.activo ? "bg-gray-50/60 opacity-70" : ""}>
                 <td className="px-4 py-3">
                   <div className="flex items-center gap-2 font-medium text-navy">
-                    <UserRound size={16} className="text-gray-400" />
+                    <UserRound size={16} className="text-gray-500" />
                     <div>
                       <p>{usuario.nombre}</p>
                       <p className="text-xs font-normal text-gray-500">{usuario.email}</p>
@@ -240,7 +240,7 @@ export default function TabUsuarios({ initialUsuarios, vendedores }: TabUsuarios
                 </td>
                 <td className="px-4 py-3">
                   <div className="flex justify-end gap-1">
-                    <button type="button" onClick={() => openEdit(usuario)} className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-navy" title="Editar">
+                    <button type="button" onClick={() => openEdit(usuario)} className="rounded-lg p-1.5 text-gray-500 hover:bg-gray-100 hover:text-navy" title="Editar">
                       <Pencil size={15} />
                     </button>
                     <button type="button" onClick={() => handleToggle(usuario)} className="rounded-lg px-2 py-1 text-xs text-gray-500 hover:bg-gray-100">
@@ -252,7 +252,7 @@ export default function TabUsuarios({ initialUsuarios, vendedores }: TabUsuarios
             ))}
             {ordered.length === 0 && (
               <tr>
-                <td colSpan={3} className="px-4 py-8 text-center text-sm text-gray-400">
+                <td colSpan={3} className="px-4 py-8 text-center text-sm text-gray-500">
                   No hay usuarios registrados
                 </td>
               </tr>
@@ -327,7 +327,7 @@ export default function TabUsuarios({ initialUsuarios, vendedores }: TabUsuarios
                       <option key={v.id} value={v.id}>{v.nombre}</option>
                     ))}
                   </select>
-                  <p className="mt-1 text-xs text-gray-400">
+                  <p className="mt-1 text-xs text-gray-500">
                     Vincula el usuario a su ficha para que solo vea sus propios deals y órdenes.
                   </p>
                 </div>
@@ -335,7 +335,7 @@ export default function TabUsuarios({ initialUsuarios, vendedores }: TabUsuarios
             </div>
             <div>
               <label className="label">
-                Contraseña {editing && <span className="font-normal text-gray-400">(dejar vacía para no cambiar)</span>}
+                Contraseña {editing && <span className="font-normal text-gray-500">(dejar vacía para no cambiar)</span>}
               </label>
               <input type="password" autoComplete="new-password" className="input" value={form.password} onChange={(e) => setForm((p) => ({ ...p, password: e.target.value }))} />
             </div>

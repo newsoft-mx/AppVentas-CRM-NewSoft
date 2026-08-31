@@ -76,7 +76,7 @@ export default function FechaActividad({
             <button
               onClick={() => setHora("")}
               title="Quitar la hora (dejar solo la fecha)"
-              className="text-gray-300 hover:text-red-500"
+              className="text-gray-500 hover:text-red-500"
             >
               <X size={11} />
             </button>
@@ -109,7 +109,7 @@ export default function FechaActividad({
       : "text-gray-400";
   const contenido = (
     <>
-      {editada && <span className="mr-0.5 italic text-gray-300">editado ·</span>}
+      {editada && <span className="mr-0.5 italic text-gray-500">editado ·</span>}
       {esTarea && <CalendarClock size={12} />}
       {formatCuando(cuando, horaDefinida)}
     </>

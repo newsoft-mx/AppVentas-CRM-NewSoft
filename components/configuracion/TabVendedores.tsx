@@ -168,7 +168,7 @@ export default function TabVendedores({ initialVendedores }: TabVendedoresProps)
 
       <div className="space-y-3 md:hidden">
         {ordered.length === 0 && (
-          <div className="rounded-xl border border-surface-border p-8 text-center text-sm text-gray-400">
+          <div className="rounded-xl border border-surface-border p-8 text-center text-sm text-gray-500">
             No hay vendedores registrados
           </div>
         )}
@@ -213,7 +213,7 @@ export default function TabVendedores({ initialVendedores }: TabVendedoresProps)
           <tbody className="divide-y divide-surface-border">
             {ordered.length === 0 && (
               <tr>
-                <td colSpan={4} className="px-4 py-8 text-center text-sm text-gray-400">
+                <td colSpan={4} className="px-4 py-8 text-center text-sm text-gray-500">
                   No hay vendedores registrados
                 </td>
               </tr>
@@ -222,7 +222,7 @@ export default function TabVendedores({ initialVendedores }: TabVendedoresProps)
               <tr key={vendedor.id} className={!vendedor.activo ? "bg-gray-50/60 opacity-70" : ""}>
                 <td className="px-4 py-3">
                   <div className="flex items-center gap-2 font-medium text-navy">
-                    <UserRound size={16} className="text-gray-400" />
+                    <UserRound size={16} className="text-gray-500" />
                     {vendedor.nombre}
                   </div>
                 </td>
@@ -233,7 +233,7 @@ export default function TabVendedores({ initialVendedores }: TabVendedoresProps)
                       {vendedor.telefono && <p>{vendedor.telefono}</p>}
                     </div>
                   ) : (
-                    <span className="text-gray-400">Sin datos de contacto</span>
+                    <span className="text-gray-500">Sin datos de contacto</span>
                   )}
                 </td>
                 <td className="px-4 py-3 text-center">
@@ -245,7 +245,7 @@ export default function TabVendedores({ initialVendedores }: TabVendedoresProps)
                 </td>
                 <td className="px-4 py-3">
                   <div className="flex justify-end gap-1">
-                    <button type="button" onClick={() => openEdit(vendedor)} className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-navy" title="Editar">
+                    <button type="button" onClick={() => openEdit(vendedor)} className="rounded-lg p-1.5 text-gray-500 hover:bg-gray-100 hover:text-navy" title="Editar">
                       <Pencil size={15} />
                     </button>
                     <button type="button" onClick={() => handleToggle(vendedor)} className="rounded-lg px-2 py-1 text-xs text-gray-500 hover:bg-gray-100">
@@ -273,11 +273,11 @@ export default function TabVendedores({ initialVendedores }: TabVendedoresProps)
               <input className="input" value={form.nombre} onChange={(e) => setForm((p) => ({ ...p, nombre: e.target.value }))} />
             </div>
             <div>
-              <label className="label">Email <span className="font-normal text-gray-400">(opcional)</span></label>
+              <label className="label">Email <span className="font-normal text-gray-500">(opcional)</span></label>
               <input type="email" className="input" value={form.email} onChange={(e) => setForm((p) => ({ ...p, email: e.target.value }))} />
             </div>
             <div>
-              <label className="label">Teléfono <span className="font-normal text-gray-400">(opcional)</span></label>
+              <label className="label">Teléfono <span className="font-normal text-gray-500">(opcional)</span></label>
               <input className="input" value={form.telefono} onChange={(e) => setForm((p) => ({ ...p, telefono: e.target.value }))} />
             </div>
             {editing && (

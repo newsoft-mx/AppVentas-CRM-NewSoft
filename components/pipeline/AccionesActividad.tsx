@@ -36,7 +36,7 @@ export default function AccionesActividad({
           <button
             onClick={onDestacar}
             title={destacada ? "Quitar destacado" : "Destacar"}
-            className="text-gray-300 hover:text-amber-500"
+            className="text-gray-500 hover:text-amber-500"
           >
             <Star
               size={13}
@@ -46,10 +46,10 @@ export default function AccionesActividad({
           </button>
           {editable && (
             <>
-              <button onClick={onEditar} title="Editar" className="text-gray-300 hover:text-navy">
+              <button onClick={onEditar} title="Editar" className="text-gray-500 hover:text-navy">
                 <Pencil size={12} />
               </button>
-              <button onClick={onEliminar} title="Eliminar" className="text-gray-300 hover:text-red-500">
+              <button onClick={onEliminar} title="Eliminar" className="text-gray-500 hover:text-red-500">
                 <Trash2 size={12} />
               </button>
             </>

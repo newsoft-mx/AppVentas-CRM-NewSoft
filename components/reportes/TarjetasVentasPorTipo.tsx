@@ -27,7 +27,7 @@ export default function TarjetasVentasPorTipo({ data }: Props) {
           }`}
         >
           <p className={`truncate text-xs font-semibold uppercase tracking-wide ${
-            index === 0 ? "text-white/70" : "text-gray-400"
+            index === 0 ? "text-white/70" : "text-gray-500"
           }`}>
             {item.tipo}
           </p>

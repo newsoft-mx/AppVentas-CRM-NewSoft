@@ -106,7 +106,7 @@ export default function ConfiguracionClient({
             initialEmpresa ? (
               <TabEmpresa empresa={initialEmpresa} />
             ) : (
-              <div className="py-12 text-center text-gray-400">
+              <div className="py-12 text-center text-gray-500">
                 <p>No hay empresa configurada. Contacta al administrador del sistema.</p>
               </div>
             )

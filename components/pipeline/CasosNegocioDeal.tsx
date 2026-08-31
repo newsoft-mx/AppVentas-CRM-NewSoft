@@ -48,7 +48,7 @@ export default function CasosNegocioDeal({ dealId }: { dealId: string }) {
             <span className="block truncate text-[12px] font-medium text-navy">{c.nombre}</span>
             <span className="block text-[10px] text-gray-400">{formatFechaHora(c.updated_at)}</span>
           </span>
-          <ExternalLink size={13} className="shrink-0 text-gray-300 group-hover:text-navy" />
+          <ExternalLink size={13} className="shrink-0 text-gray-500 group-hover:text-navy" />
         </Link>
       ))}
       <Link

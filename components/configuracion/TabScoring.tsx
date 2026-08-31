@@ -5,6 +5,7 @@ import { Plus, Trash2, Sparkles, SlidersHorizontal, Gauge, ChevronDown, Workflow
 import Toast, { ToastData } from "@/components/ui/Toast";
 import { TEMPERATURA_META, type Temperatura } from "@/types/crm";
 import type { PipelineStageConfig } from "@/types/configuracion";
+import { textoSobre } from "@/lib/contraste";
 
 interface TipoAccion {
   id: string; nombre: string; color: string; peso: number;
@@ -138,7 +139,7 @@ export default function TabScoring({
                     <div className="h-full rounded-full" style={{ width: `${(t.peso / pesoMax) * 100}%`, background: t.color }} />
                   </div>
                   <input type="number" min={0} max={100} value={t.peso} onChange={(e) => setTipos((ts) => ts.map((x) => x.id === t.id ? { ...x, peso: Number(e.target.value) } : x))} onBlur={(e) => patchTipo(t.id, { peso: Math.max(0, Math.round(Number(e.target.value))) })} className="input w-14 py-1 text-center text-sm font-semibold" title="Peso" />
-                  <button onClick={() => delTipo(t.id)} className="shrink-0 text-gray-300 hover:text-red-500" title="Eliminar"><Trash2 size={14} /></button>
+                  <button onClick={() => delTipo(t.id)} className="shrink-0 text-gray-500 hover:text-red-500" title="Eliminar"><Trash2 size={14} /></button>
                 </div>
               ))}
             </div>
@@ -150,13 +151,13 @@ export default function TabScoring({
             <div className="divide-y divide-surface-border">
               {resultadosOrdenados.map((r) => {
                 const signo = r.factor > 0 ? "▲" : r.factor < 0 ? "▼" : "•";
-                const col = r.factor > 0 ? "text-emerald-600" : r.factor < 0 ? "text-red-500" : "text-gray-400";
+                const col = r.factor > 0 ? "text-emerald-600" : r.factor < 0 ? "text-red-500" : "text-gray-500";
                 return (
                   <div key={r.id} className={`flex items-center gap-2 py-2 ${r.activo ? "" : "opacity-50"}`}>
                     <span className={`w-3 shrink-0 text-center text-xs font-bold ${col}`}>{signo}</span>
                     <input value={r.nombre} onChange={(e) => setResultados((rs) => rs.map((x) => x.id === r.id ? { ...x, nombre: e.target.value } : x))} onBlur={(e) => patchRes(r.id, { nombre: e.target.value.trim() })} className="input min-w-0 flex-1 py-1 text-sm" />
                     <input type="number" min={-1} max={1} step={0.1} value={r.factor} onChange={(e) => setResultados((rs) => rs.map((x) => x.id === r.id ? { ...x, factor: Number(e.target.value), efecto: efectoDeFactor(Number(e.target.value)) } : x))} onBlur={(e) => { const f = Math.max(-1, Math.min(1, Number(e.target.value))); patchRes(r.id, { factor: f, efecto: efectoDeFactor(f) }); }} className={`input w-16 py-1 text-center text-sm font-semibold ${col}`} title="Factor [-1..+1]" />
-                    <button onClick={() => delRes(r.id)} className="shrink-0 text-gray-300 hover:text-red-500" title="Eliminar"><Trash2 size={14} /></button>
+                    <button onClick={() => delRes(r.id)} className="shrink-0 text-gray-500 hover:text-red-500" title="Eliminar"><Trash2 size={14} /></button>
                   </div>
                 );
               })}
@@ -200,7 +201,7 @@ export default function TabScoring({
               >
                 <ChevronDown size={15} className={`transition-transform ${avanzadoOpen ? "rotate-180" : ""}`} />
                 Ajustes avanzados
-                {!avanzadoOpen && <span className="text-xs font-normal text-gray-400">— score inicial, enfriamiento, sensibilidad</span>}
+                {!avanzadoOpen && <span className="text-xs font-normal text-gray-500">— score inicial, enfriamiento, sensibilidad</span>}
               </button>
               {avanzadoOpen && (
                 <div className="mt-3 grid gap-x-6 gap-y-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -235,14 +236,14 @@ export default function TabScoring({
           <SectionTitle icon={<Gauge size={16} />} n="3" title="Qué resulta" sub="El efecto de esta configuración sobre el pipeline real. Solo lectura." />
           <div className="rounded-xl border border-surface-border bg-white p-5">
             {/* Banda de niveles 0–100 según los cortes */}
-            <div className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-gray-400">Bandas de nivel (0–100)</div>
+            <div className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-gray-500">Bandas de nivel (0–100)</div>
             <div className="flex h-6 w-full overflow-hidden rounded-md">
               {NIVELES.map((n, i) => {
                 const lo = i === 0 ? 0 : cfg.niveles_umbral[i - 1];
                 const hi = i === NIVELES.length - 1 ? 100 : cfg.niveles_umbral[i];
                 const w = Math.max(0, hi - lo);
                 return (
-                  <div key={n} className="flex items-center justify-center text-[10px] font-bold text-white" style={{ width: `${w}%`, background: TEMPERATURA_META[n].color }} title={`${TEMPERATURA_META[n].label}: ${lo}–${hi}`}>
+                  <div key={n} className="flex items-center justify-center text-[10px] font-bold" style={{ width: `${w}%`, background: TEMPERATURA_META[n].color, color: textoSobre(TEMPERATURA_META[n].color) }} title={`${TEMPERATURA_META[n].label}: ${lo}–${hi}`}>
                     {w >= 12 ? TEMPERATURA_META[n].label : ""}
                   </div>
                 );
@@ -251,8 +252,8 @@ export default function TabScoring({
 
             {/* Distribución real de deals por nivel (audit endpoint) */}
             <div className="mb-1 mt-5 flex items-baseline justify-between">
-              <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">Distribución de deals abiertos</span>
-              <span className="text-xs text-gray-400">{dist ? `${totalDeals} deals` : "cargando…"}</span>
+              <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">Distribución de deals abiertos</span>
+              <span className="text-xs text-gray-500">{dist ? `${totalDeals} deals` : "cargando…"}</span>
             </div>
             {dist && (
               <div className="space-y-1.5">
@@ -271,7 +272,7 @@ export default function TabScoring({
                 })}
               </div>
             )}
-            <p className="mt-4 border-t border-surface-border pt-3 text-xs text-gray-400">
+            <p className="mt-4 border-t border-surface-border pt-3 text-xs text-gray-500">
               Si al mover pesos/factores/cortes la distribución se corre hacia frío o caliente, es el efecto directo de este cambio.
             </p>
           </div>
@@ -284,7 +285,7 @@ export default function TabScoring({
           <SectionTitle icon={<Workflow size={16} />} n="4" title="El score en el pipeline" sub="Etapa y score no son sistemas separados: cada etapa tiene una probabilidad base y el score mueve la probabilidad del deal desde esa base hacia la de la etapa siguiente." />
           <div className="rounded-xl border border-surface-border bg-white p-5">
             {/* Escalera de probabilidad: se ve el vínculo etapa → probabilidad */}
-            <div className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-gray-400">Escalera de probabilidad por etapa</div>
+            <div className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-gray-500">Escalera de probabilidad por etapa</div>
             <div className="space-y-1.5">
               {etapasActivas.map((s) => (
                 <div key={s.id} className="flex items-center gap-3">
@@ -293,18 +294,18 @@ export default function TabScoring({
                     <span className="truncate">{s.nombre}</span>
                   </span>
                   <div className="h-5 flex-1 rounded bg-gray-100">
-                    <div className="flex h-full items-center justify-end rounded px-2 text-[10px] font-bold text-white" style={{ width: `${Math.max(6, s.probabilidad_base)}%`, background: s.color }}>
+                    <div className="flex h-full items-center justify-end rounded px-2 text-[10px] font-bold" style={{ width: `${Math.max(6, s.probabilidad_base)}%`, background: s.color, color: textoSobre(s.color) }}>
                       {s.probabilidad_base}%
                     </div>
                   </div>
-                  <span className="w-24 shrink-0 text-right text-[11px] text-gray-400">
+                  <span className="w-24 shrink-0 text-right text-[11px] text-gray-500">
                     {s.umbral_avance_score != null ? `avanza ≥ ${s.umbral_avance_score}` : "sin umbral"}
                   </span>
                 </div>
               ))}
             </div>
             <div className="mt-4 flex items-start gap-2 rounded-lg bg-surface p-3 text-xs text-gray-500">
-              <Gauge size={14} className="mt-0.5 shrink-0 text-gray-400" />
+              <Gauge size={14} className="mt-0.5 shrink-0 text-gray-500" />
               <p>
                 Con <b>umbral de avance</b> cargado, el score interpola la probabilidad entre la etapa actual y la
                 siguiente, y al alcanzarlo sugiere avanzar. Sin umbral (<i>“sin umbral”</i>), el score solo empuja la
@@ -336,7 +337,7 @@ function Card({ title, hint, children }: { title: string; hint: string; children
     <div className="rounded-xl border border-surface-border bg-white p-4">
       <div className="mb-2">
         <h3 className="text-sm font-semibold text-navy">{title}</h3>
-        <p className="text-xs text-gray-400">{hint}</p>
+        <p className="text-xs text-gray-500">{hint}</p>
       </div>
       {children}
     </div>
@@ -347,7 +348,7 @@ function Field({ label, hint, children }: { label: string; hint?: string; childr
     <label className="block">
       <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">{label}</span>
       {children}
-      {hint && <span className="mt-0.5 block text-[11px] leading-tight text-gray-400">{hint}</span>}
+      {hint && <span className="mt-0.5 block text-[11px] leading-tight text-gray-500">{hint}</span>}
     </label>
   );
 }

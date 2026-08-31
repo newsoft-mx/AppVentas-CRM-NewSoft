@@ -147,7 +147,7 @@ export default function Sidebar({ role }: { role: UserRole }) {
           group.title ? (
             <p
               key={`t-${gi}`}
-              className={`hidden shrink-0 px-3 pb-1 pt-3 text-[10px] font-semibold uppercase tracking-wider text-navy-400 md:block ${
+              className={`hidden shrink-0 px-3 pb-1 pt-3 text-[10px] font-semibold uppercase tracking-wider text-navy-200 md:block ${
                 colapsado ? "md:hidden" : ""
               }`}
             >

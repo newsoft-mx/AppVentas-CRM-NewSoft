@@ -336,7 +336,7 @@ export default function ActividadCompositor({
                 type="button"
                 onClick={() => quitar("hora")}
                 title="Quitar la hora (agendar solo para ese día)"
-                className="text-gray-300 hover:text-red-500"
+                className="text-gray-500 hover:text-red-500"
               >
                 <X size={12} />
               </button>
@@ -376,7 +376,7 @@ export default function ActividadCompositor({
                   type="button"
                   onClick={() => quitar("contacto")}
                   title="Quitar el contacto"
-                  className="text-gray-300 hover:text-red-500"
+                  className="text-gray-500 hover:text-red-500"
                 >
                   <X size={12} />
                 </button>
@@ -400,7 +400,7 @@ export default function ActividadCompositor({
                   type="button"
                   onClick={() => quitar("enlace")}
                   title="Quitar el enlace"
-                  className="text-gray-300 hover:text-red-500"
+                  className="text-gray-500 hover:text-red-500"
                 >
                   <X size={12} />
                 </button>

@@ -139,17 +139,17 @@ export default function ContactosDeal({ dealId, clienteId, contactos, canWrite, 
                       <X size={11} /> Cancelar
                     </button>
                   </div>
-                  {c.es_principal && <span className="text-[9px] text-gray-400">Editar acá también actualiza la ficha del cliente (contacto principal).</span>}
+                  {c.es_principal && <span className="text-[11px] text-gray-500">Editar acá también actualiza la ficha del cliente (contacto principal).</span>}
                 </div>
               ) : (
                 <>
                   <div className="flex flex-wrap items-center gap-1.5">
                     <span className="text-xs font-semibold text-navy">{c.nombre}</span>
                     {c.es_principal && (
-                      <span className="rounded bg-navy/10 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-navy">Principal</span>
+                      <span className="rounded bg-navy/10 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-navy">Principal</span>
                     )}
                     {c.rol === "DECISOR" && (
-                      <span className="flex items-center gap-0.5 rounded bg-orange/10 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-orange">
+                      <span className="flex items-center gap-0.5 rounded bg-orange/10 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-orange">
                         <Star size={9} /> Decisor
                       </span>
                     )}

@@ -209,7 +209,7 @@ export default function TabTipos({ initialTipos }: TabTiposProps) {
 
       <div className="space-y-3 md:hidden">
         {tipos.length === 0 && (
-          <div className="rounded-xl border border-surface-border p-8 text-center text-sm text-gray-400">
+          <div className="rounded-xl border border-surface-border p-8 text-center text-sm text-gray-500">
             No hay tipos de cotización registrados
           </div>
         )}
@@ -236,7 +236,7 @@ export default function TabTipos({ initialTipos }: TabTiposProps) {
           <tbody className="divide-y divide-surface-border">
             {tipos.length === 0 && (
               <tr>
-                <td colSpan={4} className="px-4 py-8 text-center text-gray-400 text-sm">
+                <td colSpan={4} className="px-4 py-8 text-center text-gray-500 text-sm">
                   No hay tipos de cotización registrados
                 </td>
               </tr>
@@ -256,7 +256,7 @@ export default function TabTipos({ initialTipos }: TabTiposProps) {
             {inactivos.length > 0 && activos.length > 0 && (
               <tr>
                 <td colSpan={4} className="px-4 py-2 bg-gray-50">
-                  <span className="text-xs font-medium text-gray-400 uppercase tracking-wide">
+                  <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">
                     Inactivos
                   </span>
                 </td>
@@ -310,7 +310,7 @@ export default function TabTipos({ initialTipos }: TabTiposProps) {
 
             <div>
               <label className="label">Color en reportes</label>
-              <p className="mb-2 text-xs text-gray-400">
+              <p className="mb-2 text-xs text-gray-500">
                 Pinta la porción de este tipo en el gráfico &quot;ventas por tipo&quot;.
               </p>
               <div className="flex items-center gap-2">
@@ -333,7 +333,7 @@ export default function TabTipos({ initialTipos }: TabTiposProps) {
 
             <div>
               <label className="label">Texto de contrato / condición</label>
-              <p className="mb-2 text-xs text-gray-400">
+              <p className="mb-2 text-xs text-gray-500">
                 Puedes pegar texto largo desde Notion en formato Markdown. Si pegas saltos como &lt;br&gt;, se convertirán a saltos de línea en el PDF.
               </p>
               <textarea
@@ -473,7 +473,7 @@ function TipoRow({
         <div className="flex items-center justify-end gap-1">
           <button
             onClick={() => onEdit(tipo)}
-            className="p-1.5 text-gray-400 hover:text-navy hover:bg-navy-50 rounded-md transition-colors"
+            className="p-1.5 text-gray-500 hover:text-navy hover:bg-navy-50 rounded-md transition-colors"
             title="Editar"
           >
             <Pencil size={14} />

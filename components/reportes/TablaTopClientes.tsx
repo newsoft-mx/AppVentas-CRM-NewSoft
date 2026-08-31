@@ -13,7 +13,7 @@ export default function TablaTopClientes({ data }: Props) {
       <h2 className="text-base font-semibold text-navy mb-4">Top clientes por venta</h2>
 
       {data.length === 0 ? (
-        <div className="flex items-center justify-center h-[120px] text-gray-400 text-sm">
+        <div className="flex items-center justify-center h-[120px] text-gray-500 text-sm">
           Sin datos en el período
         </div>
       ) : (

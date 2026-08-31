@@ -127,7 +127,7 @@ export function CotizadorToolbar({ casos, acciones, onNuevo }: {
           {casos.casos.map((c) => (
             <span key={c.id} className="flex items-center gap-1.5 rounded-full border border-surface-border bg-white px-2.5 py-1 text-[11px] text-gray-600">
               <button onClick={() => casos.cargar(c.id)} className="font-medium text-navy hover:text-orange">{c.nombre}</button>
-              <button onClick={() => casos.borrar(c.id, c.nombre)} title="Eliminar" className="text-gray-300 hover:text-red-500"><Trash2 size={11} /></button>
+              <button onClick={() => casos.borrar(c.id, c.nombre)} title="Eliminar" className="text-gray-500 hover:text-red-500"><Trash2 size={11} /></button>
             </span>
           ))}
         </div>

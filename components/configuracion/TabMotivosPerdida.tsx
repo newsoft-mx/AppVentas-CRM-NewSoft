@@ -85,7 +85,7 @@ export default function TabMotivosPerdida({ initialMotivos }: { initialMotivos: 
       {error && <p className="text-sm text-red-600">{error}</p>}
 
       <div className="divide-y divide-surface-border rounded-lg border border-surface-border">
-        {motivos.length === 0 && <p className="p-4 text-sm text-gray-400">Sin motivos. Agregá el primero.</p>}
+        {motivos.length === 0 && <p className="p-4 text-sm text-gray-500">Sin motivos. Agregá el primero.</p>}
         {motivos.map((mo) => (
           <div key={mo.id} className={`flex items-center gap-2 px-3 py-2 ${mo.activo ? "" : "opacity-50"}`}>
             {editId === mo.id ? (
@@ -98,17 +98,17 @@ export default function TabMotivosPerdida({ initialMotivos }: { initialMotivos: 
                   className="input flex-1"
                 />
                 <button onClick={() => guardarEdicion(mo.id)} className="text-emerald-600" title="Guardar"><Check size={16} /></button>
-                <button onClick={() => setEditId(null)} className="text-gray-400" title="Cancelar"><X size={16} /></button>
+                <button onClick={() => setEditId(null)} className="text-gray-500" title="Cancelar"><X size={16} /></button>
               </>
             ) : (
               <>
                 <span className="flex-1 text-sm text-navy">
                   {mo.nombre}
-                  {!mo.activo && <span className="ml-2 text-xs text-gray-400">(inactivo)</span>}
+                  {!mo.activo && <span className="ml-2 text-xs text-gray-500">(inactivo)</span>}
                 </span>
                 <button onClick={() => { setEditId(mo.id); setEditNombre(mo.nombre); }} className="text-xs font-medium text-gray-500 hover:text-navy">Editar</button>
                 <button onClick={() => toggleActivo(mo)} className="text-xs font-medium text-gray-500 hover:text-navy">{mo.activo ? "Desactivar" : "Activar"}</button>
-                <button onClick={() => eliminar(mo.id)} className="text-gray-300 hover:text-red-500" title="Eliminar"><Trash2 size={14} /></button>
+                <button onClick={() => eliminar(mo.id)} className="text-gray-500 hover:text-red-500" title="Eliminar"><Trash2 size={14} /></button>
               </>
             )}
           </div>

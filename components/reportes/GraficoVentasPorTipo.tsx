@@ -46,7 +46,7 @@ export default function GraficoVentasPorTipo({ data }: Props) {
     <div className="rounded-xl border border-gray-200 bg-white p-5">
       <h2 className="mb-4 text-base font-semibold text-navy">Distribución por línea de producto</h2>
       {chartData.length === 0 ? (
-        <div className="flex h-[260px] items-center justify-center text-sm text-gray-400">
+        <div className="flex h-[260px] items-center justify-center text-sm text-gray-500">
           Sin ventas cerradas en el período
         </div>
       ) : (
