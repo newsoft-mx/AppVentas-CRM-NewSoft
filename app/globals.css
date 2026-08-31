@@ -48,10 +48,15 @@ body {
 @layer components {
 
   /* Botón primario (Navy) */
+  /* El hover ACLARA, igual que los botones escritos a mano: son todos superficie navy y
+     tienen que reaccionar para el mismo lado. Esta clase decía `hover:bg-navy-800`, o sea
+     oscurecía — con el 700 duplicado del DEFAULT daba igual, porque los otros no se veían.
+     Al volver el 700 un escalón real, dejarla así ponía a los dos botones navy de la app
+     reaccionando en direcciones opuestas. */
   .btn-primary {
     @apply inline-flex items-center gap-2 px-4 py-2 rounded-lg
            bg-navy text-white text-sm font-medium
-           hover:bg-navy-800 active:bg-navy-900
+           hover:bg-navy-700 active:bg-navy-800
            transition-colors duration-150
            disabled:opacity-50 disabled:cursor-not-allowed;
   }
