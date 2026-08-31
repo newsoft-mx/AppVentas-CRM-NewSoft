@@ -65,6 +65,28 @@ export default function VentasClient({
   canWrite = true,
 }: VentasClientProps) {
   const [ordenes, setOrdenes] = useState<OrdenResumen[]>(initialOrdenes);
+  /**
+   * Volver a leer la lista cuando el server manda otra.
+   *
+   * La página pre-filtra en el servidor por período, así que al AMPLIAR un filtro el server
+   * devuelve más órdenes… y este estado se quedaba con la foto vieja para siempre: no había
+   * efecto, ni `key`, ni refetch que lo volviera a leer. Medido: entrando con ?mes=3 se ve 1
+   * orden, se aprieta "Limpiar todo" y se siguen viendo 1 —y el encabezado dice "1 orden",
+   * como si ese fuera el total— hasta que alguien recarga con F5 y aparecen las 4.
+   *
+   * Los KPIs y el ranking salen de esta misma lista, así que también quedaban calculados sobre
+   * un universo incompleto. Y el buscador, sobre una lista recortada, contesta "no existe"
+   * cuando la orden sí existe.
+   *
+   * Se ajusta DURANTE el render —el patrón de React para estado derivado de una prop, el mismo
+   * que usa `AccionesInbox`— y no en un efecto, que agregaría un render extra con la lista
+   * desactualizada.
+   */
+  const [ordenesPrev, setOrdenesPrev] = useState(initialOrdenes);
+  if (initialOrdenes !== ordenesPrev) {
+    setOrdenesPrev(initialOrdenes);
+    setOrdenes(initialOrdenes);
+  }
   // Filtros persistentes en la URL (mecanismo compartido — pilar 3)
   const [filtros, setFiltros] = useUrlFilters(initialFiltros, ORDENES_FILTROS);
   const [confirmDelete, setConfirmDelete] = useState<OrdenResumen | null>(null);
