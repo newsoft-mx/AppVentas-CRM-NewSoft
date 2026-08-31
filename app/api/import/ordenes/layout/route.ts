@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAuth } from "@/lib/session";
 import { excelResponse } from "@/lib/csv";
 import { prisma } from "@/lib/prisma";
+import { ESTATUS_ORDEN } from "@/types/ordenes";
 
 export async function GET(req: NextRequest) {
   const session = await requireAuth(req);
@@ -59,7 +60,7 @@ export async function GET(req: NextRequest) {
           tipos[index]?.nombre ?? "",
           condiciones[index]?.nombre ?? "",
           vendedores[index]?.nombre ?? "",
-          ["BORRADOR", "COTIZADO", "VENTA"][index] ?? "",
+          ESTATUS_ORDEN[index] ?? "",
           ["MXN", "USD"][index] ?? "",
           ["SI", "NO"][index] ?? "",
         ]),

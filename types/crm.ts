@@ -104,6 +104,18 @@ export type TamanoEmpresa = "MICRO" | "PEQUENA" | "MEDIANA" | "GRANDE";
 
 // SSOT de tamaños de empresa (por empleados) — orden + etiquetas en un solo lugar.
 export const TAMANOS_EMPRESA: TamanoEmpresa[] = ["MICRO", "PEQUENA", "MEDIANA", "GRANDE"];
+
+// SSOT del estatus de un cliente. El tipo estaba declarado DOS veces, palabra por palabra
+// (acá y en `types/clientes.ts`), y la etiqueta vivía en el otro archivo: `ContactosClient`
+// llegó a importar el tipo de acá y el META de allá, para el mismo enum. Dos declaraciones
+// independientes del mismo conjunto de valores no dan error si una se corrige y la otra no.
+export const ESTATUS_CLIENTE: EstatusCliente[] = ["PROSPECTO", "ACTIVO", "INACTIVO"];
+
+export const ESTATUS_CLIENTE_META: Record<EstatusCliente, { label: string; chip: string }> = {
+  PROSPECTO: { label: "Prospecto", chip: "bg-amber-50 text-amber-700" },
+  ACTIVO: { label: "Cliente", chip: "bg-emerald-50 text-emerald-700" },
+  INACTIVO: { label: "Inactivo", chip: "bg-gray-100 text-gray-500" },
+};
 export const TAMANO_EMPRESA_LABEL: Record<TamanoEmpresa, string> = {
   MICRO: "1–10 empleados",
   PEQUENA: "11–50 empleados",

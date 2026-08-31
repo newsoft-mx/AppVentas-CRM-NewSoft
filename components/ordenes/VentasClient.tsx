@@ -7,7 +7,7 @@ import { useUrlFilters } from "@/hooks/useUrlFilters";
 import FiltrosBar from "./FiltrosBar";
 import TablaOrdenes from "./TablaOrdenes";
 import Toast, { ToastData } from "@/components/ui/Toast";
-import type { OrdenResumen, FiltroOrdenes, EstatusOrden } from "@/types/ordenes";
+import { ESTATUS_ORDEN_META, type OrdenResumen, type FiltroOrdenes, type EstatusOrden } from "@/types/ordenes";
 import { calcularKpis } from "@/lib/kpis";
 import { fechaFiltroOrden, matchPeriod } from "@/lib/filter-utils";
 import { ORDENES_FILTROS } from "@/lib/ordenes-filtros";
@@ -116,7 +116,9 @@ export default function VentasClient({
     setOrdenes((prev) => [nuevaOrden, ...prev]);
     setToast({
       type: "success",
-      message: `Orden duplicada: ${nuevaOrden.folio} (Borrador)`,
+      // La cuarta copia de la etiqueta vivía acá, escrita a mano. Y de paso: el estatus lo
+      // dice el server, no lo adivina el cliente.
+      message: `Orden duplicada: ${nuevaOrden.folio} (${ESTATUS_ORDEN_META[nuevaOrden.estatus].label})`,
     });
   }, []);
 

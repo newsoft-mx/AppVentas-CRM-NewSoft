@@ -14,13 +14,14 @@ import type {
   ConversionTipoItem,
   ReporteStats,
 } from "@/types/reportes";
-import { buildDateOrFilters, selectedMonths } from "@/lib/filter-utils";
+import { selectedMonths, wherePeriodoOrden } from "@/lib/filter-utils";
 import { REPORTES_FILTROS } from "@/lib/reportes-filtros";
 import { filtrosIniciales } from "@/lib/filtros-servidor";
 import type { ParamMap } from "@/lib/filtros-memoria";
 import { getServerSession } from "@/lib/server-session";
 import { scopeOrdenWhere } from "@/lib/access-control";
 import type { SessionPayload } from "@/lib/session";
+import { calcularPipeline } from "@/lib/kpis";
 
 export const metadata = { title: "Reportes" };
 export const dynamic = "force-dynamic";
@@ -30,13 +31,7 @@ const MESES = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov"
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function buildWhere(filtros: FiltroReportes, session: SessionPayload | null): any {
   if (!filtros.ano.length && !filtros.q.length && !filtros.mes.length) return scopeOrdenWhere(session, {});
-  const ranges = buildDateOrFilters(filtros);
-  return scopeOrdenWhere(session, {
-    OR: ranges.flatMap((range) => [
-      { fecha_venta: range },
-      { estatus: { not: "VENTA" }, fecha_venta: null, created_at: range },
-    ]),
-  });
+  return scopeOrdenWhere(session, { OR: wherePeriodoOrden(filtros, "fecha_efectiva_estricta") });
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -44,7 +39,7 @@ function buildSalesWhere(filtros: FiltroReportes, session: SessionPayload | null
   const filterWithYear = ano ? { ...filtros, ano: [ano] } : filtros;
   return scopeOrdenWhere(session, {
     estatus: "VENTA",
-    OR: buildDateOrFilters(filterWithYear).map((range) => ({ fecha_venta: range })),
+    OR: wherePeriodoOrden(filterWithYear, "venta_cerrada"),
   });
 }
 
@@ -94,14 +89,7 @@ async function fetchPipeline(filtros: FiltroReportes, session: SessionPayload | 
     select: { estatus: true, moneda: true, tipo_cambio: true, subtotal_con_descuento: true },
   });
 
-  return {
-    borradores_count: ordenes.filter((o) => o.estatus === "BORRADOR").length,
-    cotizaciones_count: ordenes.filter((o) => o.estatus === "COTIZADO").length,
-    ventas_count: ordenes.filter((o) => o.estatus === "VENTA").length,
-    cotizaciones_mxn: sumaNetaMxn(ordenes.filter((o) => o.estatus === "COTIZADO")).mxn,
-    ventas_mxn: sumaNetaMxn(ordenes.filter((o) => o.estatus === "VENTA")).mxn,
-    total_ordenes: ordenes.length,
-  };
+  return calcularPipeline(ordenes);
 }
 
 async function fetchTopClientes(filtros: FiltroReportes, session: SessionPayload | null): Promise<TopClienteItem[]> {

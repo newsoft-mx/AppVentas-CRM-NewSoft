@@ -1,7 +1,7 @@
 "use client";
 
 import { X } from "lucide-react";
-import type { FiltroOrdenes } from "@/types/ordenes";
+import { ESTATUS_ORDEN, ESTATUS_ORDEN_META, type FiltroOrdenes } from "@/types/ordenes";
 import MultiSelect, { MultiSelectOption } from "@/components/ui/MultiSelect";
 
 interface FiltrosBarProps {
@@ -24,11 +24,9 @@ const MESES = [
   "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
   "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre",
 ].map((label, index) => ({ id: String(index + 1), label }));
-const ESTATUS = [
-  { id: "BORRADOR", label: "Borrador" },
-  { id: "COTIZADO", label: "Cotizado" },
-  { id: "VENTA", label: "Venta" },
-];
+// Las opciones salen del SSOT, en el orden del ciclo de vida. Acá vivía la tercera copia
+// de las etiquetas: si mañana se renombra "Cotizado", este filtro seguía diciendo lo viejo.
+const ESTATUS = ESTATUS_ORDEN.map((e) => ({ id: e, label: ESTATUS_ORDEN_META[e].label }));
 
 function toNumbers(values: string[]) {
   return values.map(Number).filter((value) => Number.isFinite(value));

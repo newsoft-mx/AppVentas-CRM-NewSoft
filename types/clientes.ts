@@ -1,7 +1,7 @@
 /**
  * Tipos de datos para el módulo de Clientes.
  */
-import type { TamanoEmpresa } from "@/types/crm";
+import type { EstatusCliente, TamanoEmpresa } from "@/types/crm";
 
 export interface CondicionResumen {
   id: string;
@@ -46,12 +46,6 @@ export interface ClienteConStats {
   stats: ClienteStats;
 }
 
-export type EstatusCliente = "PROSPECTO" | "ACTIVO" | "INACTIVO";
-export const ESTATUS_CLIENTE_META: Record<EstatusCliente, { label: string; chip: string }> = {
-  PROSPECTO: { label: "Prospecto", chip: "bg-amber-50 text-amber-700" },
-  ACTIVO: { label: "Cliente", chip: "bg-emerald-50 text-emerald-700" },
-  INACTIVO: { label: "Inactivo", chip: "bg-gray-100 text-gray-500" },
-};
 
 /** Payload para crear o actualizar un cliente */
 export interface ClienteInput {
