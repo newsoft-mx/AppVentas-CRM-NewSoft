@@ -1,0 +1,11 @@
+-- Tipo de cambio USD→MXN del deal, espejo del que ya tiene orden_venta.
+--
+-- Sin esta columna, el valor del pipeline sumaba un deal en dólares como si fueran pesos y
+-- rotulaba el total "MXN": con TC ~17, un deal de USD 50.000 entraba como $50.000 y
+-- subvaluaba el pipeline en casi un millón por cada uno.
+--
+-- ADITIVA: solo agrega una columna nullable. No toca datos existentes ni borra nada, así que
+-- el guard de migraciones destructivas la deja pasar. Los deals que ya están en USD quedan
+-- SIN tipo de cambio, y eso es correcto: la app los declara como "no convertibles" en vez de
+-- inventarles una paridad (lib/net-amounts). Ponerles un valor acá sería inventar el dato.
+ALTER TABLE "deal" ADD COLUMN "tipo_cambio" DECIMAL(10,4);

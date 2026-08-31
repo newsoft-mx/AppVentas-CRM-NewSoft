@@ -114,6 +114,7 @@ export async function POST(req: NextRequest) {
         tipo_cotizacion_id:
           typeof body.tipo_cotizacion_id === "string" && body.tipo_cotizacion_id ? body.tipo_cotizacion_id : null,
         moneda: body.moneda === "USD" ? "USD" : "MXN",
+        tipo_cambio: num(body.tipo_cambio),
         valor: num(body.valor) ?? 0,
         setup: num(body.setup),
         mensualidad: num(body.mensualidad),
@@ -138,6 +139,7 @@ export async function POST(req: NextRequest) {
       nombre: deal.nombre,
       valor: Number(deal.valor),
       moneda: deal.moneda,
+      tipo_cambio: deal.tipo_cambio ? Number(deal.tipo_cambio) : null,
       temperatura: view.temperatura,
       probabilidad: view.probabilidad,
       resultado: deal.resultado,

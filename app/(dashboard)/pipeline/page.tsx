@@ -149,6 +149,7 @@ export default async function PipelinePage({
       nombre: d.nombre,
       valor: Number(d.valor),
       moneda: d.moneda,
+      tipo_cambio: d.tipo_cambio ? Number(d.tipo_cambio) : null,
       temperatura: view.temperatura,
       probabilidad: view.probabilidad,
       resultado: d.resultado,

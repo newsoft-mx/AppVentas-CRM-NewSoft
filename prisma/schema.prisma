@@ -567,6 +567,13 @@ model Deal {
 
   // Montos (Decimal — regla del proyecto)
   moneda      Moneda   @default(MXN)
+  // Tipo de cambio USD→MXN, igual que en OrdenVenta (schema:309). Sin esta columna, el valor
+  // del pipeline sumaba un deal en dólares como si fueran pesos y rotulaba el total "MXN":
+  // con TC ~17, un deal de USD 50.000 entraba como $50.000 y subvaluaba el pipeline en casi
+  // un millón. Es nullable a propósito: un deal en MXN no lo necesita, y uno viejo en USD
+  // tampoco lo tiene — esos quedan declarados como "sin tipo de cambio" en vez de inventarles
+  // una paridad (lib/net-amounts).
+  tipo_cambio Decimal? @db.Decimal(10, 4)
   valor       Decimal  @default(0) @db.Decimal(12, 2)
   setup       Decimal? @db.Decimal(12, 2)
   mensualidad Decimal? @db.Decimal(12, 2)

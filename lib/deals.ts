@@ -44,6 +44,8 @@ export interface CrearDealInput {
   vendedor_id?: string | null;
   tipo_cotizacion_id?: string | null;
   moneda?: string;
+  /** Tipo de cambio USD→MXN. Sin él, un deal en USD no suma al valor del pipeline. */
+  tipo_cambio?: number | null;
   valor?: number;
   setup?: number | null;
   mensualidad?: number | null;
@@ -110,6 +112,7 @@ export async function crearDealTx(tx: Prisma.TransactionClient, input: CrearDeal
       tipo_cotizacion_id: input.tipo_cotizacion_id ?? null,
       // temperatura/probabilidad se DERIVAN del score (dealScoreView); no se persisten.
       moneda: input.moneda === "USD" ? "USD" : "MXN",
+      tipo_cambio: input.tipo_cambio ?? null,
       valor: input.valor ?? 0,
       setup: input.setup ?? null,
       mensualidad: input.mensualidad ?? null,
