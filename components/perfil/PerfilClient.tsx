@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { UserCircle, Lock } from "lucide-react";
 import Toast, { ToastData } from "@/components/ui/Toast";
+import { mensajeDeError } from "@/lib/errores-formulario";
 
 interface Props {
   nombre: string;
@@ -33,10 +34,7 @@ export default function PerfilClient({ nombre: nombreInicial, email, rolLabel, v
     });
     const data = await res.json().catch(() => null);
     if (!res.ok) {
-      const msg = Array.isArray(data?.details)
-        ? data.details.map((d: { mensaje: string }) => d.mensaje).join(". ")
-        : data?.error ?? "No se pudo guardar.";
-      setToast({ type: "error", message: msg });
+            setToast({ type: "error", message: mensajeDeError(data, "No se pudo guardar.") });
       return false;
     }
     return true;

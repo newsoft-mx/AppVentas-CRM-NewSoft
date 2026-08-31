@@ -2,8 +2,9 @@
 
 import { useState, useRef, useEffect, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
-import { ChevronDown, Loader2 } from "lucide-react";
+import { AlertCircle, ChevronDown, Loader2 } from "lucide-react";
 import { ESTATUS_LABELS, ESTATUS_COLORS, TRANSICIONES_PERMITIDAS } from "@/lib/utils";
+import { mensajeDeError } from "@/lib/errores-formulario";
 import type { EstatusOrden } from "@/types/ordenes";
 
 interface StatusBadgeProps {
@@ -25,6 +26,8 @@ export default function StatusBadge({ ordenId, estatus, onChanged, readOnly = fa
   const [isOpen, setIsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [showFechaVenta, setShowFechaVenta] = useState(false);
+  // El rechazo del server se muestra al lado de la pastilla, donde el usuario está mirando.
+  const [error, setError] = useState<string | null>(null);
   const [fechaVenta, setFechaVenta] = useState(todayForInput);
   const [menuStyle, setMenuStyle] = useState<CSSProperties>({});
   const containerRef = useRef<HTMLDivElement>(null);
@@ -81,8 +84,17 @@ export default function StatusBadge({ ordenId, estatus, onChanged, readOnly = fa
       });
 
       if (res.ok) {
+        setError(null);
         onChanged(nuevoEstatus, fecha);
+      } else {
+        // Antes acá no había `else`: si el server rechazaba el cambio —falta la fecha de venta
+        // (422), transición ilegal (409), sin permisos (403)— la pastilla volvía a su estado
+        // normal y NO pasaba nada visible. El usuario creía que había marcado la venta.
+        const data = await res.json().catch(() => ({}));
+        setError(mensajeDeError(data, "No se pudo cambiar el estatus."));
       }
+    } catch {
+      setError("No se pudo conectar. Revisá tu conexión e intentá de nuevo.");
     } finally {
       setIsLoading(false);
     }
@@ -181,6 +193,26 @@ export default function StatusBadge({ ordenId, estatus, onChanged, readOnly = fa
           </div>,
           document.body
         )}
+
+      {/* El motivo del rechazo, al lado de la pastilla que se intentó cambiar. `role="alert"`
+          para que un lector de pantalla lo anuncie: quien no ve el color tampoco se entera. */}
+      {error && (
+        <span
+          role="alert"
+          className="ml-2 inline-flex items-center gap-1 align-middle text-[11px] font-medium text-red-600"
+        >
+          <AlertCircle size={11} className="shrink-0" />
+          {error}
+          <button
+            type="button"
+            onClick={() => setError(null)}
+            aria-label="Descartar el aviso"
+            className="rounded px-1 text-red-500 hover:bg-red-50"
+          >
+            ×
+          </button>
+        </span>
+      )}
     </div>
   );
 }
