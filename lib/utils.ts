@@ -78,6 +78,17 @@ export function formatFechaHora(iso: string | Date): string {
 }
 
 /**
+ * La hora de AHORA, para estampar "actualizado HH:MM" al lado de una cifra.
+ *
+ * Se llama desde un efecto, nunca en el render: depende del reloj, así que server y cliente
+ * darían strings distintos y rompería la hidratación. El reporte de embudo ya lo hacía así
+ * inline; vive acá para que la segunda pantalla que lo necesite no invente su propia versión.
+ */
+export function horaAhora(): string {
+  return new Date().toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit" });
+}
+
+/**
  * El "cuándo" de una actividad (SSOT de cómo se muestra).
  *
  * La hora es opcional (SOL-22): sin ella, el instante guardado es el fin del día — un
