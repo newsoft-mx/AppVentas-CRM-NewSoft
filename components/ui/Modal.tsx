@@ -13,6 +13,16 @@ interface ModalProps {
    * ver `sucio` más abajo. Sirve para el caso raro en que el padre sabe algo que el DOM no.
    */
   confirmarDescarte?: boolean;
+  /**
+   * Las acciones, pegadas abajo y fuera del área que scrollea.
+   *
+   * Sin esto los botones viven al final del contenido, o sea DEBAJO DEL PLIEGUE en cuanto el
+   * formulario es largo: medido en el de Deal, hay que scrollear 910px en un teléfono y 389px
+   * en una laptop de 800px de alto para llegar a "Crear deal".
+   *
+   * Es opcional a propósito: los modales que ya existen siguen funcionando sin tocarlos.
+   */
+  footer?: React.ReactNode;
 }
 
 const sizeClasses = {
@@ -27,6 +37,7 @@ export default function Modal({
   children,
   size = "md",
   confirmarDescarte,
+  footer,
 }: ModalProps) {
   /**
    * ¿El usuario tocó algo acá adentro?
@@ -118,10 +129,17 @@ export default function Modal({
           </button>
         </div>
 
-        {/* Contenido */}
-        <div ref={contenidoRef} className="overflow-y-auto p-4 sm:p-6">
+        {/* Contenido — `min-h-0` es lo que deja que un hijo flex realmente scrollee en vez
+            de estirar al padre y empujar el pie fuera de la pantalla. */}
+        <div ref={contenidoRef} className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-6">
           {children}
         </div>
+
+        {footer && (
+          <div className="shrink-0 border-t border-surface-border bg-white px-4 py-3 sm:px-6">
+            {footer}
+          </div>
+        )}
 
         {/* La pregunta se dibuja ENCIMA del formulario, no lo reemplaza: se sigue viendo lo
             que está por perderse, que es la única forma de decidir con información. */}
