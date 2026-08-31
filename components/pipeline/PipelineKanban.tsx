@@ -229,6 +229,10 @@ export default function PipelineKanban({
   }
 
   return (
+    // `h-full` y no `min-h-full`: para que `flex-1` reparta espacio REAL, el contenedor
+    // necesita un alto definido, y `min-h` no lo es. Ese alto llega desde el layout de `md`
+    // para arriba. En teléfono no existe, `h-full` se resuelve como `auto` y el tablero se
+    // comporta igual que siempre. El desborde lo absorbe cada columna, no la página.
     <div className="flex h-full flex-col">
       {toast && <Toast {...toast} onClose={() => setToast(null)} />}
       {/* ── Franja 1 · ACCIÓN (buscar / crear / cambiar vista) ── */}
@@ -419,13 +423,18 @@ export default function PipelineKanban({
         </div>
       )}
 
-      {/* Tablero Kanban */}
+      {/* Tablero Kanban.
+          Las columnas son CARRILES, no cajas: `items-stretch` (era `items-start`) las estira
+          hasta abajo ahora que el alto llega desde el layout, y el cuerpo lleva `flex-1` +
+          `overflow-y-auto` para que una etapa con 30 deals scrollee adentro en vez de estirar
+          la página. El `min-h-[120px]` del cuerpo NO se toca: es la zona de drop de una etapa
+          vacía, y sin él no se puede arrastrar un deal a una columna sin tarjetas. */}
       {vista === "tablero" && (
       <div className="flex-1 overflow-x-auto bg-surface px-6 py-5">
         {!hayColumnas ? (
           <div className="rounded-xl border border-surface-border bg-white p-12 text-center text-gray-400">Sin deals con estos filtros.</div>
         ) : (
-        <div className="flex min-w-max items-start gap-3.5">
+        <div className="flex h-full min-w-max items-stretch gap-3.5">
           {estadosSel.has("ABIERTO") && stages.map((stage) => {
             const stageDeals = dealsByStage(stage.id);
             const totalStage = stageDeals.reduce((s, d) => s + d.valor, 0);
@@ -462,7 +471,7 @@ export default function PipelineKanban({
                     if (dragId) moverDeal(dragId, stage.id);
                     setDragId(null);
                   }}
-                  className={`flex min-h-[120px] flex-col gap-2 rounded-b-xl border border-t-0 border-surface-border p-2 transition-colors ${
+                  className={`flex min-h-[120px] flex-1 flex-col gap-2 overflow-y-auto rounded-b-xl border border-t-0 border-surface-border p-2 transition-colors ${
                     isOver ? "bg-orange/5 ring-1 ring-inset ring-orange/40" : "bg-surface"
                   }`}
                 >
@@ -505,7 +514,7 @@ export default function PipelineKanban({
                     <span className="text-[10px] font-medium text-gray-400">MXN</span>
                   </div>
                 </div>
-                <div className="flex min-h-[120px] flex-col gap-2 rounded-b-xl border border-t-0 border-surface-border bg-surface p-2">
+                <div className="flex min-h-[120px] flex-1 flex-col gap-2 overflow-y-auto rounded-b-xl border border-t-0 border-surface-border bg-surface p-2">
                   {dealsEst.map((deal) => (
                     <DealCard
                       key={deal.id}
