@@ -4,7 +4,7 @@
  * filtros del pipeline, compartido por el server component (hidrata desde searchParams)
  * y el cliente (espeja a la URL vía useUrlFilters).
  */
-import type { DealResultado } from "@/types/crm";
+import { ESTADO_DEAL_META, type DealResultado } from "@/types/crm";
 import type { ContratoFiltros, ParamMap } from "@/lib/filtros-memoria";
 
 export type OrdenPipeline =
@@ -96,3 +96,40 @@ export const PIPELINE_FILTROS: ContratoFiltros<PipelineFiltros> = {
   serialize: serializePipelineFiltros,
   serializeMemoria: serializePipelineMemoria,
 };
+
+/**
+ * Qué está mirando el usuario, en una línea.
+ *
+ * El encabezado decía «Prospectos activos» escrito en duro. Con el filtro por defecto era
+ * cierto —el tablero arranca en ABIERTO + SUSPENDIDO—, pero en cuanto alguien filtraba por
+ * Ganados, o por un vendedor, la pantalla seguía afirmando lo mismo. Un rótulo que no depende
+ * de lo que muestra es un rótulo que tarde o temprano miente.
+ *
+ * Se deriva del MISMO objeto de filtros que se manda a la URL, así que no pueden desfasarse.
+ * Las etiquetas de estado salen de `ESTADO_DEAL_META`, no de una segunda lista.
+ *
+ * @param nombres Cómo se llaman el vendedor y el tipo elegidos. Los ids no le dicen nada a
+ *                nadie, y esta función no puede resolverlos sola.
+ */
+export function etiquetaDelTablero(
+  f: PipelineFiltros,
+  nombres: { vendedor?: string; tipo?: string } = {}
+): string {
+  const partes: string[] = [];
+
+  // El default se nombra por lo que significa, no enumerando sus dos estados: "Activos y
+  // pausados" es exacto pero peor de leer que la frase que el equipo ya usa.
+  partes.push(
+    esDefaultEstados(f.estados)
+      ? "Prospectos activos"
+      : f.estados.length === 0
+        ? "Sin estados seleccionados"
+        : f.estados.map((e) => ESTADO_DEAL_META[e].label).join(" y ")
+  );
+
+  if (f.vendedor !== "todos") partes.push(nombres.vendedor ?? "un vendedor");
+  if (f.tipo !== "todos") partes.push(nombres.tipo ?? "una línea");
+  if (f.q.trim()) partes.push(`«${f.q.trim()}»`);
+
+  return partes.join(" · ");
+}
