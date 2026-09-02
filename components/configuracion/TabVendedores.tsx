@@ -11,6 +11,7 @@ import {
 import { EXTRACTORES_VENDEDOR, type CampoVendedor } from "@/lib/configuracion-orden";
 import type { Vendedor } from "@/types/configuracion";
 import { TH_CONFIG } from "./estilos-tabla";
+import { mensajeDeError } from "@/lib/errores-formulario";
 
 interface TabVendedoresProps {
   initialVendedores: Vendedor[];
@@ -87,10 +88,7 @@ export default function TabVendedores({ initialVendedores }: TabVendedoresProps)
 
     const data = await res.json();
     if (!res.ok) {
-      const details = Array.isArray(data.details)
-        ? data.details.map((d: { mensaje: string }) => d.mensaje).join(". ")
-        : "";
-      throw new Error(details || data.error || "Error al guardar");
+      throw new Error(mensajeDeError(data, "Error al guardar"));
     }
     return data as Vendedor;
   };

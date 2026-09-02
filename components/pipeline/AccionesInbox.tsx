@@ -20,6 +20,7 @@ import ActividadCompositor, {
   type DealCompositor, type TipoAccionOpcion, type ResultadoAccionOpcion,
 } from "@/components/pipeline/ActividadCompositor";
 import { formatFechaHora } from "@/lib/utils";
+import ListaVacia from "@/components/ui/ListaVacia";
 import { useUrlFilters } from "@/hooks/useUrlFilters";
 import { ACCIONES_FILTROS, type AccionesFiltros } from "@/lib/acciones-filtros";
 import { grupoUrgencia } from "@/lib/tareas";
@@ -83,6 +84,11 @@ export default function AccionesInbox({
     const id = setInterval(() => setAhora(new Date()), 60_000);
     return () => clearInterval(id);
   }, []);
+
+  // Los dos filtros de esta pantalla, en un solo predicado: el estado vacío necesita saber si
+  // hay alguno puesto para no decir "todo al día" cuando en realidad no hay nada cargado.
+  const hayFiltros = vendedorFiltro !== "todos" || tipoFiltro !== "todos";
+  const onLimpiarFiltros = () => setFiltros((f) => ({ ...f, vendedor: "todos", tipo: "todos" }));
 
   const filtered = useMemo(
     () =>
@@ -278,11 +284,17 @@ export default function AccionesInbox({
       ) : (
       <div className="flex-1 overflow-y-auto bg-surface px-6 py-5">
         {filtered.length === 0 && (
-          <div className="flex flex-col items-center gap-2 py-16 text-center">
-            <ListChecks size={40} className="text-gray-200" />
-            <div className="text-base font-semibold text-gray-400">Todo al día</div>
-            <div className="text-sm text-gray-400">Sin acciones pendientes con este filtro.</div>
-          </div>
+          // "Todo al día" era una afirmación FALSA el día 1: sin ninguna acción cargada, la
+          // pantalla felicitaba al usuario por estar al día con un trabajo que nunca empezó.
+          <ListaVacia
+            filtrado={hayFiltros && items.length > 0}
+            icono={ListChecks}
+            tituloVacio="Todavía no hay acciones agendadas"
+            detalleVacio="Registrá la primera llamada o reunión y va a aparecer acá."
+            tituloFiltrado="Todo al día"
+            detalleFiltrado="No quedan acciones pendientes con este filtro."
+            onLimpiarFiltros={onLimpiarFiltros}
+          />
         )}
 
         {ORDEN_GRUPOS.map((g) => {

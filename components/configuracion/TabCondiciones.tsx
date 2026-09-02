@@ -11,6 +11,7 @@ import {
 import { EXTRACTORES_CONDICION, type CampoCondicion } from "@/lib/configuracion-orden";
 import { TH_CONFIG } from "./estilos-tabla";
 import type { CondicionComercial } from "@/types/configuracion";
+import { mensajeDeError } from "@/lib/errores-formulario";
 
 interface TabCondicionesProps {
   initialCondiciones: CondicionComercial[];
@@ -159,10 +160,7 @@ export default function TabCondiciones({ initialCondiciones }: TabCondicionesPro
       const data = await res.json();
 
       if (!res.ok) {
-        const details = Array.isArray(data.details)
-          ? data.details.map((d: { campo: string; mensaje: string }) => d.mensaje).join(". ")
-          : "";
-        setFormError(details || data.error || "Error al guardar");
+        setFormError(mensajeDeError(data, "Error al guardar"));
         return;
       }
 

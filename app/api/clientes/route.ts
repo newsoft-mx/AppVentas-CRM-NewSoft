@@ -7,6 +7,7 @@ import { canManageClients, requireAuth } from "@/lib/session";
 import { scopeClienteWhere } from "@/lib/access-control";
 import { statsDeOrdenes } from "@/lib/clientes-stats";
 import { asegurarPrincipalDesdeCliente } from "@/lib/contactos";
+import { ESTATUS_CLIENTE, type EstatusCliente } from "@/types/crm";
 
 // GET /api/clientes
 // Devuelve clientes activos con conteo y montos por moneda
@@ -17,10 +18,9 @@ export async function GET(req: NextRequest) {
   try {
     // Filtro opcional por estatus (PROSPECTO / ACTIVO / INACTIVO)
     const estatusParam = req.nextUrl.searchParams.get("estatus");
-    const ESTATUS = ["PROSPECTO", "ACTIVO", "INACTIVO"];
     const where: Prisma.ClienteWhereInput = { activo: true };
-    if (estatusParam && ESTATUS.includes(estatusParam)) {
-      where.estatus = estatusParam as "PROSPECTO" | "ACTIVO" | "INACTIVO";
+    if (estatusParam && (ESTATUS_CLIENTE as string[]).includes(estatusParam)) {
+      where.estatus = estatusParam as EstatusCliente;
     }
     const clientes = await prisma.cliente.findMany({
       // Scoping por vendedor (mismo criterio en la página de clientes).
