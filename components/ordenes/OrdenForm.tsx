@@ -5,7 +5,7 @@ import { Save, Plus, Trash2, Calculator } from "lucide-react";
 import SearchableSelect from "@/components/ui/SearchableSelect";
 import { formatMoneda, formatMXN } from "@/lib/utils";
 import { repartirDetalles } from "@/lib/errores-formulario";
-import type { OrdenDetalle } from "@/types/ordenes";
+import { ESTATUS_ORDEN, ESTATUS_ORDEN_META, type OrdenDetalle, type EstatusOrden } from "@/types/ordenes";
 
 // ── Tipos locales ─────────────────────────────────────────────
 
@@ -184,7 +184,7 @@ export default function OrdenForm({
   const [condicionId, setCondicionId] = useState(orden?.condicion_pago_id ?? condiciones[0]?.id ?? "");
   const [vendedorId, setVendedorId] = useState(orden?.vendedor_id ?? precarga?.vendedor_id ?? (vendedores.length === 1 ? vendedores[0].id : ""));
   const [descripcion, setDescripcion] = useState(orden?.descripcion ?? precarga?.descripcion ?? "");
-  const [estatus, setEstatus] = useState<"BORRADOR" | "COTIZADO" | "VENTA">(
+  const [estatus, setEstatus] = useState<EstatusOrden>(
     orden?.estatus ?? "BORRADOR"
   );
   const [moneda, setMoneda] = useState<"MXN" | "USD">(orden?.moneda ?? "MXN");
@@ -524,9 +524,11 @@ export default function OrdenForm({
                 if (errors.fecha_venta) setErrors((p) => ({ ...p, fecha_venta: "" }));
               }}
             >
-              <option value="BORRADOR">Borrador</option>
-              <option value="COTIZADO">Cotizado</option>
-              <option value="VENTA">Venta</option>
+              {ESTATUS_ORDEN.map((e) => (
+                <option key={e} value={e}>
+                  {ESTATUS_ORDEN_META[e].label}
+                </option>
+              ))}
             </select>
           </div>
 

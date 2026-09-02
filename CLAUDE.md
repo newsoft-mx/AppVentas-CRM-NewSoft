@@ -35,8 +35,9 @@ Next.js 16 (App Router) + React + Prisma + PostgreSQL. Deploy en **Vercel + Supa
 
 Todo cambio con superficie ejecutable se verifica de verdad, no solo por tests:
 `tsc --noEmit` limpio **+** `npm test` verde **+** probar el flujo real en el navegador.
-Si toca el schema: aplicar la migración en local y verificar el backfill. La calidad hoy
-se sostiene con esta disciplina (no hay CI todavía) — no saltear pasos.
+Si toca el schema: aplicar la migración en local y verificar el backfill. El CI atrapa el
+typecheck y los unitarios, pero **no** el lint ni los e2e (corren con `continue-on-error`), y
+sobre todo no atrapa que la pantalla haga lo que promete — no saltear pasos.
 
 ## Convenciones de código
 
@@ -85,7 +86,10 @@ requerimiento (`feature/` · `fix/` · `chore/` · `docs/`) → PR a `main`. Ade
 
 ## Deuda conocida / pendiente
 
-- **Sin CI**: los tests (tsc/jest/eslint/e2e) **no** corren solos en los PRs — hoy se verifican
-  a mano. Es la prioridad de robustez #1 (pasar de "vigilancia" a "automático" con branch protection).
+- **CI a medias**: `.github/workflows/ci.yml` sí corre en cada PR a `main`. `tsc --noEmit` y
+  `npm test` **bloquean** el merge; el lint y los e2e corren con `continue-on-error`, o sea
+  avisan pero no frenan. Lo que falta para cerrar el círculo: sacarles el `continue-on-error`
+  (primero al lint, cuando esté limpio) y activar branch protection, sin la cual el gate se
+  puede saltear igual.
 - **Drift de migraciones en Supabase**: reconciliar el schema real de prod con las migraciones
   (ya causó un crash P2022). Migraciones a prod: siempre por el flujo de migración, nunca `db push` a mano.

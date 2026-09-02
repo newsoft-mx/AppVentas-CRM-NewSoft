@@ -1,14 +1,15 @@
 "use client";
 
 import { useState, useMemo, useCallback } from "react";
-import { BarChart3, Plus, AlertTriangle } from "lucide-react";
+import { BarChart3, Plus, AlertTriangle, Search, Download } from "lucide-react";
 import Link from "next/link";
 import { useUrlFilters } from "@/hooks/useUrlFilters";
 import FiltrosBar from "./FiltrosBar";
 import TablaOrdenes from "./TablaOrdenes";
 import Toast, { ToastData } from "@/components/ui/Toast";
-import type { OrdenResumen, FiltroOrdenes, EstatusOrden } from "@/types/ordenes";
+import { ESTATUS_ORDEN_META, type OrdenResumen, type FiltroOrdenes, type EstatusOrden } from "@/types/ordenes";
 import { calcularKpis } from "@/lib/kpis";
+import { aCsv, filasDeOrdenes, nombreDeArchivo } from "@/lib/exportar-ordenes";
 import { fechaFiltroOrden, matchPeriod } from "@/lib/filter-utils";
 import { ORDENES_FILTROS } from "@/lib/ordenes-filtros";
 import { formatMXN } from "@/lib/utils";
@@ -25,6 +26,22 @@ interface VentasClientProps {
 }
 
 // ── Filtrado client-side (AND combinable) ─────────────────────
+/**
+ * Buscar por texto libre. Sobre folio, cliente y descripción: es lo que alguien tiene a mano
+ * cuando le preguntan por una cotización. El folio se podía ORDENAR pero no ENCONTRAR — para
+ * dar con NS00042 había que recorrer la tabla con el ojo.
+ */
+function buscarEnOrdenes(ordenes: OrdenResumen[], texto: string): OrdenResumen[] {
+  const q = texto.trim().toLowerCase();
+  if (!q) return ordenes;
+  return ordenes.filter(
+    (o) =>
+      o.folio.toLowerCase().includes(q) ||
+      o.cliente.nombre.toLowerCase().includes(q) ||
+      o.descripcion.toLowerCase().includes(q)
+  );
+}
+
 function filtrarOrdenes(ordenes: OrdenResumen[], filtros: FiltroOrdenes): OrdenResumen[] {
   return ordenes.filter((o) => {
     if (filtros.estatus.length && !filtros.estatus.includes(o.estatus)) return false;
@@ -48,6 +65,28 @@ export default function VentasClient({
   canWrite = true,
 }: VentasClientProps) {
   const [ordenes, setOrdenes] = useState<OrdenResumen[]>(initialOrdenes);
+  /**
+   * Volver a leer la lista cuando el server manda otra.
+   *
+   * La página pre-filtra en el servidor por período, así que al AMPLIAR un filtro el server
+   * devuelve más órdenes… y este estado se quedaba con la foto vieja para siempre: no había
+   * efecto, ni `key`, ni refetch que lo volviera a leer. Medido: entrando con ?mes=3 se ve 1
+   * orden, se aprieta "Limpiar todo" y se siguen viendo 1 —y el encabezado dice "1 orden",
+   * como si ese fuera el total— hasta que alguien recarga con F5 y aparecen las 4.
+   *
+   * Los KPIs y el ranking salen de esta misma lista, así que también quedaban calculados sobre
+   * un universo incompleto. Y el buscador, sobre una lista recortada, contesta "no existe"
+   * cuando la orden sí existe.
+   *
+   * Se ajusta DURANTE el render —el patrón de React para estado derivado de una prop, el mismo
+   * que usa `AccionesInbox`— y no en un efecto, que agregaría un render extra con la lista
+   * desactualizada.
+   */
+  const [ordenesPrev, setOrdenesPrev] = useState(initialOrdenes);
+  if (initialOrdenes !== ordenesPrev) {
+    setOrdenesPrev(initialOrdenes);
+    setOrdenes(initialOrdenes);
+  }
   // Filtros persistentes en la URL (mecanismo compartido — pilar 3)
   const [filtros, setFiltros] = useUrlFilters(initialFiltros, ORDENES_FILTROS);
   const [confirmDelete, setConfirmDelete] = useState<OrdenResumen | null>(null);
@@ -64,11 +103,43 @@ export default function VentasClient({
       .sort((a, b) => a.label.localeCompare(b.label, "es"));
   }, [ordenes]);
 
+  /**
+   * Búsqueda por texto. Estado local, igual que en Clientes.
+   *
+   * NO viaja en la URL ni se recuerda entre visitas: es texto transitorio, y un buscador que
+   * se recuerda se convierte en un filtro invisible que sigue al usuario sin que se dé cuenta
+   * de por qué le faltan filas. Es el mismo criterio con el que el Pipeline excluye su `q` de
+   * la memoria (`lib/pipeline-filtros.ts`).
+   */
+  const [busqueda, setBusqueda] = useState("");
+
   // ── Filtrado client-side ──────────────────────────────────────
   const ordenesFiltradas = useMemo(
-    () => filtrarOrdenes(ordenes, filtros),
-    [ordenes, filtros]
+    () => buscarEnOrdenes(filtrarOrdenes(ordenes, filtros), busqueda),
+    [ordenes, filtros, busqueda]
   );
+
+  /**
+   * Exportar lo que está en pantalla.
+   *
+   * Se arma en el navegador a partir de `ordenesFiltradas`, y eso es una garantía, no un
+   * atajo: el archivo NO PUEDE discrepar de la tabla, porque son la misma lista. Un endpoint
+   * aparte tendría que reconstruir los mismos filtros y podría desincronizarse.
+   *
+   * Tampoco filtra nada de más: el server ya mandó solo lo que esta sesión puede ver
+   * (`scopeOrdenWhere` en la página), así que acá no hay a qué escaparse.
+   */
+  const exportar = () => {
+    const csv = aCsv(filasDeOrdenes(ordenesFiltradas));
+    // El BOM es lo que hace que Excel abra los acentos bien en Windows.
+    const blob = new Blob([`﻿${csv}`], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = nombreDeArchivo(new Date().toISOString());
+    a.click();
+    URL.revokeObjectURL(url);
+  };
 
   // ── KPIs calculados siempre del estado actual filtrado ───────
   const kpis = useMemo(() => calcularKpis(ordenesFiltradas), [ordenesFiltradas]);
@@ -116,7 +187,9 @@ export default function VentasClient({
     setOrdenes((prev) => [nuevaOrden, ...prev]);
     setToast({
       type: "success",
-      message: `Orden duplicada: ${nuevaOrden.folio} (Borrador)`,
+      // La cuarta copia de la etiqueta vivía acá, escrita a mano. Y de paso: el estatus lo
+      // dice el server, no lo adivina el cliente.
+      message: `Orden duplicada: ${nuevaOrden.folio} (${ESTATUS_ORDEN_META[nuevaOrden.estatus].label})`,
     });
   }, []);
 
@@ -168,6 +241,27 @@ export default function VentasClient({
           </p>
         </div>
         <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
+          <div className="relative w-full sm:w-64">
+            <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+            <input
+              type="search"
+              value={busqueda}
+              onChange={(e) => setBusqueda(e.target.value)}
+              placeholder="Buscar folio, cliente o descripción…"
+              aria-label="Buscar órdenes"
+              className="input w-full pl-9"
+            />
+          </div>
+          <button
+            type="button"
+            onClick={exportar}
+            disabled={ordenesFiltradas.length === 0}
+            className="btn-secondary justify-center disabled:cursor-not-allowed disabled:opacity-50"
+            title="Descarga las órdenes que estás viendo"
+          >
+            <Download size={15} />
+            Exportar
+          </button>
           {/* Agrupar/desagrupar. Vive en los filtros, así que viaja en la URL (se comparte) y
               la cookie de memoria lo recuerda para la próxima visita. */}
           <div

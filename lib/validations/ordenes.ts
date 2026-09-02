@@ -3,6 +3,12 @@
  */
 
 import { z } from "zod";
+import { ESTATUS_ORDEN, type EstatusOrden } from "@/types/ordenes";
+
+// El enum de estatus para zod, derivado del SSOT — mismo giro que `lib/validations/clientes.ts`
+// usa con `TAMANOS_EMPRESA`. Estaba escrito a mano tres veces en este archivo: un estatus nuevo
+// entraba por una ruta y lo rechazaban las otras dos.
+const ESTATUS_ZOD = z.enum(ESTATUS_ORDEN as [EstatusOrden, ...EstatusOrden[]]);
 
 // ── Partida ──────────────────────────────────────────────────
 
@@ -38,7 +44,7 @@ const OrdenBaseShape = {
     .trim()
     .min(1, "La descripción es requerida")
     .max(300, "Máximo 300 caracteres"),
-  estatus: z.enum(["BORRADOR", "COTIZADO", "VENTA"] as const).default("BORRADOR"),
+  estatus: ESTATUS_ZOD.default("BORRADOR"),
   moneda: z.enum(["MXN", "USD"] as const),
   tipo_cambio: z
     .number({ invalid_type_error: "Tipo de cambio inválido" })
@@ -129,7 +135,7 @@ export const OrdenUpdateSchema = z.object(OrdenBaseShape).partial().extend({
 // ── Estatus: cambio de estado ─────────────────────────────────
 
 export const EstatusUpdateSchema = z.object({
-  estatus: z.enum(["BORRADOR", "COTIZADO", "VENTA"]),
+  estatus: ESTATUS_ZOD,
   fecha_venta: z
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}$/, "Formato de fecha inválido")
@@ -143,7 +149,7 @@ export const FiltroOrdenesSchema = z.object({
   ano: z.coerce.number().int().min(2020).max(2099).nullable().optional(),
   q: z.coerce.number().int().min(1).max(4).nullable().optional(),
   mes: z.coerce.number().int().min(1).max(12).nullable().optional(),
-  estatus: z.enum(["BORRADOR", "COTIZADO", "VENTA"]).nullable().optional(),
+  estatus: ESTATUS_ZOD.nullable().optional(),
   cliente_id: z.string().uuid().nullable().optional(),
   tipo_cotizacion_id: z.string().uuid().nullable().optional(),
   vendedor_id: z.string().uuid().nullable().optional(),

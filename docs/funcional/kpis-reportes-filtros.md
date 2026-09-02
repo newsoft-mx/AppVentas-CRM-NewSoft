@@ -9,7 +9,9 @@
 
 ## 1. KPIs del apartado Ventas
 
-Dos cálculos paralelos con la misma fórmula: client-side `calcularKpis` (`lib/kpis.ts`) y server-side `GET /api/ordenes/kpis` (`app/api/ordenes/kpis/route.ts`).
+Un solo cálculo: `calcularKpis` (`lib/kpis.ts`), sobre las órdenes que la página ya cargó.
+
+> Hubo una segunda copia server-side (`GET /api/ordenes/kpis`) que nadie llamaba y que ya había derivado de la original —usaba `netAmount()` donde `lib/kpis.ts` usa `subtotal_con_descuento` directo, así que los totales en USD no coincidían—. Se borró.
 
 | Campo | Qué calcula |
 |---|---|
@@ -55,13 +57,19 @@ Si hay `mes` → esos meses; si hay `q` → expande cada trimestre a sus 3 meses
 ### Rango de fechas — `buildDateOrFilters` (`filter-utils.ts:89-116`)
 Rangos `[gte, lt)` semiabiertos en UTC: por mes, por trimestre (3 meses), o año completo. Equivalente backend de `matchPeriod` (client-side).
 
-### Regla fecha_venta-primero — `fechaFiltroOrden` (`filter-utils.ts:85-87`)
-`orden.fecha_venta ?? orden.created_at`. En backend se expresa como OR de dos términos por rango:
-```
-{ fecha_venta: range }                                    // ventas
-{ estatus: { not: "VENTA" }, fecha_venta: null, created_at: range }   // no-ventas sin fecha
-```
-Los reportes que ya filtran `estatus: "VENTA"` (mensuales, tipo, vendedor) **no** aplican fallback.
+### ¿En qué período cae una orden? — `wherePeriodoOrden` (`lib/filter-utils.ts`)
+
+`buildDateOrFilters` da el **rango**; `wherePeriodoOrden` decide sobre **qué fecha** se aplica. Son tres semánticas y conviven a propósito:
+
+| Alcance | Cláusulas | Quién lo usa |
+|---|---|---|
+| `venta_cerrada` | `{ fecha_venta: range }` | Los reportes de ingreso, que además filtran `estatus: "VENTA"`: mensuales, por tipo, por vendedor, y `buildSalesWhere` de /reportes. |
+| `fecha_efectiva` | `{ fecha_venta: range }` OR `{ fecha_venta: null, created_at: range }` | La vista de trabajo: la lista de /ventas y `GET /api/ordenes`. Un borrador de este mes tiene que verse aunque nunca se cierre. |
+| `fecha_efectiva_estricta` | igual, pero el fallback lleva `estatus: { not: "VENTA" }` | Los reportes de composición: top-clientes, pipeline, conversión, y `buildWhere` de /reportes. |
+
+La diferencia entre las dos últimas es **una sola fila posible**: una orden marcada VENTA *sin* fecha de venta. En /ventas se cuenta (por su alta); en /reportes no. Es la explicación de por qué las dos pantallas pueden dar conteos distintos del mismo período. Se conserva tal cual estaba: cambiar cuál gana mueve cifras de plata, y eso lo decide el negocio, no un refactor.
+
+**Cuidado con "sin filtros"**: `buildDateOrFilters` no devuelve "todos los años" sino **el año en curso**. El call-site que quiera la historia completa tiene que decidirlo antes de llamar — es lo que hacen /ventas y /reportes con su `if`.
 
 ## 4. Filtros disponibles
 
