@@ -1,12 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { ChevronDown, ChevronRight, Copy, Eye, FileDown, Loader2, Trash2 } from "lucide-react";
+import { ChevronDown, ChevronRight, Copy, Eye, FileDown, Loader2, Plus, ShoppingCart, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import StatusBadge from "./StatusBadge";
 import { formatFecha, formatMoneda, formatMXN } from "@/lib/utils";
 import { netAmount, netAmountMxn, sumaNetaMxn, tieneTipoCambio } from "@/lib/net-amounts";
 import ThOrdenable from "@/components/ui/ThOrdenable";
+import ListaVacia from "@/components/ui/ListaVacia";
 import type { ClienteAgrupado } from "@/lib/ranking-clientes";
 import type { ModoVista } from "@/lib/ventas-vista";
 
@@ -43,6 +44,9 @@ interface TablaOrdenesProps {
   onDuplicated: (nuevaOrden: OrdenResumen) => void;
   onDescripcionChanged: (id: string, descripcion: string) => void;
   onError?: (mensaje: string) => void;
+  /** ¿Hay filtros puestos? Lo sabe el padre; la tabla solo ve el resultado ya filtrado. */
+  hayFiltros: boolean;
+  onLimpiarFiltros: () => void;
 }
 
 // Descripción editable inline (SOL-12b): doble clic → textarea; Enter/blur
@@ -146,6 +150,8 @@ export default function TablaOrdenes({
   onDuplicated,
   onDescripcionChanged,
   onError,
+  hayFiltros,
+  onLimpiarFiltros,
 }: TablaOrdenesProps) {
   const [duplicatingIds, setDuplicatingIds] = useState<Set<string>>(new Set());
   // Orden por encabezado (cimiento compartido: lib/tabla-orden). `campo: null` = el orden que
@@ -206,11 +212,30 @@ export default function TablaOrdenes({
   };
 
   if (ordenes.length === 0) {
+    // /ventas es la pantalla de entrada: `app/page.tsx` y el login redirigen acá. Con la base
+    // recién sembrada decía "no coinciden con los filtros seleccionados" sin ningún filtro
+    // puesto — le echaba la culpa a algo inexistente y no decía qué hacer.
+    //
+    // `hayFiltros` llega por prop y no se deduce acá: esta tabla recibe `ordenesFiltradas`,
+    // o sea el resultado, y no tiene forma de distinguir "no hay nada" de "el filtro no deja
+    // pasar nada".
     return (
-      <div className="rounded-xl border border-surface-border bg-white p-12 text-center">
-        <p className="text-base font-medium text-gray-600">Sin órdenes</p>
-        <p className="mt-1 text-sm text-gray-400">No hay órdenes que coincidan con los filtros seleccionados.</p>
-      </div>
+      <ListaVacia
+        filtrado={hayFiltros}
+        icono={ShoppingCart}
+        tituloVacio="Todavía no hay órdenes"
+        detalleVacio="Cargá la primera cotización y va a aparecer acá."
+        accionVacio={
+          canWrite ? (
+            <Link href="/ventas/nueva" className="btn-primary text-sm">
+              <Plus size={15} />
+              Nueva orden
+            </Link>
+          ) : undefined
+        }
+        detalleFiltrado="Ninguna orden coincide con los filtros que tenés puestos."
+        onLimpiarFiltros={onLimpiarFiltros}
+      />
     );
   }
 

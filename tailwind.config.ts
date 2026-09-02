@@ -5,6 +5,18 @@ const config: Config = {
     "./pages/**/*.{js,ts,jsx,tsx,mdx}",
     "./components/**/*.{js,ts,jsx,tsx,mdx}",
     "./app/**/*.{js,ts,jsx,tsx,mdx}",
+    // lib/ también escribe clases: los colores de avatar y de
+    // condición comercial (ui-helpers). Sin este glob, Tailwind no las ve y no las genera:
+    // la pastilla de "Cotizado" salía como texto suelto —única de la columna sin fondo— y
+    // los avatares de cliente quedaban transparentes. Verificado en el navegador: `bg-blue-100`
+    // y `bg-teal-600` no existían en el CSS compilado; `bg-green-100` sí, porque además la
+    // usa un componente. Agregar el glob es aditivo: genera lo que falta, no cambia lo que hay.
+    "./lib/**/*.{js,ts,jsx,tsx,mdx}",
+    // Y `types/` también: los `chip`/`dot` de ESTATUS_CLIENTE_META, ESTADO_TAREA_META y
+    // ESTATUS_ORDEN_META son clases escritas ahí (SSOT). Hoy ninguna falta —cada una se usa
+    // además en components/, así que igual se genera— pero eso es un accidente: el día que
+    // un chip estrene un color propio, se perdería en silencio. Preventivo, no correctivo.
+    "./types/**/*.{js,ts,jsx,tsx,mdx}",
   ],
   theme: {
     extend: {
@@ -19,7 +31,12 @@ const config: Config = {
           400: "#5373C3",
           500: "#3355AA",
           600: "#2A4489",
-          700: "#1B2A4A", // primary
+          // 700 era un duplicado exacto del DEFAULT (#1B2A4A). Como el fondo del sidebar y
+          // los botones primarios SON navy, los 11 `hover:bg-navy-700` del repo pintaban el
+          // mismo color encima: el hover existía y no se veía en ninguna parte — menú,
+          // botones primarios y el kit del cotizador. Ahora es un escalón real entre el 600
+          // y el 800, más claro que el DEFAULT. Regla: sobre superficie navy el hover ACLARA.
+          700: "#22355F",
           800: "#131F38",
           900: "#0B1422",
         },
