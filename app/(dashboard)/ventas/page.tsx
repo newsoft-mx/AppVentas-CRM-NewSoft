@@ -3,7 +3,7 @@ import VentasClient from "@/components/ordenes/VentasClient";
 import { serializeOrden } from "@/lib/serializers";
 import type { Metadata } from "next";
 import type { OrdenResumen, FiltroOrdenes } from "@/types/ordenes";
-import { buildDateOrFilters } from "@/lib/filter-utils";
+import { wherePeriodoOrden } from "@/lib/filter-utils";
 import { ORDENES_FILTROS } from "@/lib/ordenes-filtros";
 import { filtrosIniciales } from "@/lib/filtros-servidor";
 import type { ParamMap } from "@/lib/filtros-memoria";
@@ -25,11 +25,7 @@ function buildWhere(filtros: FiltroOrdenes) {
   if (filtros.vendedor_id.length) where.vendedor_id = { in: filtros.vendedor_id };
 
   if (filtros.ano.length || filtros.q.length || filtros.mes.length) {
-    const ranges = buildDateOrFilters(filtros);
-    where.OR = ranges.flatMap((range) => [
-      { fecha_venta: range },
-      { fecha_venta: null, created_at: range },
-    ]);
+    where.OR = wherePeriodoOrden(filtros, "fecha_efectiva");
   }
 
   return where;

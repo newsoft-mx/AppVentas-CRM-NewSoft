@@ -9,11 +9,11 @@ import { canWrite, requireAuth } from "@/lib/session";
 import { assignedVendedorId, scopeOrdenWhere } from "@/lib/access-control";
 import { logger } from "@/lib/logger";
 import {
-  buildDateOrFilters,
   getAllParam,
   parseEstatusList,
   parseNumberList,
   parseStringList,
+  wherePeriodoOrden,
 } from "@/lib/filter-utils";
 
 // ── Helpers de filtro ─────────────────────────────────────────
@@ -36,10 +36,7 @@ function buildWhere(filtros: {
   if (filtros.vendedor_id.length) where.vendedor_id = { in: filtros.vendedor_id };
 
   if (filtros.ano.length || filtros.q.length || filtros.mes.length) {
-    where.OR = buildDateOrFilters(filtros).flatMap((range) => [
-      { fecha_venta: range },
-      { fecha_venta: null, created_at: range },
-    ]);
+    where.OR = wherePeriodoOrden(filtros, "fecha_efectiva");
   }
 
   return where;
