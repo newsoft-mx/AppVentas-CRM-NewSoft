@@ -183,7 +183,21 @@ export default function NuevoDealModal({
   }
 
   return (
-    <Modal title={editando ? "Editar Deal" : "Nuevo Deal"} onClose={onClose} size="lg">
+    <Modal
+      title={editando ? "Editar Deal" : "Nuevo Deal"}
+      onClose={onClose}
+      size="lg"
+      footer={
+        <div className="flex justify-end gap-2">
+          <button onClick={onClose} className="rounded-lg border border-surface-border px-4 py-2 text-sm font-semibold text-gray-600 hover:bg-surface">
+            Cancelar
+          </button>
+          <button onClick={guardar} disabled={guardando} className="rounded-lg bg-orange px-4 py-2 text-sm font-semibold text-white hover:bg-orange/90 disabled:opacity-50">
+            {guardando ? (editando ? "Guardando…" : "Creando…") : editando ? "Guardar cambios" : "Crear deal"}
+          </button>
+        </div>
+      }
+    >
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <Campo label="Nombre del proyecto *" full>
           <input className={inputCls} value={form.nombre} onChange={(e) => set("nombre", e.target.value)} placeholder="Ej. Portal de Proveedores" />
@@ -389,14 +403,6 @@ export default function NuevoDealModal({
 
       {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
 
-      <div className="mt-5 flex justify-end gap-2">
-        <button onClick={onClose} className="rounded-lg border border-surface-border px-4 py-2 text-sm font-semibold text-gray-600 hover:bg-surface">
-          Cancelar
-        </button>
-        <button onClick={guardar} disabled={guardando} className="rounded-lg bg-orange px-4 py-2 text-sm font-semibold text-white hover:bg-orange/90 disabled:opacity-50">
-          {guardando ? (editando ? "Guardando…" : "Creando…") : editando ? "Guardar cambios" : "Crear deal"}
-        </button>
-      </div>
     </Modal>
   );
 }
