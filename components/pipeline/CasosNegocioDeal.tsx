@@ -31,10 +31,10 @@ export default function CasosNegocioDeal({ dealId }: { dealId: string }) {
 
   return (
     <div className="flex flex-col gap-2">
-      {casos === null && !error && <p className="text-[11px] text-gray-400">Cargando…</p>}
+      {casos === null && !error && <p className="text-[11px] text-gray-500">Cargando…</p>}
       {error && <p className="text-[11px] text-red-500">No se pudieron cargar los casos.</p>}
       {casos?.length === 0 && (
-        <p className="text-[11px] text-gray-400">Sin casos de negocio vinculados.</p>
+        <p className="text-[11px] text-gray-500">Sin casos de negocio vinculados.</p>
       )}
       {casos?.map((c) => (
         <Link
@@ -46,7 +46,7 @@ export default function CasosNegocioDeal({ dealId }: { dealId: string }) {
           <Calculator size={14} className="shrink-0 text-navy" />
           <span className="min-w-0 flex-1">
             <span className="block truncate text-[12px] font-medium text-navy">{c.nombre}</span>
-            <span className="block text-[10px] text-gray-400">{formatFechaHora(c.updated_at)}</span>
+            <span className="block text-[10px] text-gray-500">{formatFechaHora(c.updated_at)}</span>
           </span>
           <ExternalLink size={13} className="shrink-0 text-gray-500 group-hover:text-navy" />
         </Link>

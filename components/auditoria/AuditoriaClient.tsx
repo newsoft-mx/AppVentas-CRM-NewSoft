@@ -73,7 +73,7 @@ export default function AuditoriaClient({ initial }: { initial: AuditoriaItem[] 
       {/* Filtros */}
       <div className="flex flex-wrap items-center gap-2">
         <div className="relative min-w-[220px] flex-1">
-          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
           <input
             value={q}
             onChange={(e) => setQ(e.target.value)}
@@ -105,7 +105,7 @@ export default function AuditoriaClient({ initial }: { initial: AuditoriaItem[] 
           </thead>
           <tbody className="divide-y divide-surface-border">
             {filtrados.length === 0 && (
-              <tr><td colSpan={5} className="px-4 py-10 text-center text-sm text-gray-400">Sin movimientos que coincidan.</td></tr>
+              <tr><td colSpan={5} className="px-4 py-10 text-center text-sm text-gray-500">Sin movimientos que coincidan.</td></tr>
             )}
             {filtrados.map((i) => {
               const mod = MODULO[i.entidad] ?? { label: i.entidad };
@@ -135,11 +135,11 @@ export default function AuditoriaClient({ initial }: { initial: AuditoriaItem[] 
                       {i.cambios.map((c) => (
                         <li key={c.campo} className="text-gray-600">
                           {c.label}:{" "}
-                          <span className="text-gray-400 line-through">{c.antes ?? "—"}</span>{" "}
+                          <span className="text-gray-500 line-through">{c.antes ?? "—"}</span>{" "}
                           <span className="text-navy">→ {c.despues ?? "—"}</span>
                         </li>
                       ))}
-                      {i.cambios.length === 0 && <li className="text-gray-400">—</li>}
+                      {i.cambios.length === 0 && <li className="text-gray-500">—</li>}
                     </ul>
                   </td>
                 </tr>
@@ -149,7 +149,7 @@ export default function AuditoriaClient({ initial }: { initial: AuditoriaItem[] 
         </table>
       </div>
 
-      <p className="text-xs text-gray-400">
+      <p className="text-xs text-gray-500">
         {filtrados.length} de {initial.length} movimientos · se muestran los 200 más recientes
       </p>
     </div>

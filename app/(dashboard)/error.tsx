@@ -40,7 +40,7 @@ export default function ErrorDashboard({
             encontrar el error en los logs del servidor.
           */}
           {error.digest && (
-            <span className="mt-2 block font-mono text-xs text-gray-400">
+            <span className="mt-2 block font-mono text-xs text-gray-500">
               Código: {error.digest}
             </span>
           )}

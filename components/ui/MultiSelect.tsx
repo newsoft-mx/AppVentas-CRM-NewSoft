@@ -107,7 +107,7 @@ export default function MultiSelect({
             {value.length}
           </span>
         )}
-        <ChevronDown size={14} className={`text-gray-400 transition-transform ${isOpen ? "rotate-180" : ""}`} />
+        <ChevronDown size={14} className={`text-gray-500 transition-transform ${isOpen ? "rotate-180" : ""}`} />
       </button>
 
       {isOpen && (
@@ -115,7 +115,7 @@ export default function MultiSelect({
           {searchable && (
             <div className="border-b border-surface-border p-2">
               <div className="relative">
-                <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
+                <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-500" />
                 <input
                   ref={searchRef}
                   value={search}
@@ -139,7 +139,7 @@ export default function MultiSelect({
 
           <ul className="max-h-60 overflow-y-auto py-1">
             {filtered.length === 0 ? (
-              <li className="px-3 py-3 text-center text-sm text-gray-400">Sin resultados</li>
+              <li className="px-3 py-3 text-center text-sm text-gray-500">Sin resultados</li>
             ) : (
               filtered.map((option) => {
                 const isSelected = selected.has(option.id);
@@ -160,7 +160,7 @@ export default function MultiSelect({
                       <span className="min-w-0">
                         <span className="block truncate">{option.label}</span>
                         {option.sublabel && (
-                          <span className="mt-0.5 block truncate font-mono text-xs text-gray-400">
+                          <span className="mt-0.5 block truncate font-mono text-xs text-gray-500">
                             {option.sublabel}
                           </span>
                         )}

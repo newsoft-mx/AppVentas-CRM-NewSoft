@@ -12,7 +12,7 @@ const componentes: Components = {
   p: ({ children }) => <p className="my-1 first:mt-0 last:mb-0">{children}</p>,
   strong: ({ children }) => <strong className="font-semibold text-navy">{children}</strong>,
   em: ({ children }) => <em className="italic">{children}</em>,
-  del: ({ children }) => <del className="text-gray-400">{children}</del>,
+  del: ({ children }) => <del className="text-gray-500">{children}</del>,
   h1: ({ children }) => <h1 className="mb-1 mt-2 text-base font-bold text-navy first:mt-0">{children}</h1>,
   h2: ({ children }) => <h2 className="mb-1 mt-2 text-sm font-bold text-navy first:mt-0">{children}</h2>,
   h3: ({ children }) => <h3 className="mb-1 mt-2 text-sm font-semibold text-navy first:mt-0">{children}</h3>,

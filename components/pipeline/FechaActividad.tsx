@@ -92,7 +92,7 @@ export default function FechaActividad({
         <button
           onClick={() => setEditandoFecha(false)}
           title="Cancelar"
-          className="text-gray-400 hover:text-navy"
+          className="text-gray-500 hover:text-navy"
         >
           <X size={13} />
         </button>
@@ -101,12 +101,12 @@ export default function FechaActividad({
   }
 
   const clases = completada
-    ? "text-gray-400 line-through"
+    ? "text-gray-500 line-through"
     : esTarea
       ? vencida
         ? "font-semibold text-red-600"
         : "font-medium text-blue-700"
-      : "text-gray-400";
+      : "text-gray-500";
   const contenido = (
     <>
       {editada && <span className="mr-0.5 italic text-gray-500">editado ·</span>}

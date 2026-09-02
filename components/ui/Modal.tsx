@@ -123,7 +123,7 @@ export default function Modal({
           <button
             onClick={intentarCerrar}
             aria-label="Cerrar"
-            className="p-1 text-gray-400 hover:text-gray-600 rounded-md hover:bg-gray-100 transition-colors"
+            className="p-1 text-gray-500 hover:text-gray-600 rounded-md hover:bg-gray-100 transition-colors"
           >
             <X size={18} />
           </button>

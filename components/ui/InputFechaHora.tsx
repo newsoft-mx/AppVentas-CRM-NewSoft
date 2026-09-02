@@ -63,7 +63,7 @@ export default function InputFechaHora({ value, onChange, className = "", autoFo
           onClick={() => onChange("")}
           title="Quitar fecha"
           aria-label="Quitar fecha"
-          className="rounded-lg px-2 text-gray-400 hover:bg-surface hover:text-navy"
+          className="rounded-lg px-2 text-gray-500 hover:bg-surface hover:text-navy"
         >
           <X size={15} />
         </button>

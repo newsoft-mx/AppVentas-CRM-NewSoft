@@ -236,13 +236,13 @@ export default function ActividadCompositor({
   return (
     <div className="border-b border-surface-border bg-white px-5 py-4">
       <div className="mb-3 flex items-center justify-between">
-        <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">
+        <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">
           {editando ? "Editar actividad" : "Nueva actividad"}
         </span>
         <button
           onClick={onCancelar}
           title="Cerrar"
-          className="rounded p-1 text-gray-400 hover:bg-surface hover:text-navy"
+          className="rounded p-1 text-gray-500 hover:bg-surface hover:text-navy"
         >
           <X size={16} />
         </button>
@@ -329,7 +329,7 @@ export default function ActividadCompositor({
         {visible("hora") && (
           <label className="flex flex-col gap-1 text-[11px] font-medium text-gray-500">
             <span className="flex items-center gap-1">
-              Hora <span className="font-normal text-gray-400">(opcional)</span>
+              Hora <span className="font-normal text-gray-500">(opcional)</span>
               {/* Quitar la hora: vuelve a "sin hora", que es un estado real (se agenda
                   para ese día, sin horario). Sin esto, ponerla era irreversible. */}
               <button
@@ -395,7 +395,7 @@ export default function ActividadCompositor({
           {visible("enlace") && (
             <label className="flex flex-col gap-1 text-[11px] font-medium text-gray-500">
               <span className="flex items-center gap-1">
-                Enlace <span className="font-normal text-gray-400">(Drive, propuesta…)</span>
+                Enlace <span className="font-normal text-gray-500">(Drive, propuesta…)</span>
                 <button
                   type="button"
                   onClick={() => quitar("enlace")}
@@ -411,13 +411,13 @@ export default function ActividadCompositor({
                 onChange={(e) => setEnlace(e.target.value)}
                 placeholder="https://…"
                 className="rounded-lg border border-surface-border bg-white px-3 py-2 text-sm
-                           text-navy outline-none placeholder:text-gray-400 focus:border-orange"
+                           text-navy outline-none placeholder:text-gray-500 focus:border-orange"
               />
             </label>
           )}
           {mostrarResultado && !cuandoFutura && (
             <label className="flex flex-col gap-1 text-[11px] font-medium text-gray-500 sm:col-span-2">
-              Desenlace <span className="font-normal text-gray-400">(opcional — ajusta el termómetro)</span>
+              Desenlace <span className="font-normal text-gray-500">(opcional — ajusta el termómetro)</span>
               <select
                 value={resultadoSel}
                 onChange={(e) => setResultadoSel(e.target.value)}
@@ -440,7 +440,7 @@ export default function ActividadCompositor({
       {/* "+ Agregar" (SOL-22): revela los opcionales que falten, uno a uno. */}
       {extrasDisponibles.length > 0 && (
         <div className="mt-2 flex flex-wrap items-center gap-2">
-          <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">
+          <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">
             + Agregar:
           </span>
           {extrasDisponibles.map((e) => {

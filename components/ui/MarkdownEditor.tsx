@@ -129,7 +129,7 @@ export default function MarkdownEditor({
           {value.trim() ? (
             <Markdown>{value}</Markdown>
           ) : (
-            <span className="text-sm text-gray-400">Nada que previsualizar…</span>
+            <span className="text-sm text-gray-500">Nada que previsualizar…</span>
           )}
         </div>
       ) : (
@@ -141,7 +141,7 @@ export default function MarkdownEditor({
           placeholder={placeholder}
           rows={rows}
           className="w-full resize-none overflow-y-auto rounded-b-lg bg-transparent px-3.5 py-2.5
-            text-sm text-navy outline-none placeholder:text-gray-400"
+            text-sm text-navy outline-none placeholder:text-gray-500"
         />
       )}
 

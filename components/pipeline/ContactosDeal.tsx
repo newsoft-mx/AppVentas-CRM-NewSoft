@@ -115,7 +115,7 @@ export default function ContactosDeal({ dealId, clienteId, contactos, canWrite, 
 
   return (
     <div>
-      {contactos.length === 0 && <p className="text-xs text-gray-400">Sin contactos</p>}
+      {contactos.length === 0 && <p className="text-xs text-gray-500">Sin contactos</p>}
       {contactos.map((c) => {
         const enEdicion = editId === c.contacto_id;
         return (
@@ -153,7 +153,7 @@ export default function ContactosDeal({ dealId, clienteId, contactos, canWrite, 
                         <Star size={9} /> Decisor
                       </span>
                     )}
-                    {c.cargo && <span className="text-[10px] text-gray-400">· {c.cargo}</span>}
+                    {c.cargo && <span className="text-[10px] text-gray-500">· {c.cargo}</span>}
                   </div>
                   {canWrite && (
                     <div className="mt-0.5 flex items-center gap-1.5">
@@ -164,9 +164,9 @@ export default function ContactosDeal({ dealId, clienteId, contactos, canWrite, 
                       >
                         {ROLES.map((r) => <option key={r} value={r}>{ROL_CONTACTO_LABEL[r]}</option>)}
                       </select>
-                      <button onClick={() => abrirEdicion(c)} className="text-gray-400 hover:text-navy" title="Editar contacto"><Pencil size={12} /></button>
+                      <button onClick={() => abrirEdicion(c)} className="text-gray-500 hover:text-navy" title="Editar contacto"><Pencil size={12} /></button>
                       {contactos.length > 1 && (
-                        <button onClick={() => quitar(c.id)} className="text-gray-400 hover:text-red-600" title="Quitar del deal"><Trash2 size={12} /></button>
+                        <button onClick={() => quitar(c.id)} className="text-gray-500 hover:text-red-600" title="Quitar del deal"><Trash2 size={12} /></button>
                       )}
                     </div>
                   )}
@@ -186,7 +186,7 @@ export default function ContactosDeal({ dealId, clienteId, contactos, canWrite, 
                         <MessageCircle size={11} className="shrink-0" /> {c.whatsapp}
                       </a>
                     )}
-                    {!c.telefono && !c.email && !c.whatsapp && <span className="text-[10px] text-gray-400">Sin datos de contacto</span>}
+                    {!c.telefono && !c.email && !c.whatsapp && <span className="text-[10px] text-gray-500">Sin datos de contacto</span>}
                   </div>
                 </>
               )}

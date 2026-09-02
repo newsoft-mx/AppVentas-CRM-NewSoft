@@ -90,7 +90,7 @@ export default function HistorialCambios({ entidad, entidadId }: { entidad: stri
           <div className="space-y-2.5">
             {items?.map((it) => (
               <div key={it.id} className="text-[11px]">
-                <div className="flex items-baseline justify-between gap-2 text-gray-400">
+                <div className="flex items-baseline justify-between gap-2 text-gray-500">
                   <span className="font-medium text-navy">{it.autor}</span>
                   <span className="shrink-0">{fecha(it.created_at)}</span>
                 </div>
@@ -98,7 +98,7 @@ export default function HistorialCambios({ entidad, entidadId }: { entidad: stri
                   {it.cambios.map((c) => (
                     <li key={c.campo} className="text-gray-600">
                       {c.label}:{" "}
-                      <span className="text-gray-400 line-through">{c.antes ?? "—"}</span>{" "}
+                      <span className="text-gray-500 line-through">{c.antes ?? "—"}</span>{" "}
                       <span className="text-navy">→ {c.despues ?? "—"}</span>
                     </li>
                   ))}

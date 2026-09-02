@@ -27,10 +27,10 @@ const ICONO: Record<Variante, typeof Loader2> = {
 };
 
 const TONO: Record<Variante, string> = {
-  cargando: "text-gray-400",
+  cargando: "text-gray-500",
   error: "text-red-600",
-  vacio: "text-gray-400",
-  denegado: "text-gray-400",
+  vacio: "text-gray-500",
+  denegado: "text-gray-500",
 };
 
 export interface EstadoPanelProps {

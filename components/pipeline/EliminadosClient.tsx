@@ -46,11 +46,11 @@ export default function EliminadosClient({ deals }: { deals: DealEliminado[] }) 
     <div className="flex h-full flex-col">
       {toast && <Toast {...toast} onClose={() => setToast(null)} />}
       <header className="border-b border-surface-border bg-white px-6 py-4">
-        <Link href="/pipeline" className="mb-1 flex w-fit items-center gap-1 text-xs text-gray-400 hover:text-navy">
+        <Link href="/pipeline" className="mb-1 flex w-fit items-center gap-1 text-xs text-gray-500 hover:text-navy">
           <ArrowLeft size={13} /> Volver al pipeline
         </Link>
         <h1 className="text-xl font-bold tracking-tight text-navy">Leads eliminados</h1>
-        <p className="text-xs text-gray-400">
+        <p className="text-xs text-gray-500">
           {items.length} {items.length === 1 ? "lead" : "leads"} · se pueden restaurar. Los que
           no tenían actividad se borraron de forma definitiva y no aparecen acá.
         </p>
@@ -58,7 +58,7 @@ export default function EliminadosClient({ deals }: { deals: DealEliminado[] }) 
 
       <div className="flex-1 overflow-auto bg-surface px-6 py-5">
         {items.length === 0 ? (
-          <div className="flex flex-col items-center gap-2 py-16 text-center text-gray-400">
+          <div className="flex flex-col items-center gap-2 py-16 text-center text-gray-500">
             <Trash2 size={28} className="text-gray-500" />
             <p className="text-sm">No hay leads eliminados para restaurar.</p>
           </div>
@@ -77,7 +77,7 @@ export default function EliminadosClient({ deals }: { deals: DealEliminado[] }) 
                     <span>{d.actividades} {d.actividades === 1 ? "actividad" : "actividades"}</span>
                   </div>
                   {/* Quién, cuándo y por qué: la razón de ser del borrado marcado. */}
-                  <div className="mt-1.5 text-[11px] text-gray-400">
+                  <div className="mt-1.5 text-[11px] text-gray-500">
                     Eliminado
                     {d.eliminada_por && <> por <span className="text-gray-500">{d.eliminada_por}</span></>}
                     {d.eliminada_at && <> · {formatFechaHora(d.eliminada_at)}</>}

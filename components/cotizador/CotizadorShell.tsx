@@ -61,7 +61,7 @@ export function CotizadorTabs<T extends string>({
     <div className="inline-flex gap-1 rounded-lg bg-gray-100 p-1">
       {tabs.map(([k, label]) => (
         <button key={k} onClick={() => onChange(k)}
-          className={`rounded-md px-3.5 py-1.5 text-xs font-medium transition-colors ${value === k ? "bg-navy text-white" : "text-gray-500 hover:text-navy"}`}>
+          className={`rounded-md px-3.5 py-1.5 text-xs font-medium transition-colors ${value === k ? "bg-navy text-white" : "text-gray-600 hover:text-navy"}`}>
           {label}
         </button>
       ))}
@@ -110,7 +110,7 @@ export function CotizadorToolbar({ casos, acciones, onNuevo }: {
           <Save size={13} /> {casos.guardando ? "Guardando…" : "Guardar"}
         </CotizadorButton>
         {casos.casos.length > 0 && (
-          <label className="flex items-center gap-1.5 text-gray-400">
+          <label className="flex items-center gap-1.5 text-gray-500">
             <FolderOpen size={14} />
             <select value="" onChange={(e) => e.target.value && casos.cargar(e.target.value)}
               className="rounded-lg border border-surface-border bg-white px-2 py-1.5 text-[12px] text-navy outline-none focus:border-navy">
