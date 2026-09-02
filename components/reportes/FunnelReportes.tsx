@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { ArrowUp, ArrowDown } from "lucide-react";
-import { formatCompacto } from "@/lib/utils";
+import { formatCompacto, horaAhora } from "@/lib/utils";
 import { useUrlFilters } from "@/hooks/useUrlFilters";
 import { FUNNEL_FILTROS, type FunnelFiltros } from "@/lib/funnel-filtros";
 import {
@@ -158,7 +158,7 @@ export default function FunnelReportes({
       setAct(a);
       setPrev(p);
       setRango(r);
-      setActualizado(new Date().toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit" }));
+      setActualizado(horaAhora());
     } catch {
       setError("No se pudieron cargar los reportes. Intentá de nuevo.");
     } finally {
