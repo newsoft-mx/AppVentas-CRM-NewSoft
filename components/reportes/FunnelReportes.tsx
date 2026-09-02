@@ -193,7 +193,16 @@ export default function FunnelReportes({
   const razonMax = rz?.por_razon[0]?.count ?? 1;
   // Contra qué se compara cada delta, en fechas. Sale del MISMO rango que se fetcheó, así que
   // no puede desfasarse de los números que muestra.
-  const vsAnterior = rango ? etiquetaRango(rango.anterior) : undefined;
+  // Si el período anterior cae en OTRO año (preset Año: se compara contra el año pasado),
+  // la etiqueta lleva el año: "1 ene – 2 sep" sin año parecía comparar contra sí mismo,
+  // porque etiquetaRango lo omite cuando ambas puntas lo comparten (auditoría Norman:
+  // signifier ambiguo).
+  const vsAnterior = rango
+    ? etiquetaRango(rango.anterior) +
+      (rango.anterior.desde.slice(0, 4) !== rango.actual.desde.slice(0, 4)
+        ? ` ${rango.anterior.desde.slice(0, 4)}`
+        : "")
+    : undefined;
 
   // Derivaciones para las "lecturas" (rediseño 2026-09-02): cada frase sale de los
   // datos ya fetcheados — si el dato no está, la frase no se muestra.
@@ -278,12 +287,15 @@ export default function FunnelReportes({
               sola"), con el desglose por estado como RECUADROS indicadores, no prosa:
               la frase corrida no se escaneaba. La suma de los recuadros = el total. */}
           <div className="flex flex-wrap items-center gap-x-4 gap-y-3">
-            <div className="flex items-baseline gap-2">
-              <span className="text-xl text-gray-600">
-                {rango ? etiquetaRango(rango.actual) : "Este período"}: entraron
-              </span>
+            {/* La fecha NO se repite acá: vive una sola vez en el subtítulo, pegada a los
+                botones que la controlan (mapping). "En el período" apunta a ese control. */}
+            <div
+              className="flex items-baseline gap-2"
+              title="Deals cuya fecha de ingreso al pipeline cae dentro del período seleccionado arriba"
+            >
+              <span className="text-xl text-gray-600">Entraron</span>
               <span className="text-3xl font-bold tracking-tight text-navy">{f.total}</span>
-              <span className="text-xl text-gray-600">leads</span>
+              <span className="text-xl text-gray-600">leads en el período</span>
               {dTotal !== null && dTotal !== 0 && (
                 <span className={`inline-flex items-center gap-0.5 text-sm font-semibold ${dTotal > 0 ? "text-emerald-700" : "text-red-700"}`}>
                   {dTotal > 0 ? <ArrowUp size={13} /> : <ArrowDown size={13} />}
@@ -292,7 +304,10 @@ export default function FunnelReportes({
               )}
             </div>
             {f.total > 0 && (
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap items-center gap-2">
+                {/* Conector explícito: los recuadros son ESOS MISMOS leads, clasificados
+                    por el estado en que están hoy (modelo de cohorte, dicho en palabras). */}
+                <span className="text-sm text-gray-500">De esos, hoy están así:</span>
                 {(
                   [
                     ["ABIERTO", f.desglose.activos, "activos"],
@@ -307,6 +322,7 @@ export default function FunnelReportes({
                       key={est}
                       className="inline-flex items-baseline gap-1.5 rounded-lg border px-3 py-1.5"
                       style={{ borderColor: `${meta.color}55`, background: `${meta.color}0D` }}
+                      title={`De los ${f.total} leads que ingresaron en el período, ${n} ${n === 1 ? "está" : "están"} hoy en estado ${meta.label}`}
                     >
                       <span className="text-lg font-bold tracking-tight" style={{ color: meta.color }}>{n}</span>
                       <span className="text-xs font-medium text-gray-600">{label}</span>
