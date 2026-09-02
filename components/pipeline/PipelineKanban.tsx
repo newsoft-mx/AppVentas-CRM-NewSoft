@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   Plus, Filter, Building2, Clock, LayoutGrid, List, Flame, CalendarClock, Search,
-  SlidersHorizontal, ChevronDown, X, Trash2,
+  SlidersHorizontal, ChevronDown, X, Trash2, Users,
 } from "lucide-react";
 import {
   TEMPERATURA_META,
@@ -17,6 +17,7 @@ import {
   type StageResumen,
 } from "@/types/crm";
 import NuevoDealModal from "@/components/pipeline/NuevoDealModal";
+import ListaVacia from "@/components/ui/ListaVacia";
 import { metricasPipeline } from "@/lib/pipeline-metrics";
 import { formatCompacto, formatFechaHora } from "@/lib/utils";
 import { useUrlFilters } from "@/hooks/useUrlFilters";
@@ -434,7 +435,22 @@ export default function PipelineKanban({
       {vista === "tablero" && (
       <div className="flex-1 overflow-x-auto bg-surface px-6 py-5">
         {!hayColumnas ? (
-          <div className="rounded-xl border border-surface-border bg-white p-12 text-center text-gray-400">Sin deals con estos filtros.</div>
+          <ListaVacia
+            filtrado={filtrosActivos > 0 && deals.length > 0}
+            icono={Users}
+            tituloVacio="Todavía no hay deals"
+            detalleVacio="Cargá el primer lead y va a aparecer en el tablero."
+            accionVacio={
+              canWrite ? (
+                <button type="button" onClick={() => setModalOpen(true)} className="btn-primary text-sm">
+                  <Plus size={15} />
+                  Nuevo deal
+                </button>
+              ) : undefined
+            }
+            detalleFiltrado="Ningún deal coincide con los filtros que tenés puestos."
+            onLimpiarFiltros={limpiarFiltros}
+          />
         ) : (
         <div className="flex min-w-max items-start gap-3.5">
           {estadosSel.has("ABIERTO") && stages.map((stage) => {
@@ -610,11 +626,15 @@ export default function PipelineKanban({
                   );
                 })}
                 {filtered.length === 0 && (
-                  <tr>
-                    <td colSpan={11} className="px-4 py-8 text-center text-gray-400">
-                      Sin deals con estos filtros.
-                    </td>
-                  </tr>
+                  <ListaVacia
+                    colSpan={11}
+                    filtrado={filtrosActivos > 0 && deals.length > 0}
+                    icono={Users}
+                    tituloVacio="Todavía no hay deals"
+                    detalleVacio="Cargá el primer lead y va a aparecer en la lista."
+                    detalleFiltrado="Ningún deal coincide con los filtros que tenés puestos."
+                    onLimpiarFiltros={limpiarFiltros}
+                  />
                 )}
               </tbody>
               {filtered.length > 0 && (

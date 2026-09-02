@@ -8,6 +8,7 @@ import Toast, { ToastData } from "@/components/ui/Toast";
 import ClienteCard from "./ClienteCard";
 import ClienteForm from "./ClienteForm";
 import type { ClienteConStats, CondicionResumen } from "@/types/clientes";
+import ListaVacia from "@/components/ui/ListaVacia";
 
 interface ClientesClientProps {
   initialClientes: ClienteConStats[];
@@ -243,10 +244,19 @@ export default function ClientesClient({
 
       {/* ── Grid de cards ── */}
       {clientesFiltrados.length === 0 ? (
-        <EmptyState
-          hasSearch={!!search}
-          onClear={() => setSearch("")}
-          onNew={handleOpenCreate}
+        <ListaVacia
+          filtrado={(!!search || estatusFiltro !== "todos") && clientes.length > 0}
+          icono={Users}
+          tituloVacio="No hay clientes aún"
+          detalleVacio="Agregá tu primer cliente para comenzar."
+          accionVacio={
+            <button onClick={handleOpenCreate} className="btn-primary text-sm">
+              <Plus size={15} />
+              Nuevo cliente
+            </button>
+          }
+          detalleFiltrado="No hay clientes que coincidan con tu búsqueda."
+          onLimpiarFiltros={() => setSearch("")}
         />
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -405,46 +415,5 @@ export default function ClientesClient({
         </div>
       )}
     </>
-  );
-}
-
-// ── Estado vacío ─────────────────────────────────────────────
-function EmptyState({
-  hasSearch,
-  onClear,
-  onNew,
-}: {
-  hasSearch: boolean;
-  onClear: () => void;
-  onNew: () => void;
-}) {
-  return (
-    <div className="flex flex-col items-center justify-center py-20 text-center">
-      <div className="w-16 h-16 bg-gray-100 rounded-2xl flex items-center justify-center mb-4">
-        <Users size={28} className="text-gray-400" />
-      </div>
-      {hasSearch ? (
-        <>
-          <p className="text-base font-medium text-gray-700">Sin resultados</p>
-          <p className="text-sm text-gray-400 mt-1 mb-4">
-            No hay clientes que coincidan con tu búsqueda.
-          </p>
-          <button onClick={onClear} className="btn-secondary text-sm">
-            Limpiar búsqueda
-          </button>
-        </>
-      ) : (
-        <>
-          <p className="text-base font-medium text-gray-700">No hay clientes aún</p>
-          <p className="text-sm text-gray-400 mt-1 mb-4">
-            Agrega tu primer cliente para comenzar.
-          </p>
-          <button onClick={onNew} className="btn-primary text-sm">
-            <Plus size={15} />
-            Nuevo cliente
-          </button>
-        </>
-      )}
-    </div>
   );
 }

@@ -11,7 +11,7 @@ import { ESTATUS_ORDEN_META, type OrdenResumen, type FiltroOrdenes, type Estatus
 import { calcularKpis } from "@/lib/kpis";
 import { aCsv, filasDeOrdenes, nombreDeArchivo } from "@/lib/exportar-ordenes";
 import { fechaFiltroOrden, matchPeriod } from "@/lib/filter-utils";
-import { ORDENES_FILTROS } from "@/lib/ordenes-filtros";
+import { ORDENES_FILTROS, hayFiltrosDeOrdenes, limpiarFiltrosDeOrdenes } from "@/lib/ordenes-filtros";
 import { formatMXN } from "@/lib/utils";
 import { sumaNetaMxn } from "@/lib/net-amounts";
 import { agruparPorCliente } from "@/lib/ranking-clientes";
@@ -340,6 +340,8 @@ export default function VentasClient({
       </div>
 
       {/* ── Tabla: agrupada por cliente o lista plana ── */}
+      {/* `hayFiltros` exige que además HAYA datos: con la lista vacía de verdad, culpar al
+          filtro sería igual de falso que el texto que este PR viene a sacar. */}
       <TablaOrdenes
         ordenes={ordenesFiltradas}
         gruposBase={gruposBase}
@@ -351,6 +353,8 @@ export default function VentasClient({
         onDuplicated={handleDuplicated}
         onDescripcionChanged={handleDescripcionChanged}
         onError={(mensaje) => setToast({ type: "error", message: mensaje })}
+        hayFiltros={hayFiltrosDeOrdenes(filtros)}
+        onLimpiarFiltros={() => setFiltros(limpiarFiltrosDeOrdenes(filtros))}
       />
 
       {/* ── Modal: confirmar eliminar ── */}

@@ -83,3 +83,31 @@ export const ORDENES_FILTROS: ContratoFiltros<FiltroOrdenes> = {
   serialize: serializeOrdenFiltros,
   serializeMemoria: serializeOrdenMemoria,
 };
+
+/**
+ * ¿Hay algún filtro puesto?
+ *
+ * Lo necesitan dos lugares que tienen que coincidir sí o sí: la barra —para decidir si muestra
+ * "Limpiar todo"— y el estado vacío de la tabla, para saber si decir "todavía no hay órdenes"
+ * o "tu filtro no deja ver ninguna". Si cada uno lo calculara por su cuenta, el día que se
+ * agregue un filtro nuevo uno de los dos se olvida y la pantalla vuelve a mentir.
+ *
+ * `vista` queda afuera: es cómo se mira la lista, no qué se filtra. Con la tabla agrupada por
+ * cliente y sin ningún filtro, la lista sigue estando vacía porque no hay datos.
+ */
+export function hayFiltrosDeOrdenes(f: FiltroOrdenes): boolean {
+  return (
+    f.ano.length > 0 ||
+    f.q.length > 0 ||
+    f.mes.length > 0 ||
+    f.estatus.length > 0 ||
+    f.cliente_id.length > 0 ||
+    f.tipo_cotizacion_id.length > 0 ||
+    f.vendedor_id.length > 0
+  );
+}
+
+/** Deja los filtros en cero sin tocar `vista`, por el mismo motivo. */
+export function limpiarFiltrosDeOrdenes(f: FiltroOrdenes): FiltroOrdenes {
+  return { ...f, ...emptyOrdenFilters(), vista: f.vista };
+}
