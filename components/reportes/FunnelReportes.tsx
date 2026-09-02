@@ -18,6 +18,10 @@ interface Vendedor {
 }
 interface FunnelData {
   total: number;
+  /** El total por estado ACTUAL de los deals ingresados en el período: suma = total. */
+  desglose: { activos: number; ganados: number; perdidos: number; pausados: number };
+  /** Deals pausados EN el período (corte por fecha_suspension, no por ingreso). */
+  pausados_en_periodo: number;
   etapas: { stage_id: string; nombre: string; count: number; conversion: number; color: string }[];
   ganados: number;
   perdidos: number;
@@ -293,9 +297,11 @@ export default function FunnelReportes({
                 contra={vsAnterior} label="Perdidos" value={rz.perdidos} mejorSiSube={false}
                 delta={prev ? deltaPct(rz.perdidos, prev.resultados.perdidos) : null}
               />
+              {/* Reemplaza "Días al ganar" (pedido de Roldán 2026-09-02: no le decía nada;
+                  quería ver cuántos se pausaron en el período contra ganados/perdidos). */}
               <Scorecard
-                contra={vsAnterior} label="Días al ganar" value={an.ganados.avg_dias} mejorSiSube={false}
-                delta={prev ? deltaPct(an.ganados.avg_dias, prev.anatomia.ganados.avg_dias) : null}
+                contra={vsAnterior} label="Pausados" value={f.pausados_en_periodo} mejorSiSube={false}
+                delta={prev ? deltaPct(f.pausados_en_periodo, prev.funnel.pausados_en_periodo) : null}
               />
             </div>
           </div>
@@ -306,9 +312,20 @@ export default function FunnelReportes({
             <div className="grid gap-6 lg:grid-cols-5">
               {/* Embudo */}
               <section className="rounded-xl border border-surface-border bg-white p-5 lg:col-span-3">
-                <div className="mb-3 flex items-baseline justify-between">
+                <div className="mb-3 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
                   <h2 className="text-sm font-semibold text-navy">Embudo de conversión</h2>
-                  <span className="text-xs text-gray-500">{f.total} deals</span>
+                  {/* El total, desglosado por estado actual: la suma cierra exacto contra el
+                      número grande. Antes decía "31 deals" a secas y activos+perdidos no
+                      daban 31 — los que faltaban eran ganados/pausados sin desglosar. */}
+                  <span className="text-xs text-gray-500">
+                    <b className="text-navy">{f.total} deals</b>
+                    {f.total > 0 && (
+                      <>
+                        {" = "}{f.desglose.activos} activos · {f.desglose.ganados} ganados ·{" "}
+                        {f.desglose.perdidos} perdidos · {f.desglose.pausados} pausados
+                      </>
+                    )}
+                  </span>
                 </div>
                 {f.total === 0 ? (
                   <p className="py-6 text-center text-sm text-gray-500">Sin deals en el periodo.</p>

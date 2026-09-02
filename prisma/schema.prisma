@@ -596,6 +596,9 @@ model Deal {
   // Outcome
   resultado          DealResultado @default(ABIERTO)
   fecha_cierre_real  DateTime?     @db.Date
+  // Cuándo se pausó (solo si resultado = SUSPENDIDO; se limpia al salir de la pausa).
+  // Sin esto "¿cuántos se pausaron este mes?" solo se podía responder contando a mano.
+  fecha_suspension   DateTime?     @db.Timestamptz(6)
   // Solo cuando resultado = PERDIDO (para estadísticas de pérdida).
   // razon_perdida = etiqueta denormalizada (snapshot del motivo elegido, para reportes);
   // motivo_perdida_id = FK al catálogo (integridad: no queda apuntando a un motivo borrado).
