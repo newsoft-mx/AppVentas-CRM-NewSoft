@@ -24,6 +24,7 @@ import { useUrlFilters } from "@/hooks/useUrlFilters";
 import {
   ESTADOS_DEFAULT,
   PIPELINE_FILTROS,
+  etiquetaDelTablero,
   type PipelineFiltros,
   type OrdenPipeline,
 } from "@/lib/pipeline-filtros";
@@ -240,7 +241,15 @@ export default function PipelineKanban({
       <header className="flex flex-wrap items-center gap-3 border-b border-surface-border bg-white px-6 py-3.5">
         <div className="mr-1">
           <h1 className="text-xl font-bold tracking-tight text-navy">Pipeline CRM</h1>
-          <p className="text-xs text-gray-400">Prospectos activos</p>
+          {/* Qué se está mirando, derivado de los MISMOS filtros que viajan a la URL. Antes
+              era una frase fija: filtrabas por Ganados y el encabezado seguía diciendo
+              "Prospectos activos". */}
+          <p className="text-xs text-gray-400">
+            {etiquetaDelTablero(filtros, {
+              vendedor: vendedores.find((v) => v.id === filtros.vendedor)?.nombre,
+              tipo: tipos.find((t) => t.id === filtros.tipo)?.nombre,
+            })}
+          </p>
         </div>
         {/* Buscador protagónico (SOL-17): con su propio espacio, sin filtros pegados */}
         <div className="flex min-w-[220px] flex-1 items-center gap-2 rounded-lg border border-surface-border bg-white px-3 py-2 focus-within:border-orange">
