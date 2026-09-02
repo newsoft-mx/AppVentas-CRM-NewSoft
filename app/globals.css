@@ -105,7 +105,25 @@ body {
      en `font-semibold` son 5. Se alinea la minoría a la mayoría — mover el kit habría
      cambiado 48 botones para acomodar 5. */
   .btn-sm {
-    @apply gap-1.5 px-2.5 py-1 rounded-md text-xs;
+    @apply relative gap-1.5 px-2.5 py-1 rounded-md text-xs min-h-[2rem];
+  }
+
+  /* El área de TOQUE, que no es lo mismo que el tamaño visible.
+     WCAG 2.2 (2.5.8, nivel AA) pide 24x24 px. Con `py-1` el botón medía 24 justos: pasaba
+     sin un pixel de margen, y cualquier retoque de tipografía lo tumbaba. El `min-h-[2rem]`
+     lo lleva a 32 y le deja aire, sin que deje de leerse como el botón chico (el grande
+     mide 38).
+     Los 44px que recomiendan Apple y el nivel AAA se agregan SOLO en pantallas táctiles y
+     SOLO hacia arriba y abajo: a los costados vive el botón hermano ("Cancelar", a 8px), y
+     un área invisible que se estire hacia él le robaría los toques. Arriba y abajo hay 29px
+     de texto que no es clicable, así que ahí crecer no le saca nada a nadie.
+     El ::after es hijo del botón: el toque burbujea al botón, no hace falta nada en JS. */
+  @media (pointer: coarse) {
+    .btn-sm::after {
+      content: "";
+      position: absolute;
+      inset: -6px 0;
+    }
   }
 
   /* Campo de input */
