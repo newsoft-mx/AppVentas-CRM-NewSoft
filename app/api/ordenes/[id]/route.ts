@@ -1,7 +1,7 @@
 export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { calcularOrden, transicionOrdenPermitida } from "@/lib/utils";
+import { calcularOrden, transicionOrdenPermitida, ventaSinFecha, MSG_VENTA_SIN_FECHA } from "@/lib/utils";
 import { resolverCamposDeMonto } from "@/lib/orden-merge";
 import { serializeOrden } from "@/lib/serializers";
 import { OrdenUpdateSchema } from "@/lib/validations/ordenes";
@@ -104,13 +104,16 @@ export async function PUT(
           { status: 409 }
         );
       }
-      const fechaVentaFinal = data.fecha_venta ?? ordenExistente.fecha_venta;
-      if (data.estatus === "VENTA" && !fechaVentaFinal) {
-        return NextResponse.json(
-          { error: "Se requiere la fecha de venta al confirmar como VENTA", campo: "fecha_venta" },
-          { status: 422 }
-        );
-      }
+    }
+
+    // El invariante se evalúa SIEMPRE, no solo cuando cambia el estatus. Antes vivía dentro
+    // del `if` de arriba, así que una orden que YA era VENTA podía quedarse sin fecha con solo
+    // mandar `fecha_venta: null` sin tocar el estatus: la guarda no llegaba a correr.
+    // `!== undefined` para distinguir "no vino" de "borrámela".
+    const estatusFinal = data.estatus ?? ordenExistente.estatus;
+    const fechaVentaFinal = data.fecha_venta !== undefined ? data.fecha_venta : ordenExistente.fecha_venta;
+    if (ventaSinFecha(estatusFinal, fechaVentaFinal)) {
+      return NextResponse.json({ error: MSG_VENTA_SIN_FECHA, campo: "fecha_venta" }, { status: 422 });
     }
 
     if (session.rol === "VENDEDOR") {
