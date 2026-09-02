@@ -274,29 +274,48 @@ export default function FunnelReportes({
         <p className="py-16 text-center text-sm text-gray-500">Cargando reportes…</p>
       ) : (
         <>
-          {/* TITULAR — la única frase larga de la vista (rediseño 2026-09-02, "la
-              pantalla habla sola"): qué entró en el período y en qué terminó, con el
-              desglose que suma exacto al total. El resto es dashboard escaneable. */}
-          <p className="max-w-4xl text-xl leading-relaxed text-gray-600">
-            {rango ? etiquetaRango(rango.actual) : "Este período"}: entraron{" "}
-            <b className="text-navy">{f.total} leads</b>
-            {dTotal !== null && dTotal !== 0 && (
-              <span className={`mx-1 inline-flex items-center gap-0.5 align-middle text-sm font-semibold ${dTotal > 0 ? "text-emerald-700" : "text-red-700"}`}>
-                {dTotal > 0 ? <ArrowUp size={13} /> : <ArrowDown size={13} />}
-                {Math.abs(dTotal)} vs {vsAnterior}
+          {/* TITULAR — qué entró en el período (rediseño 2026-09-02, "la pantalla habla
+              sola"), con el desglose por estado como RECUADROS indicadores, no prosa:
+              la frase corrida no se escaneaba. La suma de los recuadros = el total. */}
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-3">
+            <div className="flex items-baseline gap-2">
+              <span className="text-xl text-gray-600">
+                {rango ? etiquetaRango(rango.actual) : "Este período"}: entraron
               </span>
-            )}
+              <span className="text-3xl font-bold tracking-tight text-navy">{f.total}</span>
+              <span className="text-xl text-gray-600">leads</span>
+              {dTotal !== null && dTotal !== 0 && (
+                <span className={`inline-flex items-center gap-0.5 text-sm font-semibold ${dTotal > 0 ? "text-emerald-700" : "text-red-700"}`}>
+                  {dTotal > 0 ? <ArrowUp size={13} /> : <ArrowDown size={13} />}
+                  {Math.abs(dTotal)} vs {vsAnterior}
+                </span>
+              )}
+            </div>
             {f.total > 0 && (
-              <>
-                {" — "}
-                <b style={{ color: ESTADO_DEAL_META.ABIERTO.color }}>{f.desglose.activos} activos</b> ·{" "}
-                <b style={{ color: ESTADO_DEAL_META.GANADO.color }}>{f.desglose.ganados} ganados</b> ·{" "}
-                <b style={{ color: ESTADO_DEAL_META.PERDIDO.color }}>{f.desglose.perdidos} perdidos</b> ·{" "}
-                <b style={{ color: ESTADO_DEAL_META.SUSPENDIDO.color }}>{f.desglose.pausados} pausados</b>
-              </>
+              <div className="flex flex-wrap gap-2">
+                {(
+                  [
+                    ["ABIERTO", f.desglose.activos, "activos"],
+                    ["GANADO", f.desglose.ganados, "ganados"],
+                    ["PERDIDO", f.desglose.perdidos, "perdidos"],
+                    ["SUSPENDIDO", f.desglose.pausados, "pausados"],
+                  ] as const
+                ).map(([est, n, label]) => {
+                  const meta = ESTADO_DEAL_META[est];
+                  return (
+                    <span
+                      key={est}
+                      className="inline-flex items-baseline gap-1.5 rounded-lg border px-3 py-1.5"
+                      style={{ borderColor: `${meta.color}55`, background: `${meta.color}0D` }}
+                    >
+                      <span className="text-lg font-bold tracking-tight" style={{ color: meta.color }}>{n}</span>
+                      <span className="text-xs font-medium text-gray-600">{label}</span>
+                    </span>
+                  );
+                })}
+              </div>
             )}
-            .
-          </p>
+          </div>
 
           {/* FILA 1 — resultados del período, cada número con su lectura */}
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
