@@ -111,7 +111,7 @@ function EntradasDeMenu({
               className={`
                 flex shrink-0 items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium md:gap-3
                 transition-colors duration-150 group
-                ${active ? "bg-orange text-white" : "text-navy-200 hover:bg-navy-700 hover:text-white"}
+                ${active ? "bg-orange text-navy" : "text-navy-200 hover:bg-navy-700 hover:text-white"}
               `}
             >
               <Icon size={18} className="shrink-0" />

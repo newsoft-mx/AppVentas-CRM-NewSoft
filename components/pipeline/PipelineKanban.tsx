@@ -20,6 +20,7 @@ import NuevoDealModal from "@/components/pipeline/NuevoDealModal";
 import ListaVacia from "@/components/ui/ListaVacia";
 import { metricasPipeline } from "@/lib/pipeline-metrics";
 import { formatCompacto, formatFechaHora } from "@/lib/utils";
+import { mezclar, oscurecerHasta } from "@/lib/contraste";
 import { useUrlFilters } from "@/hooks/useUrlFilters";
 import {
   ESTADOS_DEFAULT,
@@ -296,7 +297,7 @@ export default function PipelineKanban({
         {canWrite && (
           <button
             onClick={() => setModalOpen(true)}
-            className="flex items-center gap-1.5 rounded-lg bg-orange px-3.5 py-2 text-sm font-semibold text-white transition-colors hover:bg-orange/90"
+            className="flex items-center gap-1.5 rounded-lg bg-orange px-3.5 py-2 text-sm font-semibold text-navy transition-colors hover:bg-orange-400"
           >
             <Plus size={16} /> Nuevo Deal
           </button>
@@ -344,7 +345,7 @@ export default function PipelineKanban({
           >
             <SlidersHorizontal size={14} /> Filtros
             {filtrosActivos > 0 && (
-              <span className="rounded-full bg-orange px-1.5 text-[10px] font-bold text-white">{filtrosActivos}</span>
+              <span className="rounded-full bg-orange px-1.5 text-[10px] font-bold text-navy">{filtrosActivos}</span>
             )}
             <ChevronDown size={13} className={`transition-transform ${filtrosOpen ? "rotate-180" : ""}`} />
           </button>
@@ -742,9 +743,15 @@ function DealCard({
       </div>
       <div className="mt-2 flex items-center justify-between">
         <div className="text-sm font-bold tracking-tight text-navy">{formatCompacto(deal.valor)}</div>
+        {/* El texto se oscurece lo justo para leerse sobre el 10% del mismo color; el PUNTO
+            se queda con el color vivo, que es el que hace de señal. Medido, "Tibio" pasaba de
+            1.89:1 a legible sin que el chip cambie de color. */}
         <span
           className="flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase"
-          style={{ background: `${temp.color}1A`, color: temp.color }}
+          style={{
+            background: `${temp.color}1A`,
+            color: oscurecerHasta(temp.color, mezclar(temp.color, "#FFFFFF", 0.1)),
+          }}
         >
           <span className="h-1.5 w-1.5 rounded-full" style={{ background: temp.color }} />
           {temp.label}

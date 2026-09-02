@@ -128,7 +128,7 @@ export default function MultiSelect({
           )}
 
           <div className="flex items-center justify-between border-b border-surface-border px-2 py-1.5">
-            <button type="button" onClick={selectAll} className="text-xs font-medium text-navy hover:text-orange">
+            <button type="button" onClick={selectAll} className="text-xs font-medium text-navy hover:text-orange-700">
               Seleccionar todos
             </button>
             <button type="button" onClick={clear} className="flex items-center gap-1 text-xs text-gray-500 hover:text-red-500">

@@ -123,7 +123,7 @@ export default function AuditoriaClient({ initial }: { initial: AuditoriaItem[] 
                   </td>
                   <td className="px-3 py-2.5 text-[12px]">
                     {mod.href ? (
-                      <Link href={mod.href(i.entidad_id)} className="flex items-center gap-1 text-navy hover:text-orange hover:underline">
+                      <Link href={mod.href(i.entidad_id)} className="flex items-center gap-1 text-navy hover:text-orange-700 hover:underline">
                         {i.etiqueta ?? "—"} <ExternalLink size={11} className="shrink-0" />
                       </Link>
                     ) : (

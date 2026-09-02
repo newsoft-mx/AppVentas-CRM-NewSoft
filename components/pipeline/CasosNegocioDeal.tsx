@@ -53,7 +53,7 @@ export default function CasosNegocioDeal({ dealId }: { dealId: string }) {
       ))}
       <Link
         href={`/simulador?deal=${dealId}`}
-        className="flex items-center gap-1.5 pt-0.5 text-[11px] font-semibold text-orange hover:underline"
+        className="flex items-center gap-1.5 pt-0.5 text-[11px] font-semibold text-orange-700 hover:underline"
       >
         <Plus size={13} /> Nuevo caso para este deal
       </Link>

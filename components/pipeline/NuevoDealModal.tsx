@@ -210,7 +210,7 @@ export default function NuevoDealModal({
             {!editando && (
               <div className="flex overflow-hidden rounded-md border border-surface-border text-[11px] font-semibold">
                 <button type="button" onClick={() => setModoCliente("existente")} className={`px-2.5 py-1 ${modoCliente === "existente" ? "bg-navy text-white" : "text-gray-500"}`}>Existente</button>
-                <button type="button" onClick={() => setModoCliente("prospecto")} className={`px-2.5 py-1 ${modoCliente === "prospecto" ? "bg-orange text-white" : "text-gray-500"}`}>Nuevo prospecto</button>
+                <button type="button" onClick={() => setModoCliente("prospecto")} className={`px-2.5 py-1 ${modoCliente === "prospecto" ? "bg-orange text-navy" : "text-gray-500"}`}>Nuevo prospecto</button>
               </div>
             )}
           </div>

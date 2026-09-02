@@ -109,7 +109,7 @@ export default function ClienteCard({ cliente, onEdit, onDesactivar }: ClienteCa
             )}
             {/* Grand total si hay ambas monedas */}
             {tieneMXN && tieneUSD && (
-              <p className="text-xs text-orange font-semibold">
+              <p className="text-xs text-orange-700 font-semibold">
                 Total: {formatMXN(stats.grand_total_mxn)} MXN
               </p>
             )}

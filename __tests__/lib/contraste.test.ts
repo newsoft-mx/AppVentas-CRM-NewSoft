@@ -1,4 +1,12 @@
-import { contraste, luminancia, textoSobre, TEXTO_CLARO, TEXTO_OSCURO } from "@/lib/contraste";
+import {
+  contraste,
+  luminancia,
+  mezclar,
+  oscurecerHasta,
+  textoSobre,
+  TEXTO_CLARO,
+  TEXTO_OSCURO,
+} from "@/lib/contraste";
 
 /**
  * El texto sobre un color elegido por el usuario tiene que decidirse solo.
@@ -48,5 +56,41 @@ describe("contraste", () => {
       const otro = contraste(textoSobre(f) === TEXTO_CLARO ? TEXTO_OSCURO : TEXTO_CLARO, f);
       expect(elegido).toBeGreaterThanOrEqual(otro);
     }
+  });
+});
+
+describe("mezclar", () => {
+  it("un color al 0% es el fondo, al 100% es el color", () => {
+    expect(mezclar("#F5A623", "#FFFFFF", 0)).toBe("#ffffff");
+    expect(mezclar("#F5A623", "#FFFFFF", 1)).toBe("#f5a623");
+  });
+
+  it("compone el alfa como lo hace el navegador", () => {
+    // El chip del tablero: color al 10% sobre blanco. Sin componer, medir contra #F5A623
+    // devuelve un número inventado — ese fue el bug del primer medidor.
+    const tinte = mezclar("#F5A623", "#FFFFFF", 0.1);
+    expect(contraste("#F5A623", tinte)).toBeLessThan(2);
+  });
+});
+
+describe("oscurecerHasta", () => {
+  const TEMPERATURAS = ["#E8330A", "#F47920", "#F5A623", "#4A90D9", "#2A5298"];
+
+  it("deja legible el texto de los cinco chips de temperatura sobre su propio 10%", () => {
+    for (const color of TEMPERATURAS) {
+      const tinte = mezclar(color, "#FFFFFF", 0.1);
+      expect(contraste(oscurecerHasta(color, tinte), tinte)).toBeGreaterThanOrEqual(4.5);
+    }
+  });
+
+  it("no toca un color que ya alcanza el mínimo", () => {
+    // Muy frío ya daba 6.52:1; oscurecerlo sería empeorar el diseño sin motivo.
+    const tinte = mezclar("#2A5298", "#FFFFFF", 0.1);
+    expect(oscurecerHasta("#2A5298", tinte)).toBe("#2a5298");
+  });
+
+  it("respeta un mínimo distinto", () => {
+    const tinte = mezclar("#F5A623", "#FFFFFF", 0.1);
+    expect(contraste(oscurecerHasta("#F5A623", tinte, 7), tinte)).toBeGreaterThanOrEqual(7);
   });
 });

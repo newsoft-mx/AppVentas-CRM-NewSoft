@@ -178,7 +178,7 @@ export default function AccionesInbox({
           <h1 className="text-xl font-bold tracking-tight text-navy">Próximas Acciones</h1>
           <p className="text-xs text-gray-500">
             {filtered.length} pendientes · {new Set(filtered.map((a) => a.deal.id)).size} deals
-            {vencidas > 0 && <span className="ml-1 font-semibold text-red-600">· {vencidas} vencidas</span>}
+            {vencidas > 0 && <span className="ml-1 font-semibold text-red-700">· {vencidas} vencidas</span>}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -305,7 +305,7 @@ export default function AccionesInbox({
             <div key={g} className="mb-6">
               <div
                 className={`mb-2.5 flex items-center gap-2 text-[11px] font-bold uppercase tracking-wide ${
-                  vencido ? "text-red-600" : "text-gray-500"
+                  vencido ? "text-red-700" : "text-gray-500"
                 }`}
               >
                 {GRUPO_URGENCIA_META[g].label}
@@ -399,7 +399,7 @@ export default function AccionesInbox({
                         >
                           <button
                             onClick={() => router.push(`/pipeline/${a.deal.id}`)}
-                            className="flex items-center gap-0.5 text-[10px] font-semibold text-navy hover:text-orange"
+                            className="flex items-center gap-0.5 text-[10px] font-semibold text-navy hover:text-orange-700"
                           >
                             Abrir deal <ChevronRight size={11} />
                           </button>
