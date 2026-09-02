@@ -21,6 +21,7 @@ export interface DealEditInitial {
   temperatura: Temperatura;
   valor: number;
   moneda: string;
+  tipo_cambio: number | null;
   setup: number | null;
   mensualidad: number | null;
   meses: number | null;
@@ -63,6 +64,7 @@ export default function NuevoDealModal({
     tipo_cotizacion_id: deal?.tipo_cotizacion_id ?? "",
     temperatura: deal?.temperatura ?? ("TIBIO" as Temperatura),
     moneda: deal?.moneda ?? "MXN",
+    tipo_cambio: deal?.tipo_cambio != null ? String(deal.tipo_cambio) : "",
     valor: deal?.valor != null ? String(deal.valor) : "",
     setup: deal?.setup != null ? String(deal.setup) : "",
     mensualidad: deal?.mensualidad != null ? String(deal.mensualidad) : "",
@@ -107,6 +109,7 @@ export default function NuevoDealModal({
             tipo_cotizacion_id: form.tipo_cotizacion_id || null,
             temperatura: form.temperatura,
             moneda: form.moneda,
+            tipo_cambio: form.tipo_cambio,
             valor: form.valor,
             setup: form.setup,
             mensualidad: form.mensualidad,
@@ -180,7 +183,21 @@ export default function NuevoDealModal({
   }
 
   return (
-    <Modal title={editando ? "Editar Deal" : "Nuevo Deal"} onClose={onClose} size="lg">
+    <Modal
+      title={editando ? "Editar Deal" : "Nuevo Deal"}
+      onClose={onClose}
+      size="lg"
+      footer={
+        <div className="flex justify-end gap-2">
+          <button onClick={onClose} className="rounded-lg border border-surface-border px-4 py-2 text-sm font-semibold text-gray-600 hover:bg-surface">
+            Cancelar
+          </button>
+          <button onClick={guardar} disabled={guardando} className="rounded-lg bg-orange px-4 py-2 text-sm font-semibold text-white hover:bg-orange/90 disabled:opacity-50">
+            {guardando ? (editando ? "Guardando…" : "Creando…") : editando ? "Guardar cambios" : "Crear deal"}
+          </button>
+        </div>
+      }
+    >
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <Campo label="Nombre del proyecto *" full>
           <input className={inputCls} value={form.nombre} onChange={(e) => set("nombre", e.target.value)} placeholder="Ej. Portal de Proveedores" />
@@ -270,6 +287,23 @@ export default function NuevoDealModal({
             <option value="USD">USD</option>
           </select>
         </Campo>
+        {/* El tipo de cambio solo aparece cuando hace falta: en MXN no significa nada. Sin él,
+            un deal en dólares queda fuera del total del pipeline —declarado, no inventado— así
+            que el texto de ayuda dice qué pasa si se deja vacío, en vez de solo pedirlo. */}
+        {form.moneda === "USD" && (
+          <Campo label="Tipo de cambio (USD → MXN)">
+            <input
+              className={inputCls}
+              inputMode="decimal"
+              value={form.tipo_cambio}
+              onChange={(e) => set("tipo_cambio", e.target.value)}
+              placeholder="Ej. 17.50"
+            />
+            <p className="mt-1 text-[11px] text-gray-500">
+              Sin este dato, el deal no suma al valor del pipeline (se cuenta aparte).
+            </p>
+          </Campo>
+        )}
         <Campo label={`Valor total (${form.moneda})`}>
           <input type="number" min={0} className={inputCls} value={form.valor} onChange={(e) => set("valor", e.target.value)} placeholder="0" />
         </Campo>
@@ -369,14 +403,6 @@ export default function NuevoDealModal({
 
       {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
 
-      <div className="mt-5 flex justify-end gap-2">
-        <button onClick={onClose} className="rounded-lg border border-surface-border px-4 py-2 text-sm font-semibold text-gray-600 hover:bg-surface">
-          Cancelar
-        </button>
-        <button onClick={guardar} disabled={guardando} className="rounded-lg bg-orange px-4 py-2 text-sm font-semibold text-white hover:bg-orange/90 disabled:opacity-50">
-          {guardando ? (editando ? "Guardando…" : "Creando…") : editando ? "Guardar cambios" : "Crear deal"}
-        </button>
-      </div>
     </Modal>
   );
 }

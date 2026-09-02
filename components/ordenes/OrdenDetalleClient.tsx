@@ -7,8 +7,8 @@ import OrdenForm from "./OrdenForm";
 import StatusBadge from "./StatusBadge";
 import Toast, { ToastData } from "@/components/ui/Toast";
 import HistorialCambios from "@/components/ordenes/HistorialCambios";
-import { formatMoneda, formatMXN, formatFecha, fechaParaInput, ESTATUS_COLORS, ESTATUS_LABELS } from "@/lib/utils";
-import type { OrdenDetalle, EstatusOrden } from "@/types/ordenes";
+import { formatMoneda, formatMXN, formatFecha, fechaParaInput } from "@/lib/utils";
+import { ESTATUS_ORDEN_META, type OrdenDetalle, type EstatusOrden } from "@/types/ordenes";
 
 interface ClienteOpcion {
   id: string;
@@ -72,7 +72,7 @@ export default function OrdenDetalleClient({
     if (nuevoEstatus === "VENTA" && fechaVenta) {
       setFechaVentaInput(fechaVenta);
     }
-    setToast({ type: "success", message: `Estatus cambiado a ${ESTATUS_LABELS[nuevoEstatus]}` });
+    setToast({ type: "success", message: `Estatus cambiado a ${ESTATUS_ORDEN_META[nuevoEstatus].label}` });
   };
 
   // ── Duplicar orden ────────────────────────────────────────────
@@ -452,8 +452,8 @@ export default function OrdenDetalleClient({
               {/* Estatus visual */}
               <div className="mt-5 pt-4 border-t border-surface-border">
                 <p className="text-xs text-gray-400 mb-1.5">Estatus actual</p>
-                <span className={`badge text-xs font-medium ${ESTATUS_COLORS[orden.estatus]}`}>
-                  {ESTATUS_LABELS[orden.estatus]}
+                <span className={`badge text-xs font-medium ${ESTATUS_ORDEN_META[orden.estatus].chip}`}>
+                  {ESTATUS_ORDEN_META[orden.estatus].label}
                 </span>
                 {orden.estatus === "VENTA" && orden.fecha_venta && (
                   <p className="text-xs text-gray-400 mt-1.5">

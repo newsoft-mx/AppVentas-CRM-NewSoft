@@ -5,7 +5,7 @@ import type { TopClienteItem } from "@/types/reportes";
 import { requireAuth } from "@/lib/session";
 import { scopeOrdenWhere } from "@/lib/access-control";
 import { rankingClientes } from "@/lib/ranking-clientes";
-import { buildDateOrFilters, getAllParam, parseNumberList } from "@/lib/filter-utils";
+import { getAllParam, parseNumberList, wherePeriodoOrden } from "@/lib/filter-utils";
 
 // ── GET /api/reportes/top-clientes ────────────────────────────
 
@@ -23,10 +23,7 @@ export async function GET(req: NextRequest) {
   const where: any = {};
 
   if (ano.length || q.length || mes.length) {
-    where.OR = buildDateOrFilters({ ano, q, mes }).flatMap((range) => [
-      { fecha_venta: range },
-      { estatus: { not: "VENTA" }, fecha_venta: null, created_at: range },
-    ]);
+    where.OR = wherePeriodoOrden({ ano, q, mes }, "fecha_efectiva_estricta");
   }
 
   try {

@@ -4,7 +4,8 @@ import { useState, useMemo, useCallback } from "react";
 import { Save, Plus, Trash2, Calculator } from "lucide-react";
 import SearchableSelect from "@/components/ui/SearchableSelect";
 import { formatMoneda, formatMXN } from "@/lib/utils";
-import type { OrdenDetalle } from "@/types/ordenes";
+import { repartirDetalles } from "@/lib/errores-formulario";
+import { ESTATUS_ORDEN, ESTATUS_ORDEN_META, type OrdenDetalle, type EstatusOrden } from "@/types/ordenes";
 
 // ── Tipos locales ─────────────────────────────────────────────
 
@@ -46,6 +47,50 @@ interface OrdenFormProps {
 }
 
 type FormErrors = Partial<Record<string, string>>;
+
+/**
+ * Los campos que ESTE formulario sabe pintar con su propio mensaje de error.
+ *
+ * El server valida más cosas que las que hay acá como campo visible (por ejemplo
+ * `partidas.0.precio_unitario`). Un mensaje dirigido a una clave que no está en esta lista no
+ * tiene dónde mostrarse, así que va al banner general en vez de perderse en silencio.
+ *
+ * Si se agrega un campo con su `<p>` de error, se agrega también acá. La lista es corta a
+ * propósito: es más fácil de mantener correcta que de adivinar recorriendo el JSX.
+ */
+const CAMPOS_CON_MENSAJE = new Set([
+  "cliente_id",
+  "tipo_cotizacion_id",
+  "condicion_pago_id",
+  "vendedor_id",
+  "descripcion",
+  "fecha_venta",
+  "tasa_iva",
+  "tipo_cambio",
+  "partidas",
+]);
+
+/**
+ * Dónde mostrar cada campo que el server rechazó (ver `repartirDetalles`).
+ *
+ * Las partidas se validan fila por fila (`partidas.0.precio_unitario`) y la tabla ya tiene un
+ * `<p>` de error por celda, así que el mensaje aterriza en la celda exacta en vez de en el
+ * banner: el usuario ve el renglón que tiene que corregir.
+ */
+const CELDA_DE_PARTIDA: Record<string, string> = {
+  descripcion: "p_desc",
+  cantidad: "p_cant",
+  precio_unitario: "p_precio",
+};
+
+function ubicarCampoDeOrden(campo: string): string | null {
+  const partida = /^partidas\.(\d+)\.(\w+)$/.exec(campo);
+  if (partida) {
+    const celda = CELDA_DE_PARTIDA[partida[2]];
+    return celda ? `${celda}_${partida[1]}` : null;
+  }
+  return CAMPOS_CON_MENSAJE.has(campo) ? campo : null;
+}
 
 function createTempKey(): string {
   if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
@@ -139,7 +184,7 @@ export default function OrdenForm({
   const [condicionId, setCondicionId] = useState(orden?.condicion_pago_id ?? condiciones[0]?.id ?? "");
   const [vendedorId, setVendedorId] = useState(orden?.vendedor_id ?? precarga?.vendedor_id ?? (vendedores.length === 1 ? vendedores[0].id : ""));
   const [descripcion, setDescripcion] = useState(orden?.descripcion ?? precarga?.descripcion ?? "");
-  const [estatus, setEstatus] = useState<"BORRADOR" | "COTIZADO" | "VENTA">(
+  const [estatus, setEstatus] = useState<EstatusOrden>(
     orden?.estatus ?? "BORRADOR"
   );
   const [moneda, setMoneda] = useState<"MXN" | "USD">(orden?.moneda ?? "MXN");
@@ -292,15 +337,13 @@ export default function OrdenForm({
       const data = await res.json();
 
       if (!res.ok) {
-        if (data.details) {
-          const fieldErrors: FormErrors = {};
-          data.details.forEach((d: { campo: string; mensaje: string }) => {
-            fieldErrors[d.campo] = d.mensaje;
-          });
-          setErrors(fieldErrors);
-        } else {
-          setErrors({ general: data.error || "Error al guardar" });
-        }
+        // El server valida campos que este formulario no dibuja con ese nombre (una partida,
+        // por ejemplo). Antes esos mensajes se guardaban en una clave que nadie renderiza: se
+        // apretaba Guardar y no pasaba absolutamente nada. `repartirDetalles` garantiza que
+        // todo mensaje termine visible — en su campo si lo hay, o en el banner.
+        const repartidos = repartirDetalles(data.details, ubicarCampoDeOrden);
+        setErrors(repartidos ?? { general: data.error || "Error al guardar" });
+        // Y acá SÍ se suelta el candado: este camino no navega, el formulario se queda.
         setIsSaving(false);
         return;
       }
@@ -493,9 +536,11 @@ export default function OrdenForm({
                 if (errors.fecha_venta) setErrors((p) => ({ ...p, fecha_venta: "" }));
               }}
             >
-              <option value="BORRADOR">Borrador</option>
-              <option value="COTIZADO">Cotizado</option>
-              <option value="VENTA">Venta</option>
+              {ESTATUS_ORDEN.map((e) => (
+                <option key={e} value={e}>
+                  {ESTATUS_ORDEN_META[e].label}
+                </option>
+              ))}
             </select>
           </div>
 
@@ -601,6 +646,12 @@ export default function OrdenForm({
                   onChange={(e) => updatePartida(p._key, "cantidad", e.target.value)}
                   placeholder="Cant."
                 />
+                {/* Sin este `<p>`, la celda solo se ponía roja: el usuario veía que algo estaba
+                    mal pero no qué, y el motivo que mandó el server ("Cantidad muy grande") se
+                    tiraba a la basura. */}
+                {errors[`p_cant_${i}`] && (
+                  <p className="mt-0.5 text-xs text-red-500">{errors[`p_cant_${i}`]}</p>
+                )}
               </div>
 
               {/* Precio unitario */}
@@ -617,6 +668,9 @@ export default function OrdenForm({
                   onChange={(e) => updatePartida(p._key, "precio_unitario", e.target.value)}
                   placeholder="Precio unit."
                 />
+                {errors[`p_precio_${i}`] && (
+                  <p className="mt-0.5 text-xs text-red-500">{errors[`p_precio_${i}`]}</p>
+                )}
               </div>
 
               {/* Total partida + botón eliminar */}

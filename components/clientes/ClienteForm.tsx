@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Save } from "lucide-react";
 import ContactosCliente from "./ContactosCliente";
+import { repartirDetalles } from "@/lib/errores-formulario";
 import { errorDeWebsite, normalizarWebsite } from "@/lib/website";
 import type { ClienteConStats, ClienteInput, CondicionResumen } from "@/types/clientes";
 import { TAMANOS_EMPRESA, TAMANO_EMPRESA_LABEL, type TamanoEmpresa } from "@/types/crm";
@@ -18,6 +19,24 @@ interface ClienteFormProps {
 }
 
 type FormErrors = Partial<Record<keyof ClienteInput | "general", string>>;
+
+/**
+ * Los campos que este formulario sabe pintar con su propio mensaje debajo del input.
+ * El resto de lo que valida el server (`telefono`, `tamano_empresa`, `notas`) no tiene un `<p>`
+ * propio, así que su mensaje va al banner de arriba en vez de perderse. Si se agrega un campo
+ * con su error visible, se agrega también acá.
+ */
+const CAMPOS_CON_MENSAJE = new Set([
+  "nombre",
+  "rfc",
+  "contacto",
+  "ciudad",
+  "email",
+  "website",
+  "condicion_pago_id",
+]);
+
+const ubicarCampoDeCliente = (campo: string) => (CAMPOS_CON_MENSAJE.has(campo) ? campo : null);
 
 export default function ClienteForm({
   cliente,
@@ -106,15 +125,15 @@ export default function ClienteForm({
       const data = await res.json();
 
       if (!res.ok) {
-        // Error con campo específico (ej: RFC duplicado)
-        if (data.campo) {
-          setErrors({ [data.campo]: data.error });
-        } else if (data.details) {
-          const fieldErrors: FormErrors = {};
-          data.details.forEach((d: { campo: string; mensaje: string }) => {
-            fieldErrors[d.campo as keyof ClienteInput] = d.mensaje;
-          });
-          setErrors(fieldErrors);
+        // El server valida campos que este formulario no pinta con su propio mensaje
+        // (`telefono`, `tamano_empresa`, `notas`). Antes el mensaje se guardaba igual bajo esa
+        // clave, y como nadie la lee, el modal se quedaba abierto sin decir nada: un teléfono
+        // de más de 20 caracteres hacía que "Guardar" no hiciera absolutamente nada.
+        const detalles = repartirDetalles(data.details, ubicarCampoDeCliente);
+        if (detalles) setErrors(detalles);
+        // Error puntual de una sola clave (ej: RFC duplicado) — mismo criterio.
+        else if (data.campo) {
+          setErrors({ [ubicarCampoDeCliente(data.campo) ?? "general"]: data.error });
         } else {
           setErrors({ general: data.error || "Error al guardar" });
         }
