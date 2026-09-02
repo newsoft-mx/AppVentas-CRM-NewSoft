@@ -101,7 +101,7 @@ function Scorecard({
 }) {
   const bueno = delta !== null && (mejorSiSube ? delta > 0 : delta < 0);
   const malo = delta !== null && (mejorSiSube ? delta < 0 : delta > 0);
-  const color = bueno ? "text-emerald-600" : malo ? "text-red-600" : "text-gray-500";
+  const color = bueno ? "text-emerald-700" : malo ? "text-red-700" : "text-gray-500";
   const Icono = delta !== null && delta >= 0 ? ArrowUp : ArrowDown;
   return (
     <div className="rounded-xl border border-surface-border bg-white p-4">
@@ -229,7 +229,7 @@ export default function FunnelReportes({
                   type="button"
                   onClick={() => setPreset(p.value)}
                   className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
-                    preset === p.value ? "bg-white text-navy shadow-sm" : "text-gray-500 hover:text-navy"
+                    preset === p.value ? "bg-white text-navy shadow-sm" : "text-gray-600 hover:text-navy"
                   }`}
                 >
                   {p.label}
@@ -380,8 +380,8 @@ export default function FunnelReportes({
               <div className="mb-4 grid grid-cols-[8rem_1fr] items-center gap-3 text-[11px] font-semibold uppercase tracking-wide">
                 <span className="text-gray-500">Promedio / deal</span>
                 <div className="flex justify-between">
-                  <span className="text-emerald-600">← Ganados ({an.ganados.count})</span>
-                  <span className="text-red-500">Perdidos ({an.perdidos.count}) →</span>
+                  <span className="text-emerald-700">← Ganados ({an.ganados.count})</span>
+                  <span className="text-red-700">Perdidos ({an.perdidos.count}) →</span>
                 </div>
               </div>
               {an.ganados.count === 0 && an.perdidos.count === 0 ? (

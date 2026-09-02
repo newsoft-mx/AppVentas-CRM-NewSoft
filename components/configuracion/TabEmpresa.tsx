@@ -111,7 +111,7 @@ export default function TabEmpresa({ empresa }: TabEmpresaProps) {
                 Nombre visible en cotizaciones y encabezados comerciales.
               </p>
               {errors.nombre_comercial && (
-                <p className="mt-1 text-xs text-red-500">{errors.nombre_comercial}</p>
+                <p className="mt-1 text-xs text-red-700">{errors.nombre_comercial}</p>
               )}
             </div>
 
@@ -123,7 +123,7 @@ export default function TabEmpresa({ empresa }: TabEmpresaProps) {
                 onChange={(e) => set("nombre", e.target.value)}
                 placeholder="Newsoft Technologies S.A. de C.V."
               />
-              {errors.nombre && <p className="mt-1 text-xs text-red-500">{errors.nombre}</p>}
+              {errors.nombre && <p className="mt-1 text-xs text-red-700">{errors.nombre}</p>}
             </div>
 
             <div>
@@ -135,7 +135,7 @@ export default function TabEmpresa({ empresa }: TabEmpresaProps) {
                 placeholder="NTE150615GH7"
                 maxLength={13}
               />
-              {errors.rfc && <p className="mt-1 text-xs text-red-500">{errors.rfc}</p>}
+              {errors.rfc && <p className="mt-1 text-xs text-red-700">{errors.rfc}</p>}
             </div>
 
             <div>
@@ -146,7 +146,7 @@ export default function TabEmpresa({ empresa }: TabEmpresaProps) {
                 onChange={(e) => set("telefono", e.target.value)}
                 placeholder="+52 55 1234 5678"
               />
-              {errors.telefono && <p className="mt-1 text-xs text-red-500">{errors.telefono}</p>}
+              {errors.telefono && <p className="mt-1 text-xs text-red-700">{errors.telefono}</p>}
             </div>
 
             <div className="md:col-span-2">
@@ -158,7 +158,7 @@ export default function TabEmpresa({ empresa }: TabEmpresaProps) {
                 onChange={(e) => set("direccion", e.target.value)}
                 placeholder="Av. Insurgentes Sur 1234, Piso 8, CDMX"
               />
-              {errors.direccion && <p className="mt-1 text-xs text-red-500">{errors.direccion}</p>}
+              {errors.direccion && <p className="mt-1 text-xs text-red-700">{errors.direccion}</p>}
             </div>
 
             <div className="md:col-span-2">
@@ -170,7 +170,7 @@ export default function TabEmpresa({ empresa }: TabEmpresaProps) {
                 onChange={(e) => set("email", e.target.value)}
                 placeholder="ventas@newsoft.mx"
               />
-              {errors.email && <p className="mt-1 text-xs text-red-500">{errors.email}</p>}
+              {errors.email && <p className="mt-1 text-xs text-red-700">{errors.email}</p>}
             </div>
           </div>
         </section>
@@ -196,7 +196,7 @@ export default function TabEmpresa({ empresa }: TabEmpresaProps) {
                 maxLength={10}
               />
               {errors.prefijo_folio && (
-                <p className="mt-1 text-xs text-red-500">{errors.prefijo_folio}</p>
+                <p className="mt-1 text-xs text-red-700">{errors.prefijo_folio}</p>
               )}
             </div>
 
@@ -227,7 +227,7 @@ export default function TabEmpresa({ empresa }: TabEmpresaProps) {
                 onChange={(e) => set("vigencia_cotizacion_dias", parseInt(e.target.value) || 1)}
               />
               {errors.vigencia_cotizacion_dias && (
-                <p className="mt-1 text-xs text-red-500">{errors.vigencia_cotizacion_dias}</p>
+                <p className="mt-1 text-xs text-red-700">{errors.vigencia_cotizacion_dias}</p>
               )}
             </div>
           </div>
@@ -281,7 +281,7 @@ export default function TabEmpresa({ empresa }: TabEmpresaProps) {
                   <span className="text-sm text-gray-500">%</span>
                 </div>
                 {errors.tasa_iva && (
-                  <p className="mt-1 text-xs text-red-500">{errors.tasa_iva}</p>
+                  <p className="mt-1 text-xs text-red-700">{errors.tasa_iva}</p>
                 )}
               </div>
             )}

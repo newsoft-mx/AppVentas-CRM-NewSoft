@@ -151,7 +151,7 @@ export default function TabScoring({
             <div className="divide-y divide-surface-border">
               {resultadosOrdenados.map((r) => {
                 const signo = r.factor > 0 ? "▲" : r.factor < 0 ? "▼" : "•";
-                const col = r.factor > 0 ? "text-emerald-600" : r.factor < 0 ? "text-red-500" : "text-gray-500";
+                const col = r.factor > 0 ? "text-emerald-700" : r.factor < 0 ? "text-red-700" : "text-gray-500";
                 return (
                   <div key={r.id} className={`flex items-center gap-2 py-2 ${r.activo ? "" : "opacity-50"}`}>
                     <span className={`w-3 shrink-0 text-center text-xs font-bold ${col}`}>{signo}</span>

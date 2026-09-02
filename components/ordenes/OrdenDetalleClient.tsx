@@ -527,7 +527,7 @@ function TotalRow({
           variant === "total"
             ? "text-navy font-bold text-base"
             : variant === "discount"
-            ? "text-red-500"
+            ? "text-red-700"
             : variant === "mxn"
             ? "text-xs text-gray-500"
             : "text-gray-800"

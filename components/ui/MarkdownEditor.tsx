@@ -146,7 +146,7 @@ export default function MarkdownEditor({
       )}
 
       {excede && (
-        <p className="px-3.5 pb-1.5 text-[11px] font-medium text-red-500">
+        <p className="px-3.5 pb-1.5 text-[11px] font-medium text-red-700">
           {value.length.toLocaleString("es-MX")} / {MAX_CONTENIDO.toLocaleString("es-MX")} — demasiado largo
         </p>
       )}

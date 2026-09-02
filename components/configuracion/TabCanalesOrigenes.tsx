@@ -112,7 +112,7 @@ function ListaCatalogo({ tipo, titulo, initial }: { tipo: TipoCatalogo; titulo: 
                   onKeyDown={(e) => e.key === "Enter" && guardarEdicion(op.id)}
                   className="input flex-1"
                 />
-                <button onClick={() => guardarEdicion(op.id)} className="text-emerald-600" title="Guardar">
+                <button onClick={() => guardarEdicion(op.id)} className="text-emerald-700" title="Guardar">
                   <Check size={16} />
                 </button>
                 <button onClick={() => setEditId(null)} className="text-gray-500" title="Cancelar">

@@ -169,7 +169,7 @@ export default function ClienteForm({
             onChange={(e) => set("nombre", e.target.value)}
             placeholder="TechCorp México S.A. de C.V."
           />
-          {errors.nombre && <p className="mt-1 text-xs text-red-500">{errors.nombre}</p>}
+          {errors.nombre && <p className="mt-1 text-xs text-red-700">{errors.nombre}</p>}
         </div>
 
         <div>
@@ -183,7 +183,7 @@ export default function ClienteForm({
             placeholder="TCM210501AB3"
             maxLength={13}
           />
-          {errors.rfc && <p className="mt-1 text-xs text-red-500">{errors.rfc}</p>}
+          {errors.rfc && <p className="mt-1 text-xs text-red-700">{errors.rfc}</p>}
         </div>
 
         <div>
@@ -194,7 +194,7 @@ export default function ClienteForm({
             onChange={(e) => set("ciudad", e.target.value)}
             placeholder="Ciudad de México"
           />
-          {errors.ciudad && <p className="mt-1 text-xs text-red-500">{errors.ciudad}</p>}
+          {errors.ciudad && <p className="mt-1 text-xs text-red-700">{errors.ciudad}</p>}
         </div>
 
         <div>
@@ -219,7 +219,7 @@ export default function ClienteForm({
             }}
             placeholder="empresa.com"
           />
-          {errors.website && <p className="mt-1 text-xs text-red-500">{errors.website}</p>}
+          {errors.website && <p className="mt-1 text-xs text-red-700">{errors.website}</p>}
         </div>
 
         <div>
@@ -250,7 +250,7 @@ export default function ClienteForm({
           onChange={(e) => set("contacto", e.target.value)}
           placeholder="Carlos Mendoza"
         />
-        {errors.contacto && <p className="mt-1 text-xs text-red-500">{errors.contacto}</p>}
+        {errors.contacto && <p className="mt-1 text-xs text-red-700">{errors.contacto}</p>}
         {isEditing && !convertir && (
           <p className="mt-1 text-xs text-gray-500">Este nombre, email y teléfono son los del contacto principal. Gestioná más contactos abajo.</p>
         )}
@@ -269,7 +269,7 @@ export default function ClienteForm({
             onChange={(e) => set("email", e.target.value)}
             placeholder="contacto@empresa.com"
           />
-          {errors.email && <p className="mt-1 text-xs text-red-500">{errors.email}</p>}
+          {errors.email && <p className="mt-1 text-xs text-red-700">{errors.email}</p>}
         </div>
 
         <div>
@@ -321,7 +321,7 @@ export default function ClienteForm({
           ))}
         </select>
         {errors.condicion_pago_id && (
-          <p className="mt-1 text-xs text-red-500">{errors.condicion_pago_id}</p>
+          <p className="mt-1 text-xs text-red-700">{errors.condicion_pago_id}</p>
         )}
         <p className="mt-1 text-xs text-gray-500">
           Se aplica por defecto a las órdenes de este cliente (se puede cambiar por orden).

@@ -405,7 +405,7 @@ export default function OrdenForm({
               error={!!errors.cliente_id}
             />
             {errors.cliente_id && (
-              <p className="mt-1 text-xs text-red-500">{errors.cliente_id}</p>
+              <p className="mt-1 text-xs text-red-700">{errors.cliente_id}</p>
             )}
           </div>
 
@@ -423,7 +423,7 @@ export default function OrdenForm({
               ))}
             </select>
             {errors.tipo_cotizacion_id && (
-              <p className="mt-1 text-xs text-red-500">{errors.tipo_cotizacion_id}</p>
+              <p className="mt-1 text-xs text-red-700">{errors.tipo_cotizacion_id}</p>
             )}
           </div>
 
@@ -441,7 +441,7 @@ export default function OrdenForm({
               ))}
             </select>
             {errors.condicion_pago_id && (
-              <p className="mt-1 text-xs text-red-500">{errors.condicion_pago_id}</p>
+              <p className="mt-1 text-xs text-red-700">{errors.condicion_pago_id}</p>
             )}
           </div>
 
@@ -460,7 +460,7 @@ export default function OrdenForm({
               error={!!errors.vendedor_id}
             />
             {errors.vendedor_id && (
-              <p className="mt-1 text-xs text-red-500">{errors.vendedor_id}</p>
+              <p className="mt-1 text-xs text-red-700">{errors.vendedor_id}</p>
             )}
           </div>
 
@@ -474,7 +474,7 @@ export default function OrdenForm({
               placeholder="Descripción del proyecto o cotización"
             />
             {errors.descripcion && (
-              <p className="mt-1 text-xs text-red-500">{errors.descripcion}</p>
+              <p className="mt-1 text-xs text-red-700">{errors.descripcion}</p>
             )}
           </div>
         </div>
@@ -516,7 +516,7 @@ export default function OrdenForm({
                 placeholder="18.50"
               />
               {errors.tipo_cambio && (
-                <p className="mt-1 text-xs text-red-500">{errors.tipo_cambio}</p>
+                <p className="mt-1 text-xs text-red-700">{errors.tipo_cambio}</p>
               )}
             </div>
           )}
@@ -578,7 +578,7 @@ export default function OrdenForm({
               onChange={(e) => setFechaVenta(e.target.value)}
             />
             {errors.fecha_venta && (
-              <p className="mt-1 text-xs text-red-500">{errors.fecha_venta}</p>
+              <p className="mt-1 text-xs text-red-700">{errors.fecha_venta}</p>
             )}
           </div>
         </div>
@@ -601,7 +601,7 @@ export default function OrdenForm({
         </div>
 
         {errors.partidas && (
-          <p className="text-xs text-red-500 mb-2">{errors.partidas}</p>
+          <p className="text-xs text-red-700 mb-2">{errors.partidas}</p>
         )}
 
         <div className="space-y-2">
@@ -628,7 +628,7 @@ export default function OrdenForm({
                   placeholder="Descripción del producto o servicio"
                 />
                 {errors[`p_desc_${i}`] && (
-                  <p className="mt-0.5 text-xs text-red-500">{errors[`p_desc_${i}`]}</p>
+                  <p className="mt-0.5 text-xs text-red-700">{errors[`p_desc_${i}`]}</p>
                 )}
               </div>
 
@@ -650,7 +650,7 @@ export default function OrdenForm({
                     mal pero no qué, y el motivo que mandó el server ("Cantidad muy grande") se
                     tiraba a la basura. */}
                 {errors[`p_cant_${i}`] && (
-                  <p className="mt-0.5 text-xs text-red-500">{errors[`p_cant_${i}`]}</p>
+                  <p className="mt-0.5 text-xs text-red-700">{errors[`p_cant_${i}`]}</p>
                 )}
               </div>
 
@@ -669,7 +669,7 @@ export default function OrdenForm({
                   placeholder="Precio unit."
                 />
                 {errors[`p_precio_${i}`] && (
-                  <p className="mt-0.5 text-xs text-red-500">{errors[`p_precio_${i}`]}</p>
+                  <p className="mt-0.5 text-xs text-red-700">{errors[`p_precio_${i}`]}</p>
                 )}
               </div>
 
@@ -758,7 +758,7 @@ export default function OrdenForm({
                 />
                 <span className="text-sm text-gray-500">%</span>
                 {errors.tasa_iva && (
-                  <p className="text-xs text-red-500">{errors.tasa_iva}</p>
+                  <p className="text-xs text-red-700">{errors.tasa_iva}</p>
                 )}
               </div>
             )}
@@ -883,7 +883,7 @@ function PreviewRow({
           variant === "total"
             ? "text-navy font-bold text-base"
             : variant === "discount"
-            ? "text-red-500 text-sm"
+            ? "text-red-700 text-sm"
             : variant === "mxn"
             ? "text-gray-500 text-xs"
             : "text-gray-800 text-sm"

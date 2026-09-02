@@ -481,7 +481,7 @@ function TipoRow({
             className={`px-2 py-1 text-xs font-medium rounded-md transition-colors
               ${
                 tipo.activo
-                  ? "text-red-500 hover:bg-red-50"
+                  ? "text-red-700 hover:bg-red-50"
                   : "text-green-600 hover:bg-green-50"
               }`}
             title={tipo.activo ? "Desactivar" : "Activar"}

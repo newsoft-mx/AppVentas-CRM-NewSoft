@@ -54,7 +54,7 @@ function LoginForm() {
             />
           </div>
           <h1 className="text-2xl font-bold text-navy">Sales</h1>
-          <p className="text-sm text-gray-500 mt-1">
+          <p className="text-sm text-gray-600 mt-1">
             Soluciones a la medida para la gestión comercial
           </p>
         </div>
@@ -97,7 +97,7 @@ function LoginForm() {
             </div>
 
             {error && (
-              <div className="flex items-center gap-2 text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+              <div className="flex items-center gap-2 text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
                 <AlertCircle size={15} className="shrink-0" />
                 {error}
               </div>
@@ -120,7 +120,7 @@ function LoginForm() {
           </form>
         </div>
 
-        <p className="text-center text-xs text-gray-500 mt-6">
+        <p className="text-center text-xs text-gray-600 mt-6">
           NewSoft © {new Date().getFullYear()}
         </p>
       </div>
