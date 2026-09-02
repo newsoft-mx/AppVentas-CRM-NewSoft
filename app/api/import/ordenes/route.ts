@@ -6,7 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { catalogKey, parseImportBuffer, parseYesNo, nullable } from "@/lib/csv";
 import { canWrite, requireAuth } from "@/lib/session";
 import { calcularOrden, generarFolio } from "@/lib/utils";
-import type { EstatusOrden, Moneda } from "@/types/ordenes";
+import { ESTATUS_ORDEN, type EstatusOrden, type Moneda } from "@/types/ordenes";
 
 interface ImportError {
   fila: number;
@@ -146,7 +146,7 @@ export async function POST(req: NextRequest) {
     const vigencia = normalizeDate(nullable(row.vigencia ?? ""));
     const fechaVenta = normalizeDate(nullable(row.fecha_venta ?? ""));
 
-    if (!["BORRADOR", "COTIZADO", "VENTA"].includes(estatus)) {
+    if (!ESTATUS_ORDEN.includes(estatus)) {
       errors.push({ fila, mensaje: "Estatus inválido" });
       return;
     }

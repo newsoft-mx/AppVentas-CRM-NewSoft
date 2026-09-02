@@ -25,18 +25,31 @@ const fecha = (iso: string) =>
 export default function HistorialCambios({ entidad, entidadId }: { entidad: string; entidadId: string }) {
   const [abierto, setAbierto] = useState(false);
   const [items, setItems] = useState<AuditoriaItem[] | null>(null);
+  // "No pudo cargarse" y "no hay cambios" son cosas distintas y se veían iguales: ante un
+  // fallo se guardaba `[]`, y la pantalla decía "Sin cambios registrados". En una bitácora de
+  // auditoría esa confusión es grave — el usuario concluye que nadie tocó el registro.
+  const [fallo, setFallo] = useState(false);
+  // Reintentar tiene que volver a pedir de verdad: sin esto, bajar `fallo` solo borra el
+  // mensaje y la tarjeta se queda en "Cargando…" para siempre, porque el efecto no depende
+  // de `fallo` y nunca se vuelve a disparar.
+  const [intento, setIntento] = useState(0);
 
   // Se carga recién al abrir: si nadie lo mira, no cuesta nada.
   useEffect(() => {
     if (!abierto || items) return;
     let vivo = true;
     (async () => {
-      const r = await fetch(`/api/auditoria?entidad=${entidad}&entidad_id=${entidadId}`);
-      const data = r.ok ? await r.json() : [];
-      if (vivo) setItems(data);
+      try {
+        const r = await fetch(`/api/auditoria?entidad=${entidad}&entidad_id=${entidadId}`);
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        const data = await r.json();
+        if (vivo) { setItems(data); setFallo(false); }
+      } catch {
+        if (vivo) setFallo(true);
+      }
     })();
     return () => { vivo = false; };
-  }, [abierto, items, entidad, entidadId]);
+  }, [abierto, items, entidad, entidadId, intento]);
 
   return (
     <div className="rounded-lg border border-surface-border bg-white">
@@ -56,9 +69,23 @@ export default function HistorialCambios({ entidad, entidadId }: { entidad: stri
 
       {abierto && (
         <div className="border-t border-surface-border px-3 py-2">
-          {items === null && <p className="text-[11px] text-gray-400">Cargando…</p>}
-          {items?.length === 0 && (
-            <p className="text-[11px] text-gray-400">Sin cambios registrados.</p>
+          {items === null && !fallo && <p className="text-[11px] text-gray-500">Cargando…</p>}
+          {/* Un fallo NO se muestra como "sin cambios": en una bitácora de auditoría, decir
+              que no hay nada cuando en realidad no se pudo leer es peor que no decir nada. */}
+          {fallo && (
+            <p role="alert" className="flex flex-wrap items-center gap-2 text-[11px] text-red-600">
+              No se pudo cargar el historial.
+              <button
+                type="button"
+                onClick={() => { setFallo(false); setIntento((n) => n + 1); }}
+                className="rounded border border-red-200 px-1.5 py-0.5 font-semibold hover:bg-red-50"
+              >
+                Reintentar
+              </button>
+            </p>
+          )}
+          {items?.length === 0 && !fallo && (
+            <p className="text-[11px] text-gray-500">Sin cambios registrados.</p>
           )}
           <div className="space-y-2.5">
             {items?.map((it) => (

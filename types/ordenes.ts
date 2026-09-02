@@ -7,6 +7,26 @@ import type { ModoVista } from "@/lib/ventas-vista";
 export type EstatusOrden = "BORRADOR" | "COTIZADO" | "VENTA";
 export type Moneda = "MXN" | "USD";
 
+/**
+ * SSOT del estatus de una orden — mismo patrón que `types/crm.ts` usa para los enums del CRM
+ * (`TAMANOS_EMPRESA` + `TAMANO_EMPRESA_LABEL`, `RESULTADOS_DEAL`, …).
+ *
+ * Los tres valores estaban repetidos a mano en seis archivos y la etiqueta en tres: el filtro
+ * de Ventas, el esquema de zod, el `parse` de los filtros y el importador tenían cada uno su
+ * copia. Agregar un cuarto estatus obligaba a acordarse de los seis; olvidarse de uno no rompe
+ * la compilación, solo hace que una pantalla ignore el valor nuevo en silencio.
+ *
+ * El orden del array es el del ciclo de vida (borrador → cotizado → venta), y de ahí sale el
+ * orden de los `<select>`: la lista es también la fuente del orden en pantalla.
+ */
+export const ESTATUS_ORDEN: EstatusOrden[] = ["BORRADOR", "COTIZADO", "VENTA"];
+
+export const ESTATUS_ORDEN_META: Record<EstatusOrden, { label: string; chip: string }> = {
+  BORRADOR: { label: "Borrador", chip: "bg-gray-100 text-gray-700" },
+  COTIZADO: { label: "Cotizado", chip: "bg-blue-100 text-blue-700" },
+  VENTA: { label: "Venta", chip: "bg-green-100 text-green-700" },
+};
+
 export interface Partida {
   id: string;
   orden_id: string;
@@ -79,7 +99,7 @@ export interface OrdenResumen {
   vendedor: { id: string; nombre: string } | null;
 }
 
-/** Resultado del endpoint GET /api/ordenes/kpis */
+/** Los KPIs de la cabecera de Ventas. Los calcula `lib/kpis.ts` sobre las órdenes ya cargadas. */
 export interface KpisData {
   total_ordenes: number;
   borradores: number;
