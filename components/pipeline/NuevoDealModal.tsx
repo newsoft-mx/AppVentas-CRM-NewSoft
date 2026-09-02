@@ -206,7 +206,7 @@ export default function NuevoDealModal({
         {/* Cliente: existente o nuevo prospecto */}
         <div className="sm:col-span-2">
           <div className="mb-1.5 flex items-center gap-2">
-            <label className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">Cliente *</label>
+            <label className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">Cliente *</label>
             {!editando && (
               <div className="flex overflow-hidden rounded-md border border-surface-border text-[11px] font-semibold">
                 <button type="button" onClick={() => setModoCliente("existente")} className={`px-2.5 py-1 ${modoCliente === "existente" ? "bg-navy text-white" : "text-gray-500"}`}>Existente</button>
@@ -376,7 +376,7 @@ export default function NuevoDealModal({
       {/* Contacto principal (obligatorio en alta; en edición se gestiona en la ficha) */}
       {!editando && (
       <div className="mt-5 border-t border-surface-border pt-4">
-        <div className="mb-3 text-[11px] font-bold uppercase tracking-wide text-gray-400">Contacto principal *</div>
+        <div className="mb-3 text-[11px] font-bold uppercase tracking-wide text-gray-500">Contacto principal *</div>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Campo label="Nombre del contacto *">
             <input className={inputCls} value={form.contacto_nombre} onChange={(e) => set("contacto_nombre", e.target.value)} placeholder="Ej. Irvin Álvarez" />
@@ -413,7 +413,7 @@ const inputCls =
 function Campo({ label, children, full }: { label: string; children: React.ReactNode; full?: boolean }) {
   return (
     <div className={full ? "sm:col-span-2" : ""}>
-      <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-gray-400">{label}</label>
+      <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-gray-500">{label}</label>
       {children}
     </div>
   );

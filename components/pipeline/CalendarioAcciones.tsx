@@ -76,7 +76,7 @@ export default function CalendarioAcciones({
           <h2 className="text-lg font-bold text-navy">
             {MESES[mes.getMonth()]} {mes.getFullYear()}
           </h2>
-          <span className="text-xs text-gray-400">{totalMes} acciones</span>
+          <span className="text-xs text-gray-500">{totalMes} acciones</span>
         </div>
         <div className="flex items-center gap-1">
           <button
@@ -105,7 +105,7 @@ export default function CalendarioAcciones({
       {/* Encabezados de día */}
       <div className="grid grid-cols-7 gap-px border-y border-surface-border bg-surface-border px-6 [&>*]:bg-white">
         {DIAS.map((d) => (
-          <div key={d} className="py-1.5 text-center text-[11px] font-semibold uppercase tracking-wide text-gray-400">
+          <div key={d} className="py-1.5 text-center text-[11px] font-semibold uppercase tracking-wide text-gray-500">
             {d}
           </div>
         ))}
@@ -150,14 +150,14 @@ export default function CalendarioAcciones({
                       }`}
                     >
                       <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: temp.color }} />
-                      <Icon size={9} className="shrink-0 text-gray-400" />
+                      <Icon size={9} className="shrink-0 text-gray-500" />
                       <span className="shrink-0 font-semibold text-gray-500">{hora(a.fecha_tarea!)}</span>
                       <span className="truncate text-gray-600">{a.deal.nombre}</span>
                     </button>
                   );
                 })}
                 {items.length > MAX_CHIPS && (
-                  <div className="px-1 text-[10px] font-semibold text-gray-400">+{items.length - MAX_CHIPS} más</div>
+                  <div className="px-1 text-[10px] font-semibold text-gray-500">+{items.length - MAX_CHIPS} más</div>
                 )}
               </div>
             </div>

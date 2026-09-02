@@ -79,7 +79,7 @@ export default function PerfilClient({ nombre: nombreInicial, email, rolLabel, v
         </div>
         <div>
           <h1 className="text-xl font-bold tracking-tight text-navy">Mi perfil</h1>
-          <p className="text-xs text-gray-400">{rolLabel}{vendedorNombre ? ` · ${vendedorNombre}` : ""}</p>
+          <p className="text-xs text-gray-500">{rolLabel}{vendedorNombre ? ` · ${vendedorNombre}` : ""}</p>
         </div>
       </header>
 
@@ -99,7 +99,7 @@ export default function PerfilClient({ nombre: nombreInicial, email, rolLabel, v
           <div>
             <label className="label">Email</label>
             <input className="input bg-surface text-gray-500" value={email} readOnly disabled />
-            <p className="mt-1 text-xs text-gray-400">El email (tu usuario de acceso) lo gestiona un administrador.</p>
+            <p className="mt-1 text-xs text-gray-500">El email (tu usuario de acceso) lo gestiona un administrador.</p>
           </div>
           <div>
             <label className="label">Rol</label>

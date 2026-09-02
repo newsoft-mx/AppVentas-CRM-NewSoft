@@ -105,13 +105,13 @@ export default function SaludClient() {
               <p className={`font-semibold ${data.sano ? "text-emerald-800" : "text-red-800"}`}>
                 {data.sano ? "Todos los invariantes se cumplen" : `${data.violaciones} invariante(s) violado(s)`}
               </p>
-              <p className="text-xs text-gray-500">{actualizado && `Verificado ${actualizado}`}</p>
+              <p className="text-xs text-gray-600">{actualizado && `Verificado ${actualizado}`}</p>
             </div>
           </div>
 
           {/* Invariantes (violación = debe dar 0) */}
           <section>
-            <p className="mb-2 text-xs font-medium uppercase tracking-wider text-gray-400">Invariantes</p>
+            <p className="mb-2 text-xs font-medium uppercase tracking-wider text-gray-500">Invariantes</p>
             <div className={cardCls}>
               {violaciones.map((c) => {
                 const ok = c.count === 0;
@@ -124,7 +124,7 @@ export default function SaludClient() {
                     )}
                     <div className="min-w-0 flex-1">
                       <p className="text-sm font-medium text-navy">{c.titulo}</p>
-                      <p className="text-[11px] text-gray-400">{BLOQUE_LABEL[c.bloque] ?? c.bloque}</p>
+                      <p className="text-[11px] text-gray-500">{BLOQUE_LABEL[c.bloque] ?? c.bloque}</p>
                     </div>
                     <span
                       className={`rounded-full px-2.5 py-0.5 text-xs font-bold tabular-nums ${
@@ -142,19 +142,19 @@ export default function SaludClient() {
           {/* Informativos (números para decidir política) */}
           {informativos.length > 0 && (
             <section>
-              <p className="mb-2 text-xs font-medium uppercase tracking-wider text-gray-400">Informativos</p>
+              <p className="mb-2 text-xs font-medium uppercase tracking-wider text-gray-500">Informativos</p>
               <div className={cardCls}>
                 {informativos.map((c) => (
                   <div key={c.id} className="flex items-center gap-3 px-4 py-3">
                     <Info size={18} className="shrink-0 text-blue-400" />
                     <div className="min-w-0 flex-1">
                       <p className="text-sm font-medium text-navy">{c.titulo}</p>
-                      <p className="text-[11px] text-gray-400">{BLOQUE_LABEL[c.bloque] ?? c.bloque}</p>
+                      <p className="text-[11px] text-gray-500">{BLOQUE_LABEL[c.bloque] ?? c.bloque}</p>
                     </div>
                     <div className="text-right">
                       <span className="text-sm font-bold tabular-nums text-navy">{c.count}</span>
                       {c.monto_mxn != null && (
-                        <span className="ml-1 text-xs text-gray-400">
+                        <span className="ml-1 text-xs text-gray-500">
                           (${c.monto_mxn.toLocaleString("es-MX")} MXN)
                         </span>
                       )}

@@ -136,12 +136,12 @@ export default function SearchableSelect({
           ${error ? "border-red-400 focus:ring-red-400" : ""}
           ${disabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
       >
-        <span className={`truncate flex-1 ${!selected ? "text-gray-400" : "text-gray-900"}`}>
+        <span className={`truncate flex-1 ${!selected ? "text-gray-500" : "text-gray-900"}`}>
           {selected ? (
             <span>
               {selected.label}
               {selected.sublabel && (
-                <span className="ml-2 text-xs font-mono text-gray-400">
+                <span className="ml-2 text-xs font-mono text-gray-500">
                   {selected.sublabel}
                 </span>
               )}
@@ -155,14 +155,14 @@ export default function SearchableSelect({
           {selected && !disabled && (
             <span
               onClick={handleClear}
-              className="p-0.5 rounded hover:bg-gray-200 text-gray-400 hover:text-gray-600"
+              className="p-0.5 rounded hover:bg-gray-200 text-gray-500 hover:text-gray-600"
             >
               <X size={12} />
             </span>
           )}
           <ChevronDown
             size={15}
-            className={`text-gray-400 transition-transform ${isOpen ? "rotate-180" : ""}`}
+            className={`text-gray-500 transition-transform ${isOpen ? "rotate-180" : ""}`}
           />
         </span>
       </button>
@@ -173,7 +173,7 @@ export default function SearchableSelect({
           {/* Buscador */}
           <div className="p-2 border-b border-surface-border">
             <div className="relative">
-              <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
+              <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-500" />
               <input
                 ref={searchRef}
                 value={search}
@@ -191,7 +191,7 @@ export default function SearchableSelect({
           {/* Lista */}
           <ul className="max-h-56 overflow-y-auto py-1">
             {filtered.length === 0 ? (
-              <li className="px-3 py-3 text-sm text-gray-400 text-center">Sin resultados</li>
+              <li className="px-3 py-3 text-sm text-gray-500 text-center">Sin resultados</li>
             ) : (
               filtered.map((option, i) => (
                 <li key={option.id}>
@@ -205,7 +205,7 @@ export default function SearchableSelect({
                   >
                     <span className="block truncate">{option.label}</span>
                     {option.sublabel && (
-                      <span className="mt-0.5 block truncate font-mono text-xs text-gray-400">
+                      <span className="mt-0.5 block truncate font-mono text-xs text-gray-500">
                         {option.sublabel}
                       </span>
                     )}

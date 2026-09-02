@@ -10,7 +10,7 @@ export default async function SaludPage() {
   const session = await getServerSession();
   if (!session || !isAdmin(session)) {
     return (
-      <div className="rounded-xl border border-surface-border bg-white p-12 text-center text-gray-400">
+      <div className="rounded-xl border border-surface-border bg-white p-12 text-center text-gray-500">
         Esta sección es solo para administradores.
       </div>
     );

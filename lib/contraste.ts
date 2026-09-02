@@ -37,3 +37,20 @@ export const TEXTO_OSCURO = "#1B2A4A";
 export function textoSobre(fondo: string): string {
   return contraste(TEXTO_CLARO, fondo) > contraste(TEXTO_OSCURO, fondo) ? TEXTO_CLARO : TEXTO_OSCURO;
 }
+
+/**
+ * La escala de gris para texto, y por qué no alcanza con memorizar un número.
+ *
+ * `text-gray-500` (#6B7280) da 4.83:1 sobre blanco — pasa AA con lo justo. Pero el margen es
+ * TAN chico que cualquier fondo que no sea blanco puro lo tumba: medido, ese mismo gris sobre
+ * `bg-gray-100` (#F3F4F6) cae a 4.39:1, y sobre `bg-red-50` a 4.42:1. Las dos veces se ve
+ * igual de gris y las dos veces reprueba.
+ *
+ * La regla, entonces, no es "usá gray-500" sino:
+ *   · texto secundario sobre BLANCO      → `text-gray-500`
+ *   · texto secundario sobre FONDO TEÑIDO → `text-gray-600` (#4B5563, ~6:1 sobre gray-100)
+ *
+ * `text-gray-400` no se usa para texto en ningún caso: 2.85:1 sobre blanco, ni cerca.
+ */
+export const GRIS_SOBRE_BLANCO = "text-gray-500";
+export const GRIS_SOBRE_TENIDO = "text-gray-600";

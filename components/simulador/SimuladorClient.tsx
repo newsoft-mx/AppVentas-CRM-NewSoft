@@ -27,7 +27,7 @@ function Campo({ label, value, onChange, hint }: {
     <div className="mb-3">
       <label className="mb-1 block text-[13px] text-gray-500">{label}</label>
       <input type="number" value={value} onChange={(e) => onChange(+e.target.value)} className={numInput} />
-      {hint && <p className="mt-1 text-[11px] text-gray-400">{hint}</p>}
+      {hint && <p className="mt-1 text-[11px] text-gray-500">{hint}</p>}
     </div>
   );
 }
@@ -197,7 +197,7 @@ export default function SimuladorClient({ casoInicial, dealId }: { casoInicial: 
         <div className="overflow-x-auto">
           <table className="w-full border-collapse text-[13px]">
             <thead>
-              <tr className="border-b border-surface-border text-left text-[11px] font-semibold uppercase tracking-wide text-gray-400">
+              <tr className="border-b border-surface-border text-left text-[11px] font-semibold uppercase tracking-wide text-gray-500">
                 <th className="py-2 pr-3">Variable</th>
                 <th className="py-2 px-3 text-right">Actual</th>
                 <th className="py-2 px-3 text-right">Con mejora</th>
@@ -209,7 +209,7 @@ export default function SimuladorClient({ casoInicial, dealId }: { casoInicial: 
               {tabla.map(([label, a, m, kind, d], i) => {
                 const delta = m - a;
                 const dPct = a !== 0 ? (delta / Math.abs(a)) * 100 : NaN;
-                const cls = delta > 0 ? "text-emerald-600" : delta < 0 ? "text-red-500" : "text-gray-400";
+                const cls = delta > 0 ? "text-emerald-600" : delta < 0 ? "text-red-500" : "text-gray-500";
                 const total = i === tabla.length - 1;
                 return (
                   <tr key={label} className={`border-b border-gray-100 ${total ? "bg-surface font-semibold" : ""}`}>
@@ -241,14 +241,14 @@ function EscenarioOut({ ventas, ingreso, lbl, nota }: { ventas: number; ingreso:
   return (
     <div className="mt-4 grid grid-cols-2 gap-3 border-t border-surface-border pt-4">
       <div className="rounded-lg bg-surface p-3">
-        <div className="text-[11px] uppercase tracking-wide text-gray-400">Ventas cerradas / {lbl}</div>
+        <div className="text-[11px] uppercase tracking-wide text-gray-500">Ventas cerradas / {lbl}</div>
         <div className="text-lg font-semibold text-navy tabular-nums">{fmtNum(ventas, 1)}</div>
       </div>
       <div className="rounded-lg bg-surface p-3">
-        <div className="text-[11px] uppercase tracking-wide text-gray-400">Ingreso estimado / {lbl}</div>
+        <div className="text-[11px] uppercase tracking-wide text-gray-500">Ingreso estimado / {lbl}</div>
         <div className="text-lg font-semibold text-navy tabular-nums">{fmtMoney(ingreso)}</div>
       </div>
-      {nota && <p className="col-span-2 text-[11px] text-gray-400">{nota}</p>}
+      {nota && <p className="col-span-2 text-[11px] text-gray-500">{nota}</p>}
     </div>
   );
 }

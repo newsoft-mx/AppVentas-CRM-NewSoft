@@ -252,7 +252,7 @@ export default function OrdenDetalleClient({
 
             {/* Info de la orden */}
             <div className="rounded-xl border border-surface-border bg-white p-4 shadow-sm sm:p-5">
-              <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-4">
+              <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-4">
                 Información general
               </h2>
               <dl className="grid grid-cols-1 gap-x-6 gap-y-3 text-sm sm:grid-cols-2">
@@ -266,7 +266,7 @@ export default function OrdenDetalleClient({
 
                 {/* ── Fecha de venta: editable inline en cualquier estatus ── */}
                 <div>
-                  <dt className="text-xs text-gray-400 font-medium flex items-center gap-1">
+                  <dt className="text-xs text-gray-500 font-medium flex items-center gap-1">
                     <CalendarDays size={11} />
                     Fecha de venta
                     {canWrite && !editingFecha && (
@@ -310,7 +310,7 @@ export default function OrdenDetalleClient({
                           type="button"
                           onClick={handleCancelFecha}
                           disabled={isSavingFecha}
-                          className="p-1 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+                          className="p-1 rounded-lg text-gray-500 hover:text-gray-600 hover:bg-gray-100 transition-colors"
                           title="Cancelar"
                         >
                           <X size={12} />
@@ -340,26 +340,26 @@ export default function OrdenDetalleClient({
             {/* Partidas */}
             <div className="bg-white rounded-xl border border-surface-border shadow-sm overflow-hidden">
               <div className="px-5 py-3 border-b border-surface-border bg-gray-50">
-                <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
                   Partidas ({orden.partidas.length})
                 </h2>
               </div>
               <div className="divide-y divide-surface-border sm:hidden">
                 {orden.partidas.map((p, i) => (
                   <div key={p.id} className="p-4">
-                    <p className="text-xs font-semibold text-gray-400">#{i + 1}</p>
+                    <p className="text-xs font-semibold text-gray-500">#{i + 1}</p>
                     <p className="mt-1 text-sm text-gray-800">{p.descripcion}</p>
                     <div className="mt-3 grid grid-cols-3 gap-2 text-xs">
                       <div>
-                        <p className="text-gray-400">Cant.</p>
+                        <p className="text-gray-500">Cant.</p>
                         <p className="font-medium text-gray-700">{p.cantidad.toLocaleString("es-MX")}</p>
                       </div>
                       <div>
-                        <p className="text-gray-400">Precio</p>
+                        <p className="text-gray-500">Precio</p>
                         <p className="font-medium text-gray-700">{formatMoneda(p.precio_unitario, orden.moneda)}</p>
                       </div>
                       <div className="text-right">
-                        <p className="text-gray-400">Total</p>
+                        <p className="text-gray-500">Total</p>
                         <p className="font-semibold text-gray-900">{formatMoneda(p.total_partida, orden.moneda)}</p>
                       </div>
                     </div>
@@ -380,7 +380,7 @@ export default function OrdenDetalleClient({
                   <tbody className="divide-y divide-surface-border">
                     {orden.partidas.map((p, i) => (
                       <tr key={p.id} className="hover:bg-gray-50/50">
-                        <td className="px-5 py-3 text-xs text-gray-400">{i + 1}</td>
+                        <td className="px-5 py-3 text-xs text-gray-500">{i + 1}</td>
                         <td className="px-3 py-3 text-gray-700">{p.descripcion}</td>
                         <td className="px-3 py-3 text-right text-gray-600">
                           {p.cantidad.toLocaleString("es-MX")}
@@ -402,7 +402,7 @@ export default function OrdenDetalleClient({
           {/* ── Columna derecha: totales ── */}
           <div className="space-y-4">
             <div className="bg-white rounded-xl border border-surface-border shadow-sm p-5">
-              <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-4">
+              <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-4">
                 Resumen financiero
               </h2>
 
@@ -417,7 +417,7 @@ export default function OrdenDetalleClient({
                       variant="discount"
                     />
                     {orden.descuento_descripcion && (
-                      <p className="text-xs text-gray-400 pl-2">{orden.descuento_descripcion}</p>
+                      <p className="text-xs text-gray-500 pl-2">{orden.descuento_descripcion}</p>
                     )}
                     <TotalRow
                       label="Subtotal con descuento"
@@ -451,12 +451,12 @@ export default function OrdenDetalleClient({
 
               {/* Estatus visual */}
               <div className="mt-5 pt-4 border-t border-surface-border">
-                <p className="text-xs text-gray-400 mb-1.5">Estatus actual</p>
+                <p className="text-xs text-gray-500 mb-1.5">Estatus actual</p>
                 <span className={`badge text-xs font-medium ${ESTATUS_ORDEN_META[orden.estatus].chip}`}>
                   {ESTATUS_ORDEN_META[orden.estatus].label}
                 </span>
                 {orden.estatus === "VENTA" && orden.fecha_venta && (
-                  <p className="text-xs text-gray-400 mt-1.5">
+                  <p className="text-xs text-gray-500 mt-1.5">
                     Cerrada el {formatFecha(orden.fecha_venta)}
                   </p>
                 )}
@@ -465,11 +465,11 @@ export default function OrdenDetalleClient({
 
             {/* Info de cliente */}
             <div className="bg-white rounded-xl border border-surface-border shadow-sm p-5">
-              <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">
+              <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
                 Cliente
               </h2>
               <p className="font-semibold text-navy text-sm">{orden.cliente.nombre}</p>
-              <p className="text-xs font-mono text-gray-400 mt-0.5">
+              <p className="text-xs font-mono text-gray-500 mt-0.5">
                 {orden.cliente.rfc || "RFC no registrado"}
               </p>
               <div className="mt-2 space-y-1 text-xs text-gray-500">
@@ -492,7 +492,7 @@ export default function OrdenDetalleClient({
 function InfoItem({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <dt className="text-xs text-gray-400 font-medium">{label}</dt>
+      <dt className="text-xs text-gray-500 font-medium">{label}</dt>
       <dd className="text-gray-700 mt-0.5">{value}</dd>
     </div>
   );
@@ -516,7 +516,7 @@ function TotalRow({
             : variant === "discount"
             ? "text-gray-500"
             : variant === "mxn"
-            ? "text-xs text-gray-400"
+            ? "text-xs text-gray-500"
             : "text-gray-600"
         }`}
       >
@@ -529,7 +529,7 @@ function TotalRow({
             : variant === "discount"
             ? "text-red-500"
             : variant === "mxn"
-            ? "text-xs text-gray-400"
+            ? "text-xs text-gray-500"
             : "text-gray-800"
         }`}
       >

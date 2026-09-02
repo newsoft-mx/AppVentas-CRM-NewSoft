@@ -81,7 +81,7 @@ export default function CalculadoraClient({ casoInicial, dealId }: { casoInicial
       <Panel>
         <div className="grid gap-x-8 gap-y-6 md:grid-cols-3">
           <div>
-            <p className="mb-3 text-[11px] font-semibold uppercase tracking-wider text-gray-400">Desarrollo</p>
+            <p className="mb-3 text-[11px] font-semibold uppercase tracking-wider text-gray-500">Desarrollo</p>
             <Slider label="Horas" min={10} max={1000} step={10} value={inputs.hrsDesarrollo} onChange={set("hrsDesarrollo")} display={`${inputs.hrsDesarrollo} hrs`} />
             <Slider label="Tarifa / hora" min={500} max={3000} step={50} value={inputs.tarifaHora} onChange={set("tarifaHora")} display={fmt(inputs.tarifaHora)} />
             <div className="flex justify-between rounded-lg bg-blue-50 px-3 py-2 text-[13px] text-navy">
@@ -89,7 +89,7 @@ export default function CalculadoraClient({ casoInicial, dealId }: { casoInicial
             </div>
           </div>
           <div>
-            <p className="mb-3 text-[11px] font-semibold uppercase tracking-wider text-gray-400">Financiamiento</p>
+            <p className="mb-3 text-[11px] font-semibold uppercase tracking-wider text-gray-500">Financiamiento</p>
             <Slider label="Anticipo %" min={0} max={100} step={10} value={antiPct} onChange={set("antiPct")} display={`${antiPct}%`} />
             {calc.hayFin ? (
               <>
@@ -101,7 +101,7 @@ export default function CalculadoraClient({ casoInicial, dealId }: { casoInicial
             )}
           </div>
           <div>
-            <p className="mb-3 text-[11px] font-semibold uppercase tracking-wider text-gray-400">Soporte e infra</p>
+            <p className="mb-3 text-[11px] font-semibold uppercase tracking-wider text-gray-500">Soporte e infra</p>
             <Slider label="Horas soporte / mes" min={1} max={80} step={1} value={hrsSoporte} onChange={set("hrsSoporte")} display={`${hrsSoporte} hrs/mes`} />
             <Slider label="Tarifa soporte / hora" min={500} max={3000} step={50} value={inputs.tarifaSoporte} onChange={set("tarifaSoporte")} display={fmt(inputs.tarifaSoporte)} />
             <div className="mb-1 text-[13px] text-gray-500">Infra Vercel (MXN/mes)</div>
@@ -141,7 +141,7 @@ export default function CalculadoraClient({ casoInicial, dealId }: { casoInicial
                 </tr>
                 <tr className="border-b border-gray-100">
                   <td className={tdL}>Anticipo (upfront)</td><td className={tdR}>{antiPct}%</td><td></td>
-                  <td className={tdMonto}>{fmt(calc.anticipo)}</td><td className="px-3 py-2 text-right text-[11px] text-gray-400">upfront</td>
+                  <td className={tdMonto}>{fmt(calc.anticipo)}</td><td className="px-3 py-2 text-right text-[11px] text-gray-500">upfront</td>
                 </tr>
                 {calc.hayFin && (
                   <>
@@ -267,22 +267,22 @@ export default function CalculadoraClient({ casoInicial, dealId }: { casoInicial
                       <div className="grid grid-cols-2 gap-2.5">
                         {s.tipo === "fijo" ? (
                           <div>
-                            <div className="mb-1 text-[11px] text-gray-400">Costo mensual (MXN)</div>
+                            <div className="mb-1 text-[11px] text-gray-500">Costo mensual (MXN)</div>
                             <input type="number" min={0} value={s.costoFijo} onChange={(e) => updateServicio(s.id, "costoFijo", +e.target.value)} className={numInput} />
                           </div>
                         ) : (
                           <>
                             <div>
-                              <div className="mb-1 text-[11px] text-gray-400">Volumen / mes ({s.unidad})</div>
+                              <div className="mb-1 text-[11px] text-gray-500">Volumen / mes ({s.unidad})</div>
                               <input type="number" min={0} value={s.volumen} onChange={(e) => updateServicio(s.id, "volumen", +e.target.value)} className={numInput} />
                             </div>
                             <div>
-                              <div className="mb-1 text-[11px] text-gray-400">Precio unitario cliente (MXN)</div>
+                              <div className="mb-1 text-[11px] text-gray-500">Precio unitario cliente (MXN)</div>
                               <input type="number" min={0} step={0.001} value={s.precioUnit} onChange={(e) => updateServicio(s.id, "precioUnit", +e.target.value)} className={numInput} />
                             </div>
                           </>
                         )}
-                        <div className="col-span-2 pt-1 text-[12px] text-gray-400">
+                        <div className="col-span-2 pt-1 text-[12px] text-gray-500">
                           Costo base: {fmt(costo)}/mes → cobro: <strong className="text-navy tabular-nums">{fmt(cobro)}</strong> (+{fmtPct(margenConsumo)})
                         </div>
                       </div>

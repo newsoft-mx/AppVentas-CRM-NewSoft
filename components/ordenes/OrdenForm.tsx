@@ -389,7 +389,7 @@ export default function OrdenForm({
 
       {/* ══ SECCIÓN 1: Cliente + Tipo + Condición ══════════════════ */}
       <div>
-        <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">
+        <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
           Datos generales
         </h3>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -482,7 +482,7 @@ export default function OrdenForm({
 
       {/* ══ SECCIÓN 2: Moneda + Estatus ══════════════════════════════ */}
       <div>
-        <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">
+        <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
           Moneda y estatus
         </h3>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
@@ -547,7 +547,7 @@ export default function OrdenForm({
           {/* Vigencia */}
           <div>
             <label className="label">
-              Vigencia <span className="text-gray-400 font-normal">(opcional)</span>
+              Vigencia <span className="text-gray-500 font-normal">(opcional)</span>
             </label>
             {isEditing ? (
               <input
@@ -559,7 +559,7 @@ export default function OrdenForm({
             ) : (
               <>
                 <input type="date" className="input bg-gray-50" value={vigenciaCalculada} disabled />
-                <p className="mt-1 text-xs text-gray-400">
+                <p className="mt-1 text-xs text-gray-500">
                   Se calcula automáticamente con la configuración de empresa.
                 </p>
               </>
@@ -587,7 +587,7 @@ export default function OrdenForm({
       {/* ══ SECCIÓN 3: Partidas ══════════════════════════════════════ */}
       <div>
         <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
+          <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
             Partidas *
           </h3>
           <button
@@ -605,7 +605,7 @@ export default function OrdenForm({
         )}
 
         <div className="space-y-2">
-          <div className="hidden grid-cols-[1fr_100px_130px_104px] gap-2 px-3 text-[11px] font-semibold uppercase tracking-wide text-gray-400 sm:grid">
+          <div className="hidden grid-cols-[1fr_100px_130px_104px] gap-2 px-3 text-[11px] font-semibold uppercase tracking-wide text-gray-500 sm:grid">
             <span>Descripción</span>
             <span className="text-right">Cantidad</span>
             <span className="text-right">Precio unit.</span>
@@ -618,7 +618,7 @@ export default function OrdenForm({
             >
               {/* Descripción */}
               <div>
-                <label className="mb-1 block text-[11px] font-medium text-gray-400 sm:hidden">
+                <label className="mb-1 block text-[11px] font-medium text-gray-500 sm:hidden">
                   Descripción
                 </label>
                 <input
@@ -634,7 +634,7 @@ export default function OrdenForm({
 
               {/* Cantidad */}
               <div>
-                <label className="mb-1 block text-[11px] font-medium text-gray-400 sm:hidden">
+                <label className="mb-1 block text-[11px] font-medium text-gray-500 sm:hidden">
                   Cantidad
                 </label>
                 <input
@@ -656,7 +656,7 @@ export default function OrdenForm({
 
               {/* Precio unitario */}
               <div>
-                <label className="mb-1 block text-[11px] font-medium text-gray-400 sm:hidden">
+                <label className="mb-1 block text-[11px] font-medium text-gray-500 sm:hidden">
                   Precio unit.
                 </label>
                 <input
@@ -685,7 +685,7 @@ export default function OrdenForm({
                   <button
                     type="button"
                     onClick={() => removePartida(p._key)}
-                    className="text-gray-400 hover:text-red-500 transition-colors p-1"
+                    className="text-gray-500 hover:text-red-500 transition-colors p-1"
                   >
                     <Trash2 size={13} />
                   </button>
@@ -698,14 +698,14 @@ export default function OrdenForm({
 
       {/* ══ SECCIÓN 4: Descuento + IVA ══════════════════════════════ */}
       <div>
-        <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">
+        <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
           Descuento e IVA
         </h3>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           {/* Descuento */}
           <div>
             <label className="label">
-              Descuento % <span className="text-gray-400 font-normal">(opcional)</span>
+              Descuento % <span className="text-gray-500 font-normal">(opcional)</span>
             </label>
             <input
               type="number"
@@ -722,7 +722,7 @@ export default function OrdenForm({
           <div>
             <label className="label">
               Descripción del descuento{" "}
-              <span className="text-gray-400 font-normal">(opcional)</span>
+              <span className="text-gray-500 font-normal">(opcional)</span>
             </label>
             <input
               className="input"
@@ -769,7 +769,7 @@ export default function OrdenForm({
       {/* ══ SECCIÓN 5: Preview de totales ═══════════════════════════ */}
       <div className="bg-gray-50 rounded-xl border border-surface-border p-4">
         <div className="flex items-center gap-2 mb-3">
-          <Calculator size={14} className="text-gray-400" />
+          <Calculator size={14} className="text-gray-500" />
           <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
             Resumen
           </h3>
@@ -821,7 +821,7 @@ export default function OrdenForm({
       {/* ══ SECCIÓN 6: Notas ════════════════════════════════════════ */}
       <div>
         <label className="label">
-          Notas internas <span className="text-gray-400 font-normal">(opcional)</span>
+          Notas internas <span className="text-gray-500 font-normal">(opcional)</span>
         </label>
         <textarea
           className="input resize-none"
@@ -872,7 +872,7 @@ function PreviewRow({
             : variant === "discount"
             ? "text-gray-500"
             : variant === "mxn"
-            ? "text-gray-400 text-xs"
+            ? "text-gray-500 text-xs"
             : "text-gray-600"
         }`}
       >
@@ -885,7 +885,7 @@ function PreviewRow({
             : variant === "discount"
             ? "text-red-500 text-sm"
             : variant === "mxn"
-            ? "text-gray-400 text-xs"
+            ? "text-gray-500 text-xs"
             : "text-gray-800 text-sm"
         }`}
       >
