@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Save } from "lucide-react";
 import ContactosCliente from "./ContactosCliente";
 import { repartirDetalles } from "@/lib/errores-formulario";
@@ -38,6 +38,20 @@ const CAMPOS_CON_MENSAJE = new Set([
 
 const ubicarCampoDeCliente = (campo: string) => (CAMPOS_CON_MENSAJE.has(campo) ? campo : null);
 
+/** Nombre visible de cada campo, para el resumen de errores ("Revisá: Ciudad, Contacto…"). */
+const LABEL_CAMPO: Record<string, string> = {
+  nombre: "Razón social / Nombre",
+  rfc: "RFC",
+  contacto: "Contacto principal",
+  ciudad: "Ciudad",
+  email: "Email",
+  telefono: "Teléfono",
+  website: "Website",
+  tamano_empresa: "Tamaño de empresa",
+  condicion_pago_id: "Condición de pago",
+  notas: "Notas",
+};
+
 export default function ClienteForm({
   cliente,
   condiciones,
@@ -62,6 +76,22 @@ export default function ClienteForm({
 
   const [errors, setErrors] = useState<FormErrors>({});
   const [isSaving, setIsSaving] = useState(false);
+  const formRef = useRef<HTMLFormElement>(null);
+
+  // Que un guardado frenado NUNCA parezca que "no deja" sin decir por qué (reporte de
+  // Gaby 2026-09-02): un resumen arriba con los campos a revisar + scroll al primer
+  // error, porque el campo marcado puede quedar fuera de la vista en el modal.
+  const marcarErrores = (errs: FormErrors) => {
+    const campos = Object.keys(errs).filter((k) => k !== "general");
+    const resumen = campos.map((k) => LABEL_CAMPO[k] ?? k).join(", ");
+    setErrors(campos.length > 0 && !errs.general ? { ...errs, general: `Revisá estos campos: ${resumen}.` } : errs);
+    // Tras el re-render: llevar la vista al primer elemento marcado en rojo.
+    setTimeout(() => {
+      formRef.current
+        ?.querySelector(".border-red-400, .bg-red-50")
+        ?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 0);
+  };
 
   const set = (field: keyof ClienteInput, value: string) => {
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -88,7 +118,7 @@ export default function ClienteForm({
     e.preventDefault();
     const errs = validate();
     if (Object.keys(errs).length > 0) {
-      setErrors(errs);
+      marcarErrores(errs);
       return;
     }
 
@@ -130,12 +160,12 @@ export default function ClienteForm({
         // clave, y como nadie la lee, el modal se quedaba abierto sin decir nada: un teléfono
         // de más de 20 caracteres hacía que "Guardar" no hiciera absolutamente nada.
         const detalles = repartirDetalles(data.details, ubicarCampoDeCliente);
-        if (detalles) setErrors(detalles);
+        if (detalles) marcarErrores(detalles);
         // Error puntual de una sola clave (ej: RFC duplicado) — mismo criterio.
         else if (data.campo) {
-          setErrors({ [ubicarCampoDeCliente(data.campo) ?? "general"]: data.error });
+          marcarErrores({ [ubicarCampoDeCliente(data.campo) ?? "general"]: data.error });
         } else {
-          setErrors({ general: data.error || "Error al guardar" });
+          marcarErrores({ general: data.error || "Error al guardar" });
         }
         return;
       }
@@ -149,7 +179,7 @@ export default function ClienteForm({
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
+    <form ref={formRef} onSubmit={handleSubmit} className="space-y-4">
 
       {/* ── Error general ── */}
       {errors.general && (
