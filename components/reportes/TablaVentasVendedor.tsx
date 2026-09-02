@@ -29,12 +29,12 @@ export default function TablaVentasVendedor({ data }: Props) {
         </div>
         <div>
           <h2 className="font-semibold text-navy">Ventas por vendedor</h2>
-          <p className="text-xs text-gray-400">Montos netos sin IVA</p>
+          <p className="text-xs text-gray-500">Montos netos sin IVA</p>
         </div>
       </div>
 
       {data.length === 0 ? (
-        <p className="py-8 text-center text-sm text-gray-400">No hay ventas cerradas.</p>
+        <p className="py-8 text-center text-sm text-gray-500">No hay ventas cerradas.</p>
       ) : (
         <>
         <div className="space-y-2 sm:hidden">
@@ -54,7 +54,7 @@ export default function TablaVentasVendedor({ data }: Props) {
         </div>
         <div className="hidden overflow-hidden rounded-lg border border-gray-100 sm:block">
           <table className="w-full text-sm">
-            <thead className="bg-gray-50 text-xs uppercase tracking-wide text-gray-400">
+            <thead className="bg-gray-50 text-xs uppercase tracking-wide text-gray-500">
               <tr>
                 <ThOrdenable {...th("vendedor")}>Vendedor</ThOrdenable>
                 <ThOrdenable {...th("ordenes_venta")} align="right">Ventas</ThOrdenable>

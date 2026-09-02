@@ -151,7 +151,7 @@ export default function ContactosClient({ initialContactos, organizaciones, canW
       {/* Buscador + filtros */}
       <div className="space-y-2">
         <div className="relative">
-          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
           <input value={q} onChange={(e) => setQ(e.target.value)}
             placeholder="Buscar por nombre, correo, organización, teléfono…"
             className="w-full rounded-lg border border-surface-border bg-white py-2 pl-9 pr-3 text-sm text-navy outline-none focus:border-orange" />
@@ -216,7 +216,7 @@ export default function ContactosClient({ initialContactos, organizaciones, canW
           </thead>
           <tbody className="divide-y divide-surface-border">
             {filtrados.length === 0 && (
-              <tr><td colSpan={7} className="px-4 py-10 text-center text-sm text-gray-400">Sin contactos que coincidan.</td></tr>
+              <tr><td colSpan={7} className="px-4 py-10 text-center text-sm text-gray-500">Sin contactos que coincidan.</td></tr>
             )}
             {filtrados.map((c) => (
               <tr key={c.id} className="cursor-pointer hover:bg-surface" onClick={() => setAbierto(c)}>
@@ -228,11 +228,11 @@ export default function ContactosClient({ initialContactos, organizaciones, canW
                   <div className="flex items-center gap-1.5 font-medium text-navy">
                     {c.nombre}
                     {c.es_principal && (
-                      <span className="rounded bg-navy/10 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-navy"
+                      <span className="rounded bg-navy/10 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-navy"
                         title="Contacto principal del cliente (espeja los datos de la ficha)">Principal</span>
                     )}
                   </div>
-                  {c.cargo && <div className="text-xs text-gray-400">{c.cargo}</div>}
+                  {c.cargo && <div className="text-xs text-gray-500">{c.cargo}</div>}
                 </td>
                 <td className="px-3 py-2.5">
                   <div className="flex items-center gap-1.5">
@@ -247,17 +247,17 @@ export default function ContactosClient({ initialContactos, organizaciones, canW
                     <div className="flex items-center gap-1.5">
                       <a href={`mailto:${c.email}`} className="text-navy hover:text-orange hover:underline">{c.email}</a>
                       <button onClick={() => copiar(c.email as string, c.id, "Correo copiado")} title="Copiar correo"
-                        className="text-gray-300 hover:text-navy">
+                        className="text-gray-500 hover:text-navy">
                         {copiado === c.id ? <Check size={13} /> : <Copy size={13} />}
                       </button>
                     </div>
-                  ) : <span className="text-gray-300">—</span>}
+                  ) : <span className="text-gray-500">—</span>}
                 </td>
                 <td className="px-3 py-2.5" onClick={(e) => e.stopPropagation()}>
                   <div className="flex flex-col gap-0.5">
                     {c.telefono && (
                       <a href={`tel:${soloDigitos(c.telefono)}`} className="flex items-center gap-1 text-gray-600 hover:text-orange">
-                        <Phone size={11} className="text-gray-400" /> {c.telefono}
+                        <Phone size={11} className="text-gray-500" /> {c.telefono}
                       </a>
                     )}
                     {c.whatsapp && (
@@ -266,19 +266,19 @@ export default function ContactosClient({ initialContactos, organizaciones, canW
                         <MessageCircle size={11} className="text-green-500" /> {c.whatsapp}
                       </a>
                     )}
-                    {!c.telefono && !c.whatsapp && <span className="text-gray-300">—</span>}
+                    {!c.telefono && !c.whatsapp && <span className="text-gray-500">—</span>}
                   </div>
                 </td>
                 <td className="px-3 py-2.5">
                   {c.num_deals > 0 ? (
                     <div>
                       <span className="font-semibold text-navy">{c.num_deals}</span>
-                      <div className="text-[11px] text-gray-400">{c.roles.map((r) => ROL_CONTACTO_LABEL[r]).join(", ")}</div>
+                      <div className="text-[11px] text-gray-500">{c.roles.map((r) => ROL_CONTACTO_LABEL[r]).join(", ")}</div>
                     </div>
-                  ) : <span className="text-gray-300">—</span>}
+                  ) : <span className="text-gray-500">—</span>}
                 </td>
                 <td className="px-3 py-2.5 text-gray-500">
-                  {c.ultima_actividad ? fechaCorta(c.ultima_actividad) : <span className="text-gray-300">—</span>}
+                  {c.ultima_actividad ? fechaCorta(c.ultima_actividad) : <span className="text-gray-500">—</span>}
                 </td>
               </tr>
             ))}
@@ -286,7 +286,7 @@ export default function ContactosClient({ initialContactos, organizaciones, canW
         </table>
       </div>
 
-      <p className="text-xs text-gray-400">{filtrados.length} de {contactos.length} contactos</p>
+      <p className="text-xs text-gray-500">{filtrados.length} de {contactos.length} contactos</p>
 
       {abierto && (
         <DetalleDrawer contacto={abierto} canWrite={canWrite} onClose={() => setAbierto(null)}
@@ -452,10 +452,10 @@ function DetalleDrawer({
             <div className="flex items-center gap-1.5 text-lg font-bold text-navy">
               {contacto.nombre}
               {contacto.es_principal && (
-                <span className="rounded bg-navy/10 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-navy">Principal</span>
+                <span className="rounded bg-navy/10 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-navy">Principal</span>
               )}
             </div>
-            {contacto.cargo && <p className="text-sm text-gray-400">{contacto.cargo}</p>}
+            {contacto.cargo && <p className="text-sm text-gray-500">{contacto.cargo}</p>}
             <div className="mt-1 flex items-center gap-1.5">
               <span className="text-sm text-gray-600">{contacto.cliente.nombre}</span>
               <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${ESTATUS_CLIENTE_META[contacto.cliente.estatus].chip}`}>
@@ -466,11 +466,11 @@ function DetalleDrawer({
           <div className="flex shrink-0 items-center gap-1">
             {canWrite && !editando && (
               <>
-                <button onClick={abrirEdicion} title="Editar" className="rounded p-1 text-gray-400 hover:bg-surface hover:text-navy"><Pencil size={16} /></button>
-                <button onClick={borrar} disabled={busy} title="Eliminar" className="rounded p-1 text-gray-400 hover:bg-surface hover:text-red-600"><Trash2 size={16} /></button>
+                <button onClick={abrirEdicion} title="Editar" className="rounded p-1 text-gray-500 hover:bg-surface hover:text-navy"><Pencil size={16} /></button>
+                <button onClick={borrar} disabled={busy} title="Eliminar" className="rounded p-1 text-gray-500 hover:bg-surface hover:text-red-600"><Trash2 size={16} /></button>
               </>
             )}
-            <button onClick={onClose} className="rounded p-1 text-gray-400 hover:bg-surface hover:text-navy"><X size={18} /></button>
+            <button onClick={onClose} className="rounded p-1 text-gray-500 hover:bg-surface hover:text-navy"><X size={18} /></button>
           </div>
         </div>
 
@@ -489,17 +489,17 @@ function DetalleDrawer({
           <div className="space-y-1.5 border-b border-surface-border px-5 py-3">
             {contacto.email && (
               <div className="flex items-center gap-2 text-sm">
-                <Mail size={13} className="text-gray-400" />
+                <Mail size={13} className="text-gray-500" />
                 <a href={`mailto:${contacto.email}`} className="text-navy hover:text-orange hover:underline">{contacto.email}</a>
                 <button onClick={() => onCopiar(contacto.email as string, `d-${contacto.id}`, "Correo copiado")}
-                  className="text-gray-300 hover:text-navy" title="Copiar">
+                  className="text-gray-500 hover:text-navy" title="Copiar">
                   {copiado === `d-${contacto.id}` ? <Check size={12} /> : <Copy size={12} />}
                 </button>
               </div>
             )}
             {contacto.telefono && (
               <a href={`tel:${soloDigitos(contacto.telefono)}`} className="flex items-center gap-2 text-sm text-gray-600 hover:text-orange">
-                <Phone size={13} className="text-gray-400" /> {contacto.telefono}
+                <Phone size={13} className="text-gray-500" /> {contacto.telefono}
               </a>
             )}
             {contacto.whatsapp && (
@@ -513,14 +513,14 @@ function DetalleDrawer({
 
         {/* Cuerpo scrollable */}
         <div className="flex-1 overflow-y-auto px-5 py-4">
-          {cargando && <p className="text-sm text-gray-400">Cargando…</p>}
+          {cargando && <p className="text-sm text-gray-500">Cargando…</p>}
           {error && <p className="text-sm text-red-600">{error}</p>}
           {data && (
             <>
               <section className="mb-6">
-                <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-gray-400">Deals ({data.deals.length})</p>
+                <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-gray-500">Deals ({data.deals.length})</p>
                 {data.deals.length === 0 ? (
-                  <p className="text-sm text-gray-400">Este contacto no participa en ningún deal.</p>
+                  <p className="text-sm text-gray-500">Este contacto no participa en ningún deal.</p>
                 ) : (
                   <div className="space-y-2">
                     {data.deals.map((d) => (
@@ -529,10 +529,10 @@ function DetalleDrawer({
                           <Link href={`/pipeline/${d.id}`} className="flex items-center gap-1 text-sm font-medium text-navy hover:text-orange hover:underline">
                             {d.nombre} <ExternalLink size={12} className="shrink-0" />
                           </Link>
-                          <span className="shrink-0 text-[11px] text-gray-400">{ROL_CONTACTO_LABEL[d.rol]}</span>
+                          <span className="shrink-0 text-[11px] text-gray-500">{ROL_CONTACTO_LABEL[d.rol]}</span>
                         </div>
                         <div className="mt-1 flex items-center justify-between">
-                          <span className="text-[11px] text-gray-400">{d.stage ?? d.resultado}</span>
+                          <span className="text-[11px] text-gray-500">{d.stage ?? d.resultado}</span>
                           <Link href={`/pipeline/${d.id}`} className="flex items-center gap-1 text-[11px] font-semibold text-orange hover:underline">
                             <CalendarClock size={11} /> Registrar actividad
                           </Link>
@@ -544,26 +544,26 @@ function DetalleDrawer({
               </section>
 
               <section>
-                <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-gray-400">Actividad ({data.actividades.length})</p>
+                <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-gray-500">Actividad ({data.actividades.length})</p>
                 {data.actividades.length === 0 ? (
-                  <p className="text-sm text-gray-400">Sin actividad registrada con este contacto.</p>
+                  <p className="text-sm text-gray-500">Sin actividad registrada con este contacto.</p>
                 ) : (
                   <div className="space-y-3">
                     {data.actividades.map((a) => {
                       const Icon = TIPO_ACTIVIDAD_META[a.tipo].icon;
                       return (
                         <div key={a.id} className="flex gap-2.5">
-                          <div className="mt-0.5 shrink-0 text-gray-400"><Icon size={14} /></div>
+                          <div className="mt-0.5 shrink-0 text-gray-500"><Icon size={14} /></div>
                           <div className="min-w-0 flex-1">
                             <div className="flex items-center justify-between gap-2">
                               <span className="text-[11px] font-semibold text-navy">
                                 {a.tipo_accion ?? TIPO_ACTIVIDAD_META[a.tipo].label}
                                 {a.es_tarea && !a.completada && <span className="ml-1 text-amber-600">· pendiente</span>}
                               </span>
-                              <span className="shrink-0 text-[11px] text-gray-400">{fechaCorta(a.cuando)}</span>
+                              <span className="shrink-0 text-[11px] text-gray-500">{fechaCorta(a.cuando)}</span>
                             </div>
                             {a.contenido && <p className="whitespace-pre-wrap break-words text-xs text-gray-600">{a.contenido}</p>}
-                            <div className="mt-0.5 flex items-center gap-2 text-[10px] text-gray-400">
+                            <div className="mt-0.5 flex items-center gap-2 text-[10px] text-gray-500">
                               <span className="truncate">{a.deal_nombre}</span>
                               {a.resultado && <span className="rounded bg-surface px-1.5 py-0.5 font-medium">{a.resultado}</span>}
                             </div>

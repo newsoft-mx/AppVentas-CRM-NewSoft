@@ -150,7 +150,7 @@ export default function TabPipelineStages({ initialStages }: { initialStages: Pi
           </thead>
           <tbody className="divide-y divide-surface-border">
             {ordered.length === 0 && (
-              <tr><td colSpan={6} className="px-4 py-8 text-center text-sm text-gray-400">No hay etapas</td></tr>
+              <tr><td colSpan={6} className="px-4 py-8 text-center text-sm text-gray-500">No hay etapas</td></tr>
             )}
             {ordered.map((s) => {
               const activeIdx = activos.findIndex((x) => x.id === s.id);
@@ -159,13 +159,13 @@ export default function TabPipelineStages({ initialStages }: { initialStages: Pi
                   <td className="px-4 py-3">
                     {s.activo && (
                       <div className="flex items-center gap-0.5">
-                        <button onClick={() => mover(s, -1)} disabled={activeIdx === 0} className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-navy disabled:opacity-30" title="Subir">
+                        <button onClick={() => mover(s, -1)} disabled={activeIdx === 0} className="rounded p-1 text-gray-500 hover:bg-gray-100 hover:text-navy disabled:opacity-30" title="Subir">
                           <ChevronUp size={15} />
                         </button>
-                        <button onClick={() => mover(s, 1)} disabled={activeIdx === activos.length - 1} className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-navy disabled:opacity-30" title="Bajar">
+                        <button onClick={() => mover(s, 1)} disabled={activeIdx === activos.length - 1} className="rounded p-1 text-gray-500 hover:bg-gray-100 hover:text-navy disabled:opacity-30" title="Bajar">
                           <ChevronDown size={15} />
                         </button>
-                        <span className="ml-1 text-xs text-gray-400">{s.orden}</span>
+                        <span className="ml-1 text-xs text-gray-500">{s.orden}</span>
                       </div>
                     )}
                   </td>
@@ -186,7 +186,7 @@ export default function TabPipelineStages({ initialStages }: { initialStages: Pi
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex justify-end gap-1">
-                      <button onClick={() => openEdit(s)} className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-navy" title="Editar"><Pencil size={15} /></button>
+                      <button onClick={() => openEdit(s)} className="rounded-lg p-1.5 text-gray-500 hover:bg-gray-100 hover:text-navy" title="Editar"><Pencil size={15} /></button>
                       <button onClick={() => toggle(s)} className="rounded-lg px-2 py-1 text-xs text-gray-500 hover:bg-gray-100">{s.activo ? "Desactivar" : "Activar"}</button>
                     </div>
                   </td>
@@ -227,7 +227,7 @@ export default function TabPipelineStages({ initialStages }: { initialStages: Pi
                 placeholder="Sin avance automático"
                 onChange={(e) => setForm((p) => ({ ...p, umbral_avance_score: e.target.value }))}
               />
-              <p className="mt-1 text-xs text-gray-400">Al alcanzar este score, el deal sugiere (o avanza) a la siguiente etapa. Vacío = sin avance.</p>
+              <p className="mt-1 text-xs text-gray-500">Al alcanzar este score, el deal sugiere (o avanza) a la siguiente etapa. Vacío = sin avance.</p>
             </div>
             {editing && (
               <label className="flex items-center gap-2 text-sm text-gray-700">

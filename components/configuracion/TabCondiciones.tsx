@@ -211,7 +211,7 @@ export default function TabCondiciones({ initialCondiciones }: TabCondicionesPro
 
       <div className="space-y-3 md:hidden">
         {condiciones.length === 0 && (
-          <div className="rounded-xl border border-surface-border p-8 text-center text-sm text-gray-400">
+          <div className="rounded-xl border border-surface-border p-8 text-center text-sm text-gray-500">
             No hay condiciones comerciales registradas
           </div>
         )}
@@ -243,7 +243,7 @@ export default function TabCondiciones({ initialCondiciones }: TabCondicionesPro
               <tr>
                 <td
                   colSpan={5}
-                  className="px-4 py-8 text-center text-gray-400 text-sm"
+                  className="px-4 py-8 text-center text-gray-500 text-sm"
                 >
                   No hay condiciones comerciales registradas
                 </td>
@@ -262,7 +262,7 @@ export default function TabCondiciones({ initialCondiciones }: TabCondicionesPro
             {inactivas.length > 0 && activas.length > 0 && (
               <tr>
                 <td colSpan={5} className="px-4 py-2 bg-gray-50">
-                  <span className="text-xs font-medium text-gray-400 uppercase tracking-wide">
+                  <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">
                     Inactivas
                   </span>
                 </td>
@@ -310,7 +310,7 @@ export default function TabCondiciones({ initialCondiciones }: TabCondicionesPro
             <div>
               <label className="label">
                 Días de crédito
-                <span className="text-gray-400 font-normal ml-1">(vacío = contado)</span>
+                <span className="text-gray-500 font-normal ml-1">(vacío = contado)</span>
               </label>
               <input
                 className="input w-full sm:w-40"
@@ -326,7 +326,7 @@ export default function TabCondiciones({ initialCondiciones }: TabCondicionesPro
 
             <div>
               <label className="label">Texto / condiciones</label>
-              <p className="mb-2 text-xs text-gray-400">
+              <p className="mb-2 text-xs text-gray-500">
                 Puedes pegar texto largo desde Notion en formato Markdown. Si pegas saltos como &lt;br&gt;, se convertirán a saltos de línea en el PDF.
               </p>
               <textarea
@@ -483,7 +483,7 @@ function CondicionRow({
         <div className="flex items-center justify-end gap-1">
           <button
             onClick={() => onEdit(condicion)}
-            className="p-1.5 text-gray-400 hover:text-navy hover:bg-navy-50 rounded-md transition-colors"
+            className="p-1.5 text-gray-500 hover:text-navy hover:bg-navy-50 rounded-md transition-colors"
             title="Editar"
           >
             <Pencil size={14} />

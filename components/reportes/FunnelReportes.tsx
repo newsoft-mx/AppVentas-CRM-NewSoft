@@ -10,6 +10,7 @@ import {
   type PresetRango, type RangoComparado,
 } from "@/lib/rangos-reporte";
 import { hoyEnTZ } from "@/lib/tz";
+import { textoSobre } from "@/lib/contraste";
 
 interface Vendedor {
   id: string;
@@ -100,14 +101,14 @@ function Scorecard({
 }) {
   const bueno = delta !== null && (mejorSiSube ? delta > 0 : delta < 0);
   const malo = delta !== null && (mejorSiSube ? delta < 0 : delta > 0);
-  const color = bueno ? "text-emerald-600" : malo ? "text-red-600" : "text-gray-400";
+  const color = bueno ? "text-emerald-600" : malo ? "text-red-600" : "text-gray-500";
   const Icono = delta !== null && delta >= 0 ? ArrowUp : ArrowDown;
   return (
     <div className="rounded-xl border border-surface-border bg-white p-4">
       <p className="text-xs text-gray-500">{label}</p>
       <p className="mt-1 text-3xl font-bold tracking-tight text-navy">
         {value}
-        {suffix && <span className="text-lg font-semibold text-gray-400">{suffix}</span>}
+        {suffix && <span className="text-lg font-semibold text-gray-500">{suffix}</span>}
       </p>
       {delta !== null && delta !== 0 ? (
         <p className={`mt-1 flex items-center gap-0.5 text-xs font-medium ${color}`}>
@@ -116,7 +117,7 @@ function Scorecard({
           {suffix === "%" ? " pts" : "%"} vs {contra ?? "período anterior"}
         </p>
       ) : (
-        <p className="mt-1 text-xs text-gray-400">sin cambio vs {contra ?? "anterior"}</p>
+        <p className="mt-1 text-xs text-gray-500">sin cambio vs {contra ?? "anterior"}</p>
       )}
     </div>
   );
@@ -195,7 +196,7 @@ export default function FunnelReportes({
             <h1 className="text-lg font-bold text-navy">Reportes de Funnel</h1>
             {/* Qué se está mirando, en fechas. Ninguna pantalla lo decía, y ese es el motivo
                 de fondo por el que el cliente no sabía que "mes" eran 30 días rodantes. */}
-            <p className="text-xs text-gray-400">
+            <p className="text-xs text-gray-500">
               {rango ? (
                 <>
                   <span className="font-medium text-gray-500">{etiquetaRango(rango.actual)}</span>
@@ -238,7 +239,7 @@ export default function FunnelReportes({
             {preset === "custom" && (
               <div className="flex items-center gap-1.5">
                 <input type="date" value={desde} max={hasta || undefined} onChange={(e) => setDesde(e.target.value)} className="rounded-lg border border-surface-border bg-white px-2 py-1.5 text-sm text-navy outline-none focus:border-orange" />
-                <span className="text-xs text-gray-400">a</span>
+                <span className="text-xs text-gray-500">a</span>
                 <input type="date" value={hasta} min={desde || undefined} onChange={(e) => setHasta(e.target.value)} className="rounded-lg border border-surface-border bg-white px-2 py-1.5 text-sm text-navy outline-none focus:border-orange" />
               </div>
             )}
@@ -249,13 +250,13 @@ export default function FunnelReportes({
       {error && <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
 
       {cargando || !f || !rz || !an || !m ? (
-        <p className="py-16 text-center text-sm text-gray-400">Cargando reportes…</p>
+        <p className="py-16 text-center text-sm text-gray-500">Cargando reportes…</p>
       ) : (
         <>
           {/* NIVEL 0 — salud del pipeline (SOL-19): mismas métricas que el encabezado
               del pipeline, calculadas en un solo lugar (metricasPipeline), filtrables. */}
           <div>
-            <p className="mb-2 text-xs font-medium uppercase tracking-wider text-gray-400">Pipeline (activos en el período)</p>
+            <p className="mb-2 text-xs font-medium uppercase tracking-wider text-gray-500">Pipeline (activos en el período)</p>
             <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
               <Scorecard
                 contra={vsAnterior} label="Valor del pipeline" value={formatCompacto(m.valor_pipeline)}
@@ -278,7 +279,7 @@ export default function FunnelReportes({
 
           {/* NIVEL 1 — ¿cómo venimos? (resultados del período con ancla) */}
           <div>
-            <p className="mb-2 text-xs font-medium uppercase tracking-wider text-gray-400">¿Cómo venimos?</p>
+            <p className="mb-2 text-xs font-medium uppercase tracking-wider text-gray-500">¿Cómo venimos?</p>
             <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
               <Scorecard
                 contra={vsAnterior} label="Tasa de cierre" value={f.tasa_cierre} suffix="%"
@@ -301,16 +302,16 @@ export default function FunnelReportes({
 
           {/* NIVEL 2 — ¿hacia dónde vamos? / ¿qué lo explica? (embudo + razones) */}
           <div>
-            <p className="mb-2 text-xs font-medium uppercase tracking-wider text-gray-400">¿Dónde se convierte y dónde se fuga?</p>
+            <p className="mb-2 text-xs font-medium uppercase tracking-wider text-gray-500">¿Dónde se convierte y dónde se fuga?</p>
             <div className="grid gap-6 lg:grid-cols-5">
               {/* Embudo */}
               <section className="rounded-xl border border-surface-border bg-white p-5 lg:col-span-3">
                 <div className="mb-3 flex items-baseline justify-between">
                   <h2 className="text-sm font-semibold text-navy">Embudo de conversión</h2>
-                  <span className="text-xs text-gray-400">{f.total} deals</span>
+                  <span className="text-xs text-gray-500">{f.total} deals</span>
                 </div>
                 {f.total === 0 ? (
-                  <p className="py-6 text-center text-sm text-gray-400">Sin deals en el periodo.</p>
+                  <p className="py-6 text-center text-sm text-gray-500">Sin deals en el periodo.</p>
                 ) : (
                   <div className="space-y-1.5">
                     {f.etapas.map((e, i) => {
@@ -321,15 +322,21 @@ export default function FunnelReportes({
                         <div key={e.stage_id} className="flex items-center gap-3">
                           <span className="w-28 shrink-0 truncate text-xs text-gray-500">{e.nombre}</span>
                           <div className="h-6 flex-1 rounded bg-gray-100">
-                            <div className="flex h-full items-center rounded px-2 text-xs font-semibold text-white" style={{ width: `${w}%`, backgroundColor: e.color }}>
+                            {/* El color de la etapa lo elige un admin en Configuración, así que el
+                                color del número se DERIVA del fondo: con `text-white` fijo, una
+                                etapa clara dejaba la cifra ilegible. */}
+                            <div
+                              className="flex h-full items-center rounded px-2 text-xs font-semibold"
+                              style={{ width: `${w}%`, backgroundColor: e.color, color: textoSobre(e.color) }}
+                            >
                               {e.count}
                             </div>
                           </div>
                           <span className="w-16 shrink-0 text-right text-xs tabular-nums">
                             {i === 0 ? (
-                              <span className="text-gray-300">base</span>
+                              <span className="text-gray-500">base</span>
                             ) : (
-                              <span className={drop > 0 ? "text-gray-500" : "text-gray-400"}>
+                              <span className={drop > 0 ? "text-gray-500" : "text-gray-500"}>
                                 {e.conversion}%
                               </span>
                             )}
@@ -345,10 +352,10 @@ export default function FunnelReportes({
               <section className="rounded-xl border border-surface-border bg-white p-5 lg:col-span-2">
                 <div className="mb-3 flex items-baseline justify-between">
                   <h2 className="text-sm font-semibold text-navy">Por qué se pierden</h2>
-                  <span className="text-xs text-gray-400">{rz.perdidos} perdidos</span>
+                  <span className="text-xs text-gray-500">{rz.perdidos} perdidos</span>
                 </div>
                 {rz.por_razon.length === 0 ? (
-                  <p className="py-6 text-center text-sm text-gray-400">Sin pérdidas en el periodo.</p>
+                  <p className="py-6 text-center text-sm text-gray-500">Sin pérdidas en el periodo.</p>
                 ) : (
                   <div className="space-y-2">
                     {rz.por_razon.map((r) => (
@@ -368,17 +375,17 @@ export default function FunnelReportes({
 
           {/* NIVEL 3 — ¿qué hicimos distinto? (anatomía: diverging ganado vs perdido) */}
           <div>
-            <p className="mb-2 text-xs font-medium uppercase tracking-wider text-gray-400">¿Qué llevó ganar vs perder?</p>
+            <p className="mb-2 text-xs font-medium uppercase tracking-wider text-gray-500">¿Qué llevó ganar vs perder?</p>
             <section className="rounded-xl border border-surface-border bg-white p-5">
               <div className="mb-4 grid grid-cols-[8rem_1fr] items-center gap-3 text-[11px] font-semibold uppercase tracking-wide">
-                <span className="text-gray-400">Promedio / deal</span>
+                <span className="text-gray-500">Promedio / deal</span>
                 <div className="flex justify-between">
                   <span className="text-emerald-600">← Ganados ({an.ganados.count})</span>
                   <span className="text-red-500">Perdidos ({an.perdidos.count}) →</span>
                 </div>
               </div>
               {an.ganados.count === 0 && an.perdidos.count === 0 ? (
-                <p className="py-6 text-center text-sm text-gray-400">Sin deals cerrados en el periodo.</p>
+                <p className="py-6 text-center text-sm text-gray-500">Sin deals cerrados en el periodo.</p>
               ) : (
                 <div className="space-y-2.5">
                   {[
@@ -406,7 +413,7 @@ export default function FunnelReportes({
                   })}
                 </div>
               )}
-              <p className="mt-4 border-t border-surface-border pt-3 text-xs text-gray-400">
+              <p className="mt-4 border-t border-surface-border pt-3 text-xs text-gray-500">
                 Más toques y más días en los ganados = el patrón que conviene repetir.
               </p>
             </section>

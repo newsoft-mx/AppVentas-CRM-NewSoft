@@ -91,7 +91,7 @@ function EntradasDeMenu({
         group.title ? (
           <p
             key={`t-${gi}`}
-            className={`shrink-0 px-3 pb-1 pt-3 text-[10px] font-semibold uppercase tracking-wider text-navy-400 ${
+            className={`shrink-0 px-3 pb-1 pt-3 text-[10px] font-semibold uppercase tracking-wider text-navy-200 ${
               colapsado ? "md:hidden" : ""
             }`}
           >

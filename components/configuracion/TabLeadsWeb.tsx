@@ -46,7 +46,7 @@ export default function TabLeadsWeb({ vendedores }: { vendedores: { id: string; 
             <option key={v.id} value={v.id}>{v.nombre}</option>
           ))}
         </select>
-        <p className="mt-1 text-xs text-gray-400">
+        <p className="mt-1 text-xs text-gray-500">
           Los leads entran en la primera etapa, canal <b>Web</b> / origen <b>Formulario web</b>. Si queda
           &ldquo;sin asignar&rdquo;, un admin los reparte desde el pipeline.
         </p>

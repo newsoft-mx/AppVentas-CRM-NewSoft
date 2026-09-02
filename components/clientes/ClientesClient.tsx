@@ -217,7 +217,7 @@ export default function ClientesClient({
         <div className="relative max-w-sm flex-1 sm:max-w-md">
           <Search
             size={16}
-            className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+            className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-500"
           />
           <input
             className="input w-full pl-9 text-sm"
@@ -308,7 +308,7 @@ export default function ClientesClient({
           <div className="space-y-4">
             <div className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-3">
               <div className="rounded-lg border border-surface-border bg-gray-50 p-3">
-                <p className="text-xs text-gray-400">Filas procesadas</p>
+                <p className="text-xs text-gray-500">Filas procesadas</p>
                 <p className="text-lg font-semibold text-navy">{importResult.total}</p>
               </div>
               <div className="rounded-lg border border-green-200 bg-green-50 p-3">
@@ -390,7 +390,7 @@ export default function ClientesClient({
                     El historial se conserva.
                   </p>
                 )}
-                <p className="text-xs text-gray-400 mt-2">
+                <p className="text-xs text-gray-500 mt-2">
                   No aparecerá en el formulario de nuevas órdenes.
                 </p>
               </div>

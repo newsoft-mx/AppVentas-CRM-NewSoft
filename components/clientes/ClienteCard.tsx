@@ -43,7 +43,7 @@ export default function ClienteCard({ cliente, onEdit, onDesactivar }: ClienteCa
               {ESTATUS_CLIENTE_META[cliente.estatus].label}
             </span>
           </div>
-          <p className="text-xs text-gray-400 font-mono mt-0.5">
+          <p className="text-xs text-gray-500 font-mono mt-0.5">
             {cliente.rfc || "RFC no registrado"}
           </p>
         </div>
@@ -70,7 +70,7 @@ export default function ClienteCard({ cliente, onEdit, onDesactivar }: ClienteCa
       {/* ── Stats de ventas ── */}
       <div className="px-5 pb-4 space-y-1">
         <div className="flex items-center gap-1.5">
-          <Briefcase size={13} className="text-gray-400 shrink-0" />
+          <Briefcase size={13} className="text-gray-500 shrink-0" />
           <span className="text-xs text-gray-500">
             <span className="font-semibold text-gray-700">{stats.num_ordenes}</span>{" "}
             {stats.num_ordenes === 1 ? "orden" : "órdenes"}
@@ -78,21 +78,21 @@ export default function ClienteCard({ cliente, onEdit, onDesactivar }: ClienteCa
         </div>
 
         {stats.num_ordenes === 0 ? (
-          <p className="text-xs text-gray-400 pl-5">Sin ventas registradas</p>
+          <p className="text-xs text-gray-500 pl-5">Sin ventas registradas</p>
         ) : (
           <div className="pl-5 space-y-0.5">
             {/* Montos por moneda */}
             {tieneMXN && (
               <p className="text-xs text-gray-700 font-medium">
                 {formatMXN(stats.total_mxn)}{" "}
-                <span className="text-gray-400 font-normal">MXN</span>
+                <span className="text-gray-500 font-normal">MXN</span>
               </p>
             )}
             {tieneUSD && (
               <div>
                 <p className="text-xs text-gray-700 font-medium">
                   {formatUSD(stats.total_usd)}{" "}
-                  <span className="text-gray-400 font-normal">USD</span>
+                  <span className="text-gray-500 font-normal">USD</span>
                 </p>
                 {/* Equivalente en MXN solo si hay USD. Sin tipo de cambio no hay equivalente:
                     decir "≈ $0.00" sería afirmar que esos dólares valen cero pesos. */}
@@ -100,7 +100,7 @@ export default function ClienteCard({ cliente, onEdit, onDesactivar }: ClienteCa
                   omitidas > 0 ? (
                     <p className="text-xs font-medium text-amber-700">sin tipo de cambio</p>
                   ) : (
-                    <p className="text-xs text-gray-400">
+                    <p className="text-xs text-gray-500">
                       ≈ {formatMXN(stats.grand_total_mxn)} MXN
                     </p>
                   )
@@ -131,7 +131,7 @@ export default function ClienteCard({ cliente, onEdit, onDesactivar }: ClienteCa
           {onDesactivar && (
             <button
               onClick={() => onDesactivar(cliente)}
-              className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-red-500 transition-colors py-1"
+              className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-red-500 transition-colors py-1"
               title="Desactivar cliente"
             >
               <PowerOff size={13} />
@@ -167,7 +167,7 @@ function InfoRow({
 }) {
   return (
     <div className="flex items-center gap-2 text-xs text-gray-600 min-w-0">
-      <Icon size={12} className="text-gray-400 shrink-0" />
+      <Icon size={12} className="text-gray-500 shrink-0" />
       <span className={truncate ? "truncate" : ""}>{text}</span>
     </div>
   );

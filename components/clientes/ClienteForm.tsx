@@ -174,7 +174,7 @@ export default function ClienteForm({
 
         <div>
           <label className="label">
-            RFC <span className="text-gray-400 font-normal">(opcional)</span>
+            RFC <span className="text-gray-500 font-normal">(opcional)</span>
           </label>
           <input
             className={`input uppercase font-mono tracking-wider ${errors.rfc ? "border-red-400 focus:ring-red-400" : ""}`}
@@ -199,7 +199,7 @@ export default function ClienteForm({
 
         <div>
           <label className="label">
-            Website <span className="text-gray-400 font-normal">(opcional)</span>
+            Website <span className="text-gray-500 font-normal">(opcional)</span>
           </label>
           {/* Sin `type="url"`: la validación nativa del navegador exige el protocolo y
               rechazaba "empresa.com" — exactamente lo que sugiere este placeholder y lo que el
@@ -224,7 +224,7 @@ export default function ClienteForm({
 
         <div>
           <label className="label">
-            Tamaño de empresa <span className="text-gray-400 font-normal">(opcional)</span>
+            Tamaño de empresa <span className="text-gray-500 font-normal">(opcional)</span>
           </label>
           <select
             className="input"
@@ -252,7 +252,7 @@ export default function ClienteForm({
         />
         {errors.contacto && <p className="mt-1 text-xs text-red-500">{errors.contacto}</p>}
         {isEditing && !convertir && (
-          <p className="mt-1 text-xs text-gray-400">Este nombre, email y teléfono son los del contacto principal. Gestioná más contactos abajo.</p>
+          <p className="mt-1 text-xs text-gray-500">Este nombre, email y teléfono son los del contacto principal. Gestioná más contactos abajo.</p>
         )}
       </div>
 
@@ -260,7 +260,7 @@ export default function ClienteForm({
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div>
           <label className="label">
-            Email <span className="text-gray-400 font-normal">(opcional)</span>
+            Email <span className="text-gray-500 font-normal">(opcional)</span>
           </label>
           <input
             type="email"
@@ -274,7 +274,7 @@ export default function ClienteForm({
 
         <div>
           <label className="label">
-            Teléfono <span className="text-gray-400 font-normal">(opcional)</span>
+            Teléfono <span className="text-gray-500 font-normal">(opcional)</span>
           </label>
           <input
             type="tel"
@@ -323,7 +323,7 @@ export default function ClienteForm({
         {errors.condicion_pago_id && (
           <p className="mt-1 text-xs text-red-500">{errors.condicion_pago_id}</p>
         )}
-        <p className="mt-1 text-xs text-gray-400">
+        <p className="mt-1 text-xs text-gray-500">
           Se aplica por defecto a las órdenes de este cliente (se puede cambiar por orden).
         </p>
       </div>
@@ -331,7 +331,7 @@ export default function ClienteForm({
       {/* ── Notas internas ── */}
       <div>
         <label className="label">
-          Notas internas <span className="text-gray-400 font-normal">(opcional)</span>
+          Notas internas <span className="text-gray-500 font-normal">(opcional)</span>
         </label>
         <textarea
           className="input resize-none"

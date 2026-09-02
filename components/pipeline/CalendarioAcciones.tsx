@@ -127,13 +127,13 @@ export default function CalendarioAcciones({
               <div className="mb-1 flex items-center justify-between">
                 <span
                   className={`flex h-5 w-5 items-center justify-center rounded-full text-[11px] font-semibold ${
-                    esHoy ? "bg-orange text-white" : delMes ? "text-gray-500" : "text-gray-300"
+                    esHoy ? "bg-orange text-white" : delMes ? "text-gray-500" : "text-gray-500"
                   }`}
                 >
                   {d.getDate()}
                 </span>
                 {items.length > 0 && (
-                  <span className="text-[10px] font-semibold text-gray-300">{items.length}</span>
+                  <span className="text-[10px] font-semibold text-gray-500">{items.length}</span>
                 )}
               </div>
               <div className="space-y-0.5">

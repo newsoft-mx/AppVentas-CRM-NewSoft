@@ -446,7 +446,7 @@ export default function DealDetalleClient({
       {toast && <Toast {...toast} onClose={() => setToast(null)} />}
       {/* Topbar */}
       <header className="flex items-center justify-between gap-3 border-b border-surface-border bg-white px-6 py-3">
-        <nav className="flex items-center gap-2 text-sm text-gray-400">
+        <nav className="flex items-center gap-2 text-sm text-gray-500">
           <Link href="/pipeline" className="flex items-center gap-1 hover:text-navy">
             <ArrowLeft size={14} /> Pipeline
           </Link>
@@ -529,7 +529,7 @@ export default function DealDetalleClient({
             )}
           </div>
           <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-sm text-gray-500">
-            <Building2 size={14} className="text-gray-400" />
+            <Building2 size={14} className="text-gray-500" />
             {deal.cliente?.nombre ?? "Sin cliente"}
             {deal.cliente?.estatus === "PROSPECTO" && (
               <span className="rounded-full bg-amber-50 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700">Prospecto</span>
@@ -594,7 +594,7 @@ export default function DealDetalleClient({
                   placeholder="¿De qué trata este deal? (contexto, alcance, notas)…"
                 />
                 <div className="flex justify-end gap-2">
-                  <button onClick={() => { setNotas(deal.notas ?? ""); setEditandoNotas(false); }} className="text-[11px] font-semibold text-gray-400 hover:text-navy">Cancelar</button>
+                  <button onClick={() => { setNotas(deal.notas ?? ""); setEditandoNotas(false); }} className="text-[11px] font-semibold text-gray-500 hover:text-navy">Cancelar</button>
                   <button onClick={guardarNotas} className="rounded bg-navy px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-navy-700">Guardar</button>
                 </div>
               </div>
@@ -607,10 +607,10 @@ export default function DealDetalleClient({
                   {notas ? (
                     <Markdown>{notas}</Markdown>
                   ) : (
-                    <span className="text-gray-400">Sin descripción — clic para agregar</span>
+                    <span className="text-gray-500">Sin descripción — clic para agregar</span>
                   )}
                 </span>
-                {canWrite && <Pencil size={12} className="mt-0.5 shrink-0 text-gray-300" />}
+                {canWrite && <Pencil size={12} className="mt-0.5 shrink-0 text-gray-500" />}
               </button>
             )}
           </Section>
@@ -737,7 +737,7 @@ export default function DealDetalleClient({
 
           {/* Filtros "Ver": tipos de movimiento presentes + facetas, con contador (derivados del contenido) */}
           <div className="flex flex-wrap items-center gap-2 border-b border-surface-border bg-gray-50 px-5 py-2.5">
-            <span className="mr-1 text-[11px] font-semibold uppercase tracking-wide text-gray-400">Ver:</span>
+            <span className="mr-1 text-[11px] font-semibold uppercase tracking-wide text-gray-500">Ver:</span>
             {filtrosBitacora.map((f) => {
               const activo = filtroActivo?.key === f.key;
               const Icon = f.icon;
@@ -752,7 +752,7 @@ export default function DealDetalleClient({
                   {f.color && <span className="h-1.5 w-1.5 rounded-full" style={{ background: f.color }} />}
                   {Icon && <Icon size={12} />}
                   {f.label}
-                  <span className={activo ? "text-white/60" : "text-gray-400"}>{f.count}</span>
+                  <span className={activo ? "text-white/60" : "text-gray-500"}>{f.count}</span>
                 </button>
               );
             })}
@@ -761,7 +761,7 @@ export default function DealDetalleClient({
           {/* Timeline */}
           <div className="flex-1 overflow-y-auto px-5 py-4">
             {actividadesFiltradas.length === 0 && (
-              <p className="py-8 text-center text-sm text-gray-400">Sin actividad en esta vista.</p>
+              <p className="py-8 text-center text-sm text-gray-500">Sin actividad en esta vista.</p>
             )}
             <div className="space-y-4">
               {actividadesFiltradas.map((a) => {
@@ -800,7 +800,7 @@ export default function DealDetalleClient({
                       <>
                         {hayNota && <TipoMovimiento nombre={tipoNombre} color={tipoColor} />}
                         <span className="truncate">{a.autor}</span>
-                        {a.contacto_nombre && <span className="text-gray-400">· con {a.contacto_nombre}</span>}
+                        {a.contacto_nombre && <span className="text-gray-500">· con {a.contacto_nombre}</span>}
                         {a.resultado && (
                           <span
                             className={`flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px]
@@ -872,7 +872,7 @@ export default function DealDetalleClient({
               </select>
             </div>
             <div>
-              <label className="label">Comentarios <span className="font-normal text-gray-400">(opcional)</span></label>
+              <label className="label">Comentarios <span className="font-normal text-gray-500">(opcional)</span></label>
               <textarea className="input" rows={3} value={comentarioP} onChange={(e) => setComentarioP(e.target.value)} placeholder="Detalle de por qué se perdió…" />
             </div>
             <div className="flex justify-end gap-2 border-t border-surface-border pt-4">
@@ -1038,7 +1038,7 @@ export default function DealDetalleClient({
               el desenlace para que el termómetro lo refleje.
             </p>
             <div>
-              <label className="label">Desenlace <span className="font-normal text-gray-400">(opcional)</span></label>
+              <label className="label">Desenlace <span className="font-normal text-gray-500">(opcional)</span></label>
               <select className="input" value={desenlaceSel} onChange={(e) => setDesenlaceSel(e.target.value)}>
                 <option value="">— Sin registrar desenlace —</option>
                 {resultadosAccion.map((r) => (
@@ -1104,7 +1104,7 @@ function KpiCard({ label, value, accent }: { label: string; value: string; accen
   const color = accent === "orange" ? "text-orange" : accent === "green" ? "text-green-600" : "text-navy";
   return (
     <div className="rounded-lg bg-surface px-3 py-2">
-      <div className="text-[10px] uppercase tracking-wide text-gray-400">{label}</div>
+      <div className="text-[10px] uppercase tracking-wide text-gray-500">{label}</div>
       <div className={`text-[15px] font-bold ${color}`}>{value}</div>
     </div>
   );
@@ -1124,7 +1124,7 @@ function Section({
     <div className="mt-4 border-t border-surface-border pt-3">
       <button
         onClick={() => setOpen((o) => !o)}
-        className="mb-2.5 flex w-full items-center justify-between text-[11px] font-bold uppercase tracking-wide text-gray-400 hover:text-navy"
+        className="mb-2.5 flex w-full items-center justify-between text-[11px] font-bold uppercase tracking-wide text-gray-500 hover:text-navy"
       >
         {title}
         <ChevronDown size={14} className={`transition-transform ${open ? "" : "-rotate-90"}`} />
@@ -1137,7 +1137,7 @@ function Section({
 function Field({ label, value, tag, green }: { label: string; value: string; tag?: boolean; green?: boolean }) {
   return (
     <div className="mb-1.5 flex items-start justify-between gap-2">
-      <span className="text-[11px] text-gray-400">{label}</span>
+      <span className="text-[11px] text-gray-500">{label}</span>
       {tag ? (
         <span className="rounded bg-orange-50 px-1.5 py-0.5 text-[10px] font-medium text-orange">{value}</span>
       ) : (

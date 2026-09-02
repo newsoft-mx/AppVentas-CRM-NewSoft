@@ -244,7 +244,7 @@ export default function PipelineKanban({
           {/* Qué se está mirando, derivado de los MISMOS filtros que viajan a la URL. Antes
               era una frase fija: filtrabas por Ganados y el encabezado seguía diciendo
               "Prospectos activos". */}
-          <p className="text-xs text-gray-400">
+          <p className="text-xs text-gray-500">
             {etiquetaDelTablero(filtros, {
               vendedor: vendedores.find((v) => v.id === filtros.vendedor)?.nombre,
               tipo: tipos.find((t) => t.id === filtros.tipo)?.nombre,
@@ -253,15 +253,15 @@ export default function PipelineKanban({
         </div>
         {/* Buscador protagónico (SOL-17): con su propio espacio, sin filtros pegados */}
         <div className="flex min-w-[220px] flex-1 items-center gap-2 rounded-lg border border-surface-border bg-white px-3 py-2 focus-within:border-orange">
-          <Search size={15} className="shrink-0 text-gray-400" />
+          <Search size={15} className="shrink-0 text-gray-500" />
           <input
             value={busqueda}
             onChange={(e) => setBusqueda(e.target.value)}
             placeholder="Buscar deal, cliente o contacto…"
-            className="w-full bg-transparent text-sm text-navy outline-none placeholder:text-gray-400"
+            className="w-full bg-transparent text-sm text-navy outline-none placeholder:text-gray-500"
           />
           {busqueda && (
-            <button onClick={() => setBusqueda("")} className="shrink-0 text-gray-300 hover:text-navy" title="Limpiar búsqueda">
+            <button onClick={() => setBusqueda("")} className="shrink-0 text-gray-500 hover:text-navy" title="Limpiar búsqueda">
               <X size={14} />
             </button>
           )}
@@ -308,7 +308,7 @@ export default function PipelineKanban({
         {/* KPIs de salud, condensados en una línea */}
         <div className="flex items-baseline gap-1.5">
           <span className="text-xl font-bold tracking-tight text-green-600">{formatCompacto(kpis.valor_pipeline)}</span>
-          <span className="text-[11px] font-medium text-gray-400">MXN en pipeline</span>
+          <span className="text-[11px] font-medium text-gray-500">MXN en pipeline</span>
           {/* Un total incompleto y ANUNCIADO es honesto; uno que miente por omisión no. Es el
               mismo patrón del pie de la tabla de ventas (TablaOrdenes), que ya declara cuántas
               órdenes en USD sin tipo de cambio quedan fuera de su suma. */}
@@ -327,7 +327,7 @@ export default function PipelineKanban({
         <span className="h-6 w-px bg-borde" />
         {/* Altas por período — secundario (REQ-04) */}
         <span
-          className="text-xs text-gray-400"
+          className="text-xs text-gray-500"
           title="Leads por fecha de registro — hoy · últimos 7 días · mes en curso"
         >
           Nuevos: <b className="text-gray-600">{altas.hoy}</b> hoy · <b className="text-gray-600">{altas.semana}</b> sem ·{" "}
@@ -351,7 +351,7 @@ export default function PipelineKanban({
           {filtrosOpen && (
             <div className="absolute right-0 z-20 mt-1.5 w-72 rounded-xl border border-surface-border bg-white p-3 shadow-lg">
               {/* Estado (multi-selección, unión — SOL-18) */}
-              <div className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-gray-400">Estado</div>
+              <div className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-gray-500">Estado</div>
               <div className="mb-3 flex flex-wrap gap-1.5">
                 {ESTADOS_ORDEN.map((est) => {
                   const meta = ESTADO_DEAL_META[est];
@@ -375,7 +375,7 @@ export default function PipelineKanban({
               </div>
               {/* Tipo */}
               <label className="mb-2 block">
-                <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">Tipo de proyecto</span>
+                <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">Tipo de proyecto</span>
                 <select
                   value={tipoFiltro}
                   onChange={(e) => setTipoFiltro(e.target.value)}
@@ -389,7 +389,7 @@ export default function PipelineKanban({
               </label>
               {/* Vendedor */}
               <label className="mb-2 block">
-                <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">Vendedor</span>
+                <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">Vendedor</span>
                 <select
                   value={vendedorFiltro}
                   onChange={(e) => setVendedorFiltro(e.target.value)}
@@ -403,7 +403,7 @@ export default function PipelineKanban({
               </label>
               {/* Orden */}
               <label className="mb-3 block">
-                <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">Ordenar por</span>
+                <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">Ordenar por</span>
                 <select
                   value={orden}
                   onChange={(e) => setOrden(e.target.value as typeof orden)}
@@ -418,7 +418,7 @@ export default function PipelineKanban({
                 </select>
               </label>
               <div className="flex items-center justify-between border-t border-surface-border pt-2">
-                <span className="flex items-center gap-1 text-[11px] text-gray-400"><Filter size={12} /> {stages.length} etapas</span>
+                <span className="flex items-center gap-1 text-[11px] text-gray-500"><Filter size={12} /> {stages.length} etapas</span>
                 <button
                   onClick={limpiarFiltros}
                   disabled={filtrosActivos === 0}
@@ -435,7 +435,7 @@ export default function PipelineKanban({
       {/* Strip de motivos de pérdida (SOL-06): visible cuando hay perdidos en el filtro */}
       {perdidosFiltrados.length > 0 && (
         <div className="flex flex-wrap items-center gap-2 border-b border-surface-border bg-white px-6 py-2.5">
-          <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">Motivos de pérdida</span>
+          <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">Motivos de pérdida</span>
           {motivosPerdida.map(([razon, n]) => (
             <span key={razon} className="inline-flex items-center gap-1.5 rounded-full border border-red-200 bg-red-50 px-2.5 py-0.5 text-xs font-medium text-red-700">
               {razon} <span className="rounded-full bg-red-100 px-1.5">{n}</span>
@@ -481,7 +481,7 @@ export default function PipelineKanban({
                 <div className="rounded-t-xl border border-b-0 border-surface-border bg-white px-3.5 py-2.5">
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-bold text-navy">{stage.nombre}</span>
-                    <span className="rounded-full bg-surface px-2 py-0.5 text-[11px] font-semibold text-gray-400">
+                    <span className="rounded-full bg-surface px-2 py-0.5 text-[11px] font-semibold text-gray-500">
                       {stageDeals.length}
                     </span>
                   </div>
@@ -491,7 +491,7 @@ export default function PipelineKanban({
                   />
                   <div className="mt-1.5 text-[13px] font-bold text-navy">
                     {formatCompacto(totalStage)}{" "}
-                    <span className="text-[10px] font-medium text-gray-400">MXN</span>
+                    <span className="text-[10px] font-medium text-gray-500">MXN</span>
                   </div>
                 </div>
                 {/* Cuerpo de columna (zona de drop) */}
@@ -522,7 +522,7 @@ export default function PipelineKanban({
                     />
                   ))}
                   {stageDeals.length === 0 && (
-                    <p className="px-1 py-3 text-center text-[11px] text-gray-300">
+                    <p className="px-1 py-3 text-center text-[11px] text-gray-500">
                       Sin deals
                     </p>
                   )}
@@ -542,12 +542,12 @@ export default function PipelineKanban({
                     <span className="flex items-center gap-1 text-xs font-bold text-navy">
                       <span className="h-2 w-2 rounded-full" style={{ background: meta.color }} /> {meta.label}s
                     </span>
-                    <span className="rounded-full bg-surface px-2 py-0.5 text-[11px] font-semibold text-gray-400">{dealsEst.length}</span>
+                    <span className="rounded-full bg-surface px-2 py-0.5 text-[11px] font-semibold text-gray-500">{dealsEst.length}</span>
                   </div>
                   <div className="mt-1.5 h-[3px] rounded-full" style={{ background: meta.color, opacity: 0.7 }} />
                   <div className="mt-1.5 text-[13px] font-bold text-navy">
                     {formatCompacto(dealsEst.reduce((s, d) => s + d.valor, 0))}{" "}
-                    <span className="text-[10px] font-medium text-gray-400">MXN</span>
+                    <span className="text-[10px] font-medium text-gray-500">MXN</span>
                   </div>
                 </div>
                 <div className="flex min-h-[120px] flex-1 flex-col gap-2 overflow-y-auto rounded-b-xl border border-t-0 border-surface-border bg-surface p-2">
@@ -696,7 +696,7 @@ function MiniKpi({ value, label, icon }: { value: string; label: string; icon?: 
         {icon}
         {value}
       </span>
-      <span className="text-[11px] font-medium text-gray-400">{label}</span>
+      <span className="text-[11px] font-medium text-gray-500">{label}</span>
     </div>
   );
 }
@@ -737,7 +737,7 @@ function DealCard({
       />
       <div className="text-[13px] font-semibold leading-tight text-navy">{deal.nombre}</div>
       <div className="mt-1 flex items-center gap-1 text-[11px] text-gray-500">
-        <Building2 size={11} className="text-gray-400" />
+        <Building2 size={11} className="text-gray-500" />
         {deal.cliente?.nombre ?? "Sin cliente"}
       </div>
       <div className="mt-2 flex items-center justify-between">
@@ -751,7 +751,7 @@ function DealCard({
         </span>
       </div>
       <div className="mt-1.5 flex items-center gap-1.5">
-        <div className="flex items-center gap-1 text-[10px] text-gray-400">
+        <div className="flex items-center gap-1 text-[10px] text-gray-500">
           <Clock size={10} />
           {deal.dias_en_etapa === 0 ? "Hoy" : `${deal.dias_en_etapa}d en etapa`}
         </div>

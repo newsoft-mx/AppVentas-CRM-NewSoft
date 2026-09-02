@@ -276,7 +276,7 @@ export default function OrdenDetalleClient({
                           setFechaVentaInput(fechaParaInput(orden.fecha_venta));
                           setEditingFecha(true);
                         }}
-                        className="ml-1 p-0.5 rounded text-gray-300 hover:text-navy hover:bg-navy/5 transition-colors"
+                        className="ml-1 p-0.5 rounded text-gray-500 hover:text-navy hover:bg-navy/5 transition-colors"
                         title="Editar fecha de venta"
                       >
                         <Pencil size={10} />

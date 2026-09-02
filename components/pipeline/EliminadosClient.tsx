@@ -59,7 +59,7 @@ export default function EliminadosClient({ deals }: { deals: DealEliminado[] }) 
       <div className="flex-1 overflow-auto bg-surface px-6 py-5">
         {items.length === 0 ? (
           <div className="flex flex-col items-center gap-2 py-16 text-center text-gray-400">
-            <Trash2 size={28} className="text-gray-300" />
+            <Trash2 size={28} className="text-gray-500" />
             <p className="text-sm">No hay leads eliminados para restaurar.</p>
           </div>
         ) : (

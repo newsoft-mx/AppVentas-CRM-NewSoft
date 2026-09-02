@@ -236,7 +236,7 @@ export default function VentasClient({
             {ordenesFiltradas.length}{" "}
             {ordenesFiltradas.length === 1 ? "orden" : "órdenes"}
             {ordenes.length !== ordenesFiltradas.length && (
-              <span className="text-gray-400"> de {ordenes.length} totales</span>
+              <span className="text-gray-500"> de {ordenes.length} totales</span>
             )}
           </p>
         </div>

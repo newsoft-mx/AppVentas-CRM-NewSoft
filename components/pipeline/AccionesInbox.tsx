@@ -176,7 +176,7 @@ export default function AccionesInbox({
       <header className="flex flex-wrap items-center justify-between gap-3 border-b border-surface-border bg-white px-6 py-4">
         <div>
           <h1 className="text-xl font-bold tracking-tight text-navy">Próximas Acciones</h1>
-          <p className="text-xs text-gray-400">
+          <p className="text-xs text-gray-500">
             {filtered.length} pendientes · {new Set(filtered.map((a) => a.deal.id)).size} deals
             {vencidas > 0 && <span className="ml-1 font-semibold text-red-600">· {vencidas} vencidas</span>}
           </p>
@@ -305,11 +305,11 @@ export default function AccionesInbox({
             <div key={g} className="mb-6">
               <div
                 className={`mb-2.5 flex items-center gap-2 text-[11px] font-bold uppercase tracking-wide ${
-                  vencido ? "text-red-600" : "text-gray-400"
+                  vencido ? "text-red-600" : "text-gray-500"
                 }`}
               >
                 {GRUPO_URGENCIA_META[g].label}
-                <span className="font-medium normal-case text-gray-300">{grupo.length} acciones</span>
+                <span className="font-medium normal-case text-gray-500">{grupo.length} acciones</span>
                 <span className="h-px flex-1 bg-surface-border" />
               </div>
               <div className="space-y-1.5">
@@ -335,7 +335,7 @@ export default function AccionesInbox({
                         <>
                           {hayNota && <TipoMovimiento nombre={tipoNombre} color={tipoColor} />}
                           <span className="truncate">{a.autor}</span>
-                          {a.contacto_nombre && <span className="text-gray-400">· con {a.contacto_nombre}</span>}
+                          {a.contacto_nombre && <span className="text-gray-500">· con {a.contacto_nombre}</span>}
                           {a.resultado && (
                             <span
                               className={`flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px]
@@ -385,7 +385,7 @@ export default function AccionesInbox({
                             onReagendar={canWrite ? (iso, conHora) => reagendar(a, iso, conHora) : null}
                           />
                         ) : (
-                          <span className="text-[11px] text-gray-400">Sin fecha</span>
+                          <span className="text-[11px] text-gray-500">Sin fecha</span>
                         )
                       }
                       acciones={

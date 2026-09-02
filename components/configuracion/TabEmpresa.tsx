@@ -107,7 +107,7 @@ export default function TabEmpresa({ empresa }: TabEmpresaProps) {
                 onChange={(e) => set("nombre_comercial", e.target.value)}
                 placeholder="Newsoft"
               />
-              <p className="mt-1 text-xs text-gray-400">
+              <p className="mt-1 text-xs text-gray-500">
                 Nombre visible en cotizaciones y encabezados comerciales.
               </p>
               {errors.nombre_comercial && (
@@ -210,7 +210,7 @@ export default function TabEmpresa({ empresa }: TabEmpresaProps) {
                   readOnly
                 />
               </div>
-              <p className="mt-1 text-xs text-gray-400">Gestionado automáticamente</p>
+              <p className="mt-1 text-xs text-gray-500">Gestionado automáticamente</p>
             </div>
 
             <div>
@@ -298,7 +298,7 @@ export default function TabEmpresa({ empresa }: TabEmpresaProps) {
               Notas para documentos (PDF)
             </h3>
           </div>
-          <p className="text-xs text-gray-400 mb-3">
+          <p className="text-xs text-gray-500 mb-3">
             Aparece en el pie de cada PDF. Usa{" "}
             <code className="bg-gray-100 px-1 rounded text-xs font-mono text-orange">
               {"{vigencia}"}

@@ -121,7 +121,7 @@ export default function ContactosCliente({ clienteId, canWrite, onPrincipalChang
       </div>
 
       {error && <p className="mb-2 text-[11px] text-red-600">{error}</p>}
-      {cargando && <p className="text-[11px] text-gray-400">Cargando…</p>}
+      {cargando && <p className="text-[11px] text-gray-500">Cargando…</p>}
 
       <div className="flex flex-col gap-2">
         {contactos.map((c) =>
@@ -138,8 +138,8 @@ export default function ContactosCliente({ clienteId, canWrite, onPrincipalChang
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-1.5">
                   <span className="text-xs font-semibold text-navy">{c.nombre}</span>
-                  {c.es_principal && <span className="flex items-center gap-0.5 rounded bg-navy/10 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-navy"><Star size={9} /> Principal</span>}
-                  {c.cargo && <span className="text-[10px] text-gray-400">· {c.cargo}</span>}
+                  {c.es_principal && <span className="flex items-center gap-0.5 rounded bg-navy/10 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-navy"><Star size={9} /> Principal</span>}
+                  {c.cargo && <span className="text-[10px] text-gray-500">· {c.cargo}</span>}
                 </div>
                 <div className="mt-0.5 flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-gray-500">
                   {c.email && <span className="flex items-center gap-1"><Mail size={10} /> {c.email}</span>}
@@ -149,11 +149,11 @@ export default function ContactosCliente({ clienteId, canWrite, onPrincipalChang
               {canWrite && (
                 <div className="flex shrink-0 items-center gap-1.5">
                   {!c.es_principal && (
-                    <button type="button" onClick={() => hacerPrincipal(c.id)} className="text-gray-400 hover:text-navy" title="Marcar como principal"><Star size={13} /></button>
+                    <button type="button" onClick={() => hacerPrincipal(c.id)} className="text-gray-500 hover:text-navy" title="Marcar como principal"><Star size={13} /></button>
                   )}
-                  <button type="button" onClick={() => { setEditId(c.id); setForm(deContacto(c)); }} className="text-gray-400 hover:text-navy" title="Editar"><Pencil size={13} /></button>
+                  <button type="button" onClick={() => { setEditId(c.id); setForm(deContacto(c)); }} className="text-gray-500 hover:text-navy" title="Editar"><Pencil size={13} /></button>
                   {contactos.length > 1 && (
-                    <button type="button" onClick={() => eliminar(c.id)} className="text-gray-400 hover:text-red-600" title="Eliminar"><Trash2 size={13} /></button>
+                    <button type="button" onClick={() => eliminar(c.id)} className="text-gray-500 hover:text-red-600" title="Eliminar"><Trash2 size={13} /></button>
                   )}
                 </div>
               )}
