@@ -2,6 +2,7 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { calcularOrden, transicionOrdenPermitida, ventaSinFecha, MSG_VENTA_SIN_FECHA } from "@/lib/utils";
+import { resolverCamposDeMonto } from "@/lib/orden-merge";
 import { serializeOrden } from "@/lib/serializers";
 import { OrdenUpdateSchema } from "@/lib/validations/ordenes";
 import type { ZodIssue } from "zod";
@@ -152,15 +153,13 @@ export async function PUT(
       );
     }
 
-    // Calcular con los nuevos datos (mezclando actuales + nuevos)
-    const calculo = calcularOrden({
-      partidas: partidasParaCalculo,
-      descuento_porcentaje: data.descuento_porcentaje ?? ordenExistente.descuento_porcentaje?.toNumber(),
-      aplica_iva: data.aplica_iva ?? ordenExistente.aplica_iva,
-      tasa_iva: data.tasa_iva ?? ordenExistente.tasa_iva?.toNumber(),
-      moneda: data.moneda ?? ordenExistente.moneda,
-      tipo_cambio: data.tipo_cambio ?? ordenExistente.tipo_cambio?.toNumber(),
-    });
+    // Estado final de los campos que mueven plata, resuelto UNA vez (lib/orden-merge) y usado
+    // en los dos lados: el cálculo y lo que se persiste. Antes cada lado lo resolvía por su
+    // cuenta y con criterios distintos —`??` para calcular, `!== undefined` para guardar—, y
+    // ahí estaba el bug: al BORRAR el descuento, el cálculo seguía aplicando el viejo mientras
+    // el update escribía null. La regla está probada en __tests__/lib/orden-merge.test.ts.
+    const final = resolverCamposDeMonto(data, ordenExistente);
+    const calculo = calcularOrden({ partidas: partidasParaCalculo, ...final });
 
     const orden = await prisma.$transaction(async (tx) => {
       // Actualizar partidas si se enviaron
@@ -199,11 +198,13 @@ export async function PUT(
             vigencia: data.vigencia ? new Date(data.vigencia) : null,
           }),
           ...(data.aplica_iva !== undefined && { aplica_iva: data.aplica_iva }),
+          // Se persiste el MISMO valor con el que se calculó, no una segunda derivación:
+          // que estos dos lados puedan divergir es lo que producía la orden inconsistente.
           tasa_iva: data.tasa_iva !== undefined
-            ? (data.tasa_iva ? new Decimal(data.tasa_iva) : null)
+            ? (final.tasa_iva ? new Decimal(final.tasa_iva) : null)
             : undefined,
           descuento_porcentaje: data.descuento_porcentaje !== undefined
-            ? (data.descuento_porcentaje ? new Decimal(data.descuento_porcentaje) : null)
+            ? (final.descuento_porcentaje ? new Decimal(final.descuento_porcentaje) : null)
             : undefined,
           ...(data.descuento_descripcion !== undefined && { descuento_descripcion: data.descuento_descripcion ?? null }),
           ...(data.notas !== undefined && { notas: data.notas ?? null }),
