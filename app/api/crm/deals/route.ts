@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { scopeClienteWhere } from "@/lib/access-control";
 import { canWrite, requireAuth } from "@/lib/session";
 import { getScoringContext, dealScoreView } from "@/lib/deal-score";
 import { crearDealTx, fechaIngresoAInstante, HttpError } from "@/lib/deals";
@@ -80,6 +81,23 @@ export async function POST(req: NextRequest) {
     // Validar el stage antes de tocar nada (el cliente se valida/crea en la transacción)
     const stage = await prisma.pipelineStage.findFirst({ where: { id: stage_id, activo: true }, select: { id: true } });
     if (!stage) return NextResponse.json({ error: "Etapa inválida", campo: "stage_id" }, { status: 422 });
+
+    // El cliente existente se valida CON EL SCOPE de quien crea. `crearDealTx` comprueba que
+    // exista y esté activo, pero no puede comprobar el alcance: lo comparte el intake público
+    // (lib/leads-intake), que no tiene sesión. Por eso la puerta va acá, donde sí la hay.
+    //
+    // Sin esto, un VENDEDOR podía crear un deal apuntando al UUID de un cliente ajeno y, como
+    // `scopeClienteWhere` da acceso al cliente donde tenés ALGÚN deal, se abría la lectura de
+    // ese cliente. Es el mismo vector de escalada que el PATCH, por la puerta del alta.
+    if (cliente_id) {
+      const permitido = await prisma.cliente.findFirst({
+        where: scopeClienteWhere(session, { id: cliente_id, activo: true }),
+        select: { id: true },
+      });
+      if (!permitido) {
+        return NextResponse.json({ error: "Cliente inválido", campo: "cliente_id" }, { status: 422 });
+      }
+    }
 
     const fechaCierre = typeof body.fecha_cierre_estimada === "string" && body.fecha_cierre_estimada
       ? new Date(body.fecha_cierre_estimada) : null;
