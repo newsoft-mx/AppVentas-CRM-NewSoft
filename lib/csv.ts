@@ -309,11 +309,6 @@ ${sheets.map((sheet) => worksheet(sheet.name, sheet.rows)).join("")}
   });
 }
 
-export function parseYesNo(value: string) {
-  const normalized = catalogKey(value);
-  return ["si", "sí", "s", "yes", "y", "true", "1"].includes(normalized);
-}
-
 export function nullable(value: string) {
   const trimmed = value.trim();
   return trimmed ? trimmed : null;
