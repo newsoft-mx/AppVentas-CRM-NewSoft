@@ -1100,7 +1100,7 @@ export default function DealDetalleClient({
 }
 
 function KpiCard({ label, value, accent }: { label: string; value: string; accent?: "orange" | "green" }) {
-  const color = accent === "orange" ? "text-orange-700" : accent === "green" ? "text-green-600" : "text-navy";
+  const color = accent === "orange" ? "text-orange-700" : accent === "green" ? "text-green-700" : "text-navy";
   return (
     <div className="rounded-lg bg-surface px-3 py-2">
       <div className="text-[10px] uppercase tracking-wide text-gray-500">{label}</div>
@@ -1140,7 +1140,7 @@ function Field({ label, value, tag, green }: { label: string; value: string; tag
       {tag ? (
         <span className="rounded bg-orange-50 px-1.5 py-0.5 text-[10px] font-medium text-orange-700">{value}</span>
       ) : (
-        <span className={`text-right text-[11px] font-medium ${green ? "text-green-600" : "text-navy"}`}>{value}</span>
+        <span className={`text-right text-[11px] font-medium ${green ? "text-green-700" : "text-navy"}`}>{value}</span>
       )}
     </div>
   );

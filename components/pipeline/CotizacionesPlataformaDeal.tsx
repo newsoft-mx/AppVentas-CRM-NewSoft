@@ -32,7 +32,7 @@ export default function CotizacionesPlataformaDeal({ dealId }: { dealId: string 
   return (
     <div className="flex flex-col gap-2">
       {casos === null && !error && <p className="text-[11px] text-gray-500">Cargando…</p>}
-      {error && <p className="text-[11px] text-red-500">No se pudieron cargar las cotizaciones.</p>}
+      {error && <p className="text-[11px] text-red-700">No se pudieron cargar las cotizaciones.</p>}
       {casos?.length === 0 && (
         <p className="text-[11px] text-gray-500">Sin cotizaciones de plataforma vinculadas.</p>
       )}

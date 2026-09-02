@@ -57,7 +57,7 @@ export default function TabLeadsWeb({ vendedores }: { vendedores: { id: string; 
           <Save size={15} /> {guardando ? "Guardando…" : "Guardar"}
         </button>
         {msg && (
-          <span className={`text-sm ${msg.tipo === "ok" ? "text-emerald-600" : "text-red-600"}`}>{msg.texto}</span>
+          <span className={`text-sm ${msg.tipo === "ok" ? "text-emerald-700" : "text-red-600"}`}>{msg.texto}</span>
         )}
       </div>
 

@@ -207,7 +207,7 @@ export default function StatusBadge({ ordenId, estatus, onChanged, readOnly = fa
             type="button"
             onClick={() => setError(null)}
             aria-label="Descartar el aviso"
-            className="rounded px-1 text-red-500 hover:bg-red-50"
+            className="rounded px-1 text-red-700 hover:bg-red-50"
           >
             ×
           </button>

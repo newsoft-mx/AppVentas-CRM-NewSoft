@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Thermometer } from "lucide-react";
 import { TEMPERATURA_META, type Temperatura } from "@/types/crm";
 import Toast, { ToastData } from "@/components/ui/Toast";
+import { oscurecerHasta } from "@/lib/contraste";
 
 const ESCALA: Temperatura[] = ["MUY_FRIO", "FRIO", "TIBIO", "CALIENTE", "MUY_CALIENTE"];
 
@@ -84,7 +85,10 @@ export default function Termometro({
           );
         })}
       </div>
-      <span className="text-xs font-semibold" style={{ color: meta.color }}>
+      {/* El nombre se oscurece lo justo; las barritas de arriba conservan el color vivo,
+          que es la señal. "Tibio" (#F5A623) daba 2.03:1 sobre blanco. Mismo criterio que
+          el chip del tablero y el tipo de movimiento. */}
+      <span className="text-xs font-semibold" style={{ color: oscurecerHasta(meta.color, "#FFFFFF") }}>
         {meta.label}
       </span>
       <span className="rounded-full bg-gray-100 px-1.5 py-0.5 text-[11px] font-bold tabular-nums text-gray-600" title="Score de salud (0-100)">

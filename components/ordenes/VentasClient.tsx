@@ -381,7 +381,7 @@ export default function VentasClient({
                 <p className="text-xs text-gray-500 mt-1">
                   {confirmDelete.descripcion}
                 </p>
-                <p className="text-xs text-red-500 mt-2">
+                <p className="text-xs text-red-700 mt-2">
                   Esta acción no se puede deshacer.
                 </p>
               </div>
