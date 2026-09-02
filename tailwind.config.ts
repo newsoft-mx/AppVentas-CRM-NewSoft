@@ -5,13 +5,18 @@ const config: Config = {
     "./pages/**/*.{js,ts,jsx,tsx,mdx}",
     "./components/**/*.{js,ts,jsx,tsx,mdx}",
     "./app/**/*.{js,ts,jsx,tsx,mdx}",
-    // lib/ también escribe clases: ESTATUS_COLORS (utils) y los colores de avatar y de
+    // lib/ también escribe clases: los colores de avatar y de
     // condición comercial (ui-helpers). Sin este glob, Tailwind no las ve y no las genera:
     // la pastilla de "Cotizado" salía como texto suelto —única de la columna sin fondo— y
     // los avatares de cliente quedaban transparentes. Verificado en el navegador: `bg-blue-100`
     // y `bg-teal-600` no existían en el CSS compilado; `bg-green-100` sí, porque además la
     // usa un componente. Agregar el glob es aditivo: genera lo que falta, no cambia lo que hay.
     "./lib/**/*.{js,ts,jsx,tsx,mdx}",
+    // Y `types/` también: los `chip`/`dot` de ESTATUS_CLIENTE_META, ESTADO_TAREA_META y
+    // ESTATUS_ORDEN_META son clases escritas ahí (SSOT). Hoy ninguna falta —cada una se usa
+    // además en components/, así que igual se genera— pero eso es un accidente: el día que
+    // un chip estrene un color propio, se perdería en silencio. Preventivo, no correctivo.
+    "./types/**/*.{js,ts,jsx,tsx,mdx}",
   ],
   theme: {
     extend: {
