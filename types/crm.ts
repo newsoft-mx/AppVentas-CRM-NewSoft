@@ -19,6 +19,8 @@ export interface DealResumen {
   nombre: string;
   valor: number;
   moneda: string;
+  /** Tipo de cambio USD→MXN. Null en MXN, y en los deals viejos cargados antes de la columna. */
+  tipo_cambio: number | null;
   temperatura: Temperatura;
   probabilidad: number | null;
   resultado: DealResultado;
@@ -243,6 +245,8 @@ export interface DealDetalle {
   id: string;
   nombre: string;
   moneda: string;
+  /** Tipo de cambio USD→MXN. Null en MXN, y en los deals cargados antes de la columna. */
+  tipo_cambio: number | null;
   valor: number;
   setup: number | null;
   mensualidad: number | null;

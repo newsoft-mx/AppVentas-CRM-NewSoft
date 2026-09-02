@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import ReportesClient from "@/components/reportes/ReportesClient";
 import { netAmountMxn, sumaNetaMxn, ticketPromedioMxn } from "@/lib/net-amounts";
+import { horaAhora } from "@/lib/utils";
 import { rankingClientes } from "@/lib/ranking-clientes";
 import type {
   FiltroReportes,
@@ -275,7 +276,9 @@ export default async function ReportesPage({
 
   return (
     <div className="p-6">
-      <ReportesClient initialData={initialData} initialFiltros={filtros} />
+      {/* La hora del dato la sabe el SERVER: es cuando se generó, no cuando el navegador
+          montó el componente. Calcularla en el cliente además rompía la hidratación. */}
+      <ReportesClient initialData={initialData} initialFiltros={filtros} generadoEn={horaAhora()} />
     </div>
   );
 }
