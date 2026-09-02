@@ -4,6 +4,8 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useUrlFilters } from "@/hooks/useUrlFilters";
 import { BarChart3 } from "lucide-react";
 import FiltrosReportes from "./FiltrosReportes";
+import { etiquetaPeriodo } from "@/lib/etiqueta-periodo-reportes";
+import { horaAhora } from "@/lib/utils";
 import GraficoVentasMensuales from "./GraficoVentasMensuales";
 import GraficoVentasPorTipo from "./GraficoVentasPorTipo";
 import TarjetasVentasPorTipo from "./TarjetasVentasPorTipo";
@@ -26,6 +28,8 @@ import { formatMXNEntero as formatMXN } from "@/lib/utils";
 interface Props {
   initialData: ReportesInitialData;
   initialFiltros: FiltroReportes;
+  /** Hora en que el server generó estos datos (ver el comentario en la página). */
+  generadoEn: string;
 }
 
 async function fetchJSON<T>(url: string): Promise<T> {
@@ -34,7 +38,7 @@ async function fetchJSON<T>(url: string): Promise<T> {
   return res.json() as Promise<T>;
 }
 
-export default function ReportesClient({ initialData, initialFiltros }: Props) {
+export default function ReportesClient({ initialData, initialFiltros, generadoEn }: Props) {
   // Filtros persistentes en la URL (mecanismo compartido — pilar 3)
   const [filtros, setFiltros, isPending] = useUrlFilters(initialFiltros, REPORTES_FILTROS);
   const [ventasMensuales, setVentasMensuales] = useState<VentasMensualesData>(initialData.ventasMensuales);
@@ -44,6 +48,11 @@ export default function ReportesClient({ initialData, initialFiltros }: Props) {
   const [ventasPorTipo, setVentasPorTipo] = useState<VentasTipoItem[]>(initialData.ventasPorTipo);
   const [stats, setStats] = useState<ReporteStats>(initialData.stats);
   const [loading, setLoading] = useState(false);
+  // Hora del dato: arranca con la que estampó el SERVER —cuando generó estos datos— y se
+  // actualiza en cada recarga. No se calcula en el cliente al montar: además de romper la
+  // hidratación, diría la hora en que se abrió la pantalla, no la del dato.
+  const [actualizado, setActualizado] = useState(generadoEn);
+  const [falloCarga, setFalloCarga] = useState(false);
 
   // ── Re-fetch on filter change ─────────────────────────────────
   const refetch = useCallback(async (f: FiltroReportes) => {
@@ -66,8 +75,17 @@ export default function ReportesClient({ initialData, initialFiltros }: Props) {
       setVentasPorVendedor(vv);
       setVentasPorTipo(vt);
       setStats(cv.stats);
+      setActualizado(horaAhora());
+      setFalloCarga(false);
     } catch {
-      // silently keep previous data on error
+      // Antes acá había un `catch` vacío con el comentario "silently keep previous data on
+      // error". El resultado era el peor de los mundos: la pantalla se quedaba con los números
+      // del filtro ANTERIOR bajo el filtro NUEVO, sin ninguna señal. Alguien podía leer las
+      // ventas de julio creyendo que eran las de agosto.
+      //
+      // Se conservan los datos viejos —borrarlos no ayuda a nadie— pero se DICE que están
+      // viejos y de cuándo son.
+      setFalloCarga(true);
     } finally {
       setLoading(false);
     }
@@ -91,10 +109,38 @@ export default function ReportesClient({ initialData, initialFiltros }: Props) {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-navy">Reportes</h1>
-          <p className="text-sm text-gray-500 mt-0.5">Análisis de ventas y rendimiento comercial</p>
+          {/* Qué se está mirando, en palabras y derivado de los MISMOS filtros que se
+              consultaron. Es el patrón del reporte de embudo, que hoy es la única pantalla
+              de la app que declara su período. */}
+          <p className="text-sm text-gray-500 mt-0.5">
+            {etiquetaPeriodo(filtros)}
+            {actualizado && <span className="text-gray-500"> · actualizado {actualizado}</span>}
+          </p>
         </div>
         <FiltrosReportes filtros={filtros} onChange={setFiltros} />
       </div>
+
+      {/* Un fallo de carga se DICE. Los números que quedan en pantalla son los del filtro
+          anterior, así que el aviso aclara justamente eso: el problema no es que falten
+          datos, es que los que se ven no corresponden a lo que se pidió. */}
+      {falloCarga && (
+        <div
+          role="status"
+          className="flex flex-wrap items-center gap-2 rounded-lg border border-orange-200 bg-orange-50 px-3 py-2 text-sm text-orange-700"
+        >
+          <span>
+            No se pudieron cargar los datos de <b>{etiquetaPeriodo(filtros)}</b>. Las cifras de
+            abajo son las de la consulta anterior.
+          </span>
+          <button
+            type="button"
+            onClick={() => refetch(filtros)}
+            className="rounded-md border border-orange-300 px-2 py-0.5 text-xs font-semibold hover:bg-orange-100"
+          >
+            Reintentar
+          </button>
+        </div>
+      )}
 
       <div className="rounded-xl border border-surface-border bg-white p-4 shadow-sm sm:p-6">
         <div className="flex flex-col gap-5 md:flex-row md:items-center">
