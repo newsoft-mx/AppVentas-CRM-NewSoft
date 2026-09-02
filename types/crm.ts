@@ -135,6 +135,13 @@ export const RESULTADOS_DEAL: DealResultado[] = ["ABIERTO", "GANADO", "PERDIDO",
 // (lib/access-control, alcance HISTORICO).
 export const RESULTADOS_CERRADOS: DealResultado[] = ["GANADO", "PERDIDO"];
 
+// Motivo de pérdida "Otro": válvula de escape del catálogo MotivoPerdida. La UI lo garantiza
+// aunque el catálogo no lo tenga, y con él el comentario pasa a ser obligatorio (UI y API):
+// un "Otro" sin detalle no le sirve a nadie en el reporte por motivo.
+export const MOTIVO_PERDIDA_OTRO = "Otro";
+export const esMotivoOtro = (razon: string) =>
+  razon.trim().toLowerCase() === MOTIVO_PERDIDA_OTRO.toLowerCase();
+
 // Borrado de leads. El tipo vive acá (y no en lib/deals) porque la DECISIÓN la toma el
 // server con `clasificarBorrado` y viaja hasta el cliente: la UI muestra el motivo real
 // en vez de re-derivar la regla, que es como se rompía antes. types/crm no importa nada,

@@ -5,7 +5,7 @@ import { scopeDealWhere } from "@/lib/access-control";
 import { transicionResultadoPermitida } from "@/lib/utils";
 import { clasificarReapertura, handoffGanado, puedeReabrirConVenta } from "@/lib/deals";
 import { logger } from "@/lib/logger";
-import { RESULTADOS_CERRADOS, RESULTADOS_DEAL, type DealResultado } from "@/types/crm";
+import { RESULTADOS_CERRADOS, RESULTADOS_DEAL, esMotivoOtro, type DealResultado } from "@/types/crm";
 
 export const dynamic = "force-dynamic";
 
@@ -40,6 +40,12 @@ export async function POST(
   const comentario = typeof body.comentario_perdida === "string" ? body.comentario_perdida.trim() : "";
   if (resultado === "PERDIDO" && !razon) {
     return NextResponse.json({ error: "La razón de pérdida es obligatoria", campo: "razon_perdida" }, { status: 422 });
+  }
+  if (resultado === "PERDIDO" && esMotivoOtro(razon) && !comentario) {
+    return NextResponse.json(
+      { error: 'Con "Otro" el comentario es obligatorio: contá cuál fue el motivo', campo: "comentario_perdida" },
+      { status: 422 }
+    );
   }
 
   try {

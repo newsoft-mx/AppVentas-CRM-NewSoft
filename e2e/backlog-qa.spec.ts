@@ -247,6 +247,38 @@ test.describe("QA lote SOL-14..20", () => {
     expect(dealDb?.motivo_perdida_id).toBe(motivo!.id); // FK al catálogo
   });
 
+  test("S2 · PERDIDO con motivo \"Otro\": el comentario es obligatorio (API y modal)", async ({ page, request }) => {
+    const deal = await crearDealAPI(request, {
+      nombre: `E2E Sotro ${Date.now()}`,
+      cliente_id: cat.clienteActivo!.id,
+      stage_id: stageDeOrden(cat, 1).id,
+    });
+
+    // API: "Otro" sin comentario → 422; con comentario → 200.
+    const sinComentario = await request.post(`/api/crm/deals/${deal.id}/resultado`, {
+      data: { resultado: "PERDIDO", razon_perdida: "Otro" },
+    });
+    expect(sinComentario.status()).toBe(422);
+
+    // Modal: elegir "Otro" deshabilita el confirmar hasta escribir el comentario.
+    await page.goto(`/pipeline/${deal.id}`);
+    await page.getByRole("button", { name: "Cambiar estado" }).click();
+    await page.getByRole("button", { name: "Perdido", exact: true }).click();
+    const modal = page.getByRole("dialog");
+    const confirmar = modal.getByRole("button", { name: "Marcar perdido" });
+    await modal.locator("select").selectOption("Otro");
+    await expect(confirmar).toBeDisabled();
+    await modal.locator("textarea").fill("Motivo atípico E2E");
+    await expect(confirmar).toBeEnabled();
+    await confirmar.click();
+    await expect
+      .poll(async () => {
+        const d = await db.deal.findUnique({ where: { id: deal.id }, select: { resultado: true, comentario_perdida: true } });
+        return d && `${d.resultado}|${d.comentario_perdida}`;
+      })
+      .toBe("PERDIDO|Motivo atípico E2E");
+  });
+
   test("C · editar el contacto principal se refleja en la ficha del cliente (invariante)", async ({ request }) => {
     // Cliente del deal demo "Suite Operativa" (0002)
     const CLIENTE = "30000000-0000-0000-0000-000000000002";
