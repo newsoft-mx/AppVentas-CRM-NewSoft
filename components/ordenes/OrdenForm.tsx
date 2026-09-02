@@ -343,13 +343,25 @@ export default function OrdenForm({
         // todo mensaje termine visible — en su campo si lo hay, o en el banner.
         const repartidos = repartirDetalles(data.details, ubicarCampoDeOrden);
         setErrors(repartidos ?? { general: data.error || "Error al guardar" });
+        // Y acá SÍ se suelta el candado: este camino no navega, el formulario se queda.
+        setIsSaving(false);
         return;
       }
 
+      // OJO: acá NO se baja `isSaving`, y no es un olvido.
+      //
+      // `onSuccess` navega (`router.push` al detalle de la orden recién creada) y la navegación
+      // es ASÍNCRONA: el formulario sigue montado unos cientos de milisegundos más. Con el
+      // `setIsSaving(false)` en un `finally`, el botón volvía a decir "Crear orden" y quedaba
+      // clickeable DESPUÉS de que la orden ya existía. Medido: 200 ms de ventana en local, y
+      // crece con la latencia. Un segundo clic ahí adentro crea una SEGUNDA orden, con su
+      // propio folio, porque el POST no tiene ninguna defensa contra el duplicado.
+      //
+      // Dejarlo en "Guardando…" hasta que el componente se desmonte es correcto: después del
+      // éxito no hay nada más que hacer en este formulario.
       onSuccess(data as OrdenDetalle);
     } catch {
       setErrors({ general: "Error de conexión. Intenta de nuevo." });
-    } finally {
       setIsSaving(false);
     }
   };

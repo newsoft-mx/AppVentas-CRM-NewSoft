@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Save } from "lucide-react";
 import ContactosCliente from "./ContactosCliente";
 import { repartirDetalles } from "@/lib/errores-formulario";
+import { errorDeWebsite, normalizarWebsite } from "@/lib/website";
 import type { ClienteConStats, ClienteInput, CondicionResumen } from "@/types/clientes";
 import { TAMANOS_EMPRESA, TAMANO_EMPRESA_LABEL, type TamanoEmpresa } from "@/types/crm";
 
@@ -78,6 +79,8 @@ export default function ClienteForm({
     if (form.email?.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email))
       errs.email = "Email inválido";
     if (!form.condicion_pago_id) errs.condicion_pago_id = "Selecciona una condición";
+    const errorWeb = errorDeWebsite(form.website);
+    if (errorWeb) errs.website = errorWeb;
     return errs;
   };
 
@@ -198,11 +201,22 @@ export default function ClienteForm({
           <label className="label">
             Website <span className="text-gray-400 font-normal">(opcional)</span>
           </label>
+          {/* Sin `type="url"`: la validación nativa del navegador exige el protocolo y
+              rechazaba "empresa.com" — exactamente lo que sugiere este placeholder y lo que el
+              server acepta y normaliza. `inputMode="url"` deja el teclado cómodo en el
+              teléfono sin bloquear nada. */}
           <input
-            type="url"
+            type="text"
+            inputMode="url"
             className={`input ${errors.website ? "border-red-400 focus:ring-red-400" : ""}`}
             value={form.website ?? ""}
             onChange={(e) => set("website", e.target.value)}
+            onBlur={(e) => {
+              // Al salir del campo se muestra cómo va a quedar guardado. Que lo que se ve sea
+              // lo que se guarda evita la sorpresa de abrir la ficha y encontrar otra cosa.
+              const normalizado = normalizarWebsite(e.target.value);
+              if (normalizado !== (form.website || null)) set("website", normalizado ?? "");
+            }}
             placeholder="empresa.com"
           />
           {errors.website && <p className="mt-1 text-xs text-red-500">{errors.website}</p>}
