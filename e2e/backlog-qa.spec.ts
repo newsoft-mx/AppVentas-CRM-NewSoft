@@ -120,7 +120,9 @@ test.describe("QA lote SOL-14..20", () => {
     // El reporte de funnel (Año) muestra la fila de métricas del pipeline
     await page.goto("/pipeline/reportes");
     await page.getByRole("button", { name: "Año" }).click();
-    await expect(page.getByText("Pipeline (activos en el período)")).toBeVisible();
+    // La fila de métricas del pipeline vive ahora como tarjetas (rediseño 2026-09-02).
+    await expect(page.getByText("Valor del pipeline")).toBeVisible();
+    await expect(page.getByText("Deals activos")).toBeVisible();
   });
 
   test("SOL-14 · PDF de cotización genera un PDF válido (200 application/pdf)", async ({ request }) => {

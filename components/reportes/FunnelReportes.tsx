@@ -11,6 +11,7 @@ import {
 } from "@/lib/rangos-reporte";
 import { hoyEnTZ } from "@/lib/tz";
 import { textoSobre } from "@/lib/contraste";
+import { ESTADO_DEAL_META } from "@/types/crm";
 
 interface Vendedor {
   id: string;
@@ -67,13 +68,6 @@ const PERIODOS: { value: PresetRango; label: string }[] = [
   { value: "custom", label: "Personalizado…" },
 ];
 
-const TIPOS: { key: string; label: string }[] = [
-  { key: "LLAMADA", label: "Reunión/Llamada" },
-  { key: "EMAIL", label: "Email" },
-  { key: "WHATSAPP", label: "WhatsApp" },
-  { key: "NOTA", label: "Nota" },
-];
-
 async function traer(rango: { desde: string; hasta: string }, vendedor: string): Promise<Datos> {
   const qs = new URLSearchParams(rango);
   if (vendedor) qs.set("vendedor", vendedor);
@@ -86,7 +80,10 @@ async function traer(rango: { desde: string; hasta: string }, vendedor: string):
   return { funnel, resultados, anatomia, metricas };
 }
 
-// ── Scorecard: número grande + ancla (delta vs período anterior) ──
+// ── Scorecard: número grande + ancla (delta vs período anterior) + lectura ──
+// La "lectura" es el concepto de la vista (rediseño 2026-09-02, "la pantalla habla
+// sola"): una línea corta debajo de cada número que dice qué significa, derivada
+// de los datos — nunca texto de relleno.
 function Scorecard({
   label,
   value,
@@ -94,14 +91,19 @@ function Scorecard({
   delta,
   mejorSiSube = true,
   contra,
+  caption,
+  valorClase = "text-navy",
 }: {
   label: string;
   value: string | number;
   suffix?: string;
-  delta: number | null; // puntos/porcentaje vs período anterior
+  delta: number | null; // puntos/porcentaje vs período anterior; null = sin comparación
   mejorSiSube?: boolean;
   /** Contra qué se compara, en fechas ("1–11 jul"). Un delta sin esto es incontrastable. */
   contra?: string;
+  /** Una frase corta que lee el número por vos. */
+  caption?: string;
+  valorClase?: string;
 }) {
   const bueno = delta !== null && (mejorSiSube ? delta > 0 : delta < 0);
   const malo = delta !== null && (mejorSiSube ? delta < 0 : delta > 0);
@@ -110,19 +112,21 @@ function Scorecard({
   return (
     <div className="rounded-xl border border-surface-border bg-white p-4">
       <p className="text-xs text-gray-500">{label}</p>
-      <p className="mt-1 text-3xl font-bold tracking-tight text-navy">
+      <p className={`mt-1 text-3xl font-bold tracking-tight ${valorClase}`}>
         {value}
         {suffix && <span className="text-lg font-semibold text-gray-500">{suffix}</span>}
       </p>
-      {delta !== null && delta !== 0 ? (
-        <p className={`mt-1 flex items-center gap-0.5 text-xs font-medium ${color}`}>
-          <Icono size={12} />
-          {Math.abs(delta)}
-          {suffix === "%" ? " pts" : "%"} vs {contra ?? "período anterior"}
-        </p>
-      ) : (
-        <p className="mt-1 text-xs text-gray-500">sin cambio vs {contra ?? "anterior"}</p>
-      )}
+      {delta !== null &&
+        (delta !== 0 ? (
+          <p className={`mt-1 flex items-center gap-0.5 text-xs font-medium ${color}`}>
+            <Icono size={12} />
+            {Math.abs(delta)}
+            {suffix === "%" ? " pts" : "%"} vs {contra ?? "período anterior"}
+          </p>
+        ) : (
+          <p className="mt-1 text-xs text-gray-500">sin cambio vs {contra ?? "anterior"}</p>
+        ))}
+      {caption && <p className="mt-1.5 text-xs leading-relaxed text-gray-500">{caption}</p>}
     </div>
   );
 }
@@ -191,6 +195,19 @@ export default function FunnelReportes({
   // no puede desfasarse de los números que muestra.
   const vsAnterior = rango ? etiquetaRango(rango.anterior) : undefined;
 
+  // Derivaciones para las "lecturas" (rediseño 2026-09-02): cada frase sale de los
+  // datos ya fetcheados — si el dato no está, la frase no se muestra.
+  const dTotal = prev && f ? f.total - prev.funnel.total : null;
+  const topRazon = rz?.por_razon[0];
+  const sumaToques = (i: AnatItem) => Math.round(Object.values(i.por_tipo).reduce((s, n) => s + n, 0));
+  // La etapa donde más se corta el paso (la conversión mínima después de la base).
+  const fuga = (() => {
+    if (!f || f.total === 0 || f.etapas.length < 2) return null;
+    let idx = 1;
+    for (let i = 2; i < f.etapas.length; i++) if (f.etapas[i].conversion < f.etapas[idx].conversion) idx = i;
+    return { desde: f.etapas[idx - 1].nombre, hasta: f.etapas[idx].nombre, pasa: f.etapas[idx].conversion };
+  })();
+
   return (
     <div className="space-y-6">
       {/* Barra de filtros — SIEMPRE visible (sticky) */}
@@ -257,58 +274,85 @@ export default function FunnelReportes({
         <p className="py-16 text-center text-sm text-gray-500">Cargando reportes…</p>
       ) : (
         <>
-          {/* NIVEL 0 — salud del pipeline (SOL-19): mismas métricas que el encabezado
-              del pipeline, calculadas en un solo lugar (metricasPipeline), filtrables. */}
-          <div>
-            <p className="mb-2 text-xs font-medium uppercase tracking-wider text-gray-500">Pipeline (activos en el período)</p>
-            <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-              <Scorecard
-                contra={vsAnterior} label="Valor del pipeline" value={formatCompacto(m.valor_pipeline)}
-                delta={prev ? deltaPct(m.valor_pipeline, prev.metricas.valor_pipeline) : null}
-              />
-              <Scorecard
-                contra={vsAnterior} label="Deals activos" value={m.deals_activos}
-                delta={prev ? deltaPct(m.deals_activos, prev.metricas.deals_activos) : null}
-              />
-              <Scorecard
-                contra={vsAnterior} label="Calientes" value={m.calientes}
-                delta={prev ? deltaPct(m.calientes, prev.metricas.calientes) : null}
-              />
-              <Scorecard
-                contra={vsAnterior} label="Promedio deal" value={formatCompacto(m.promedio_deal)}
-                delta={prev ? deltaPct(m.promedio_deal, prev.metricas.promedio_deal) : null}
-              />
-            </div>
+          {/* TITULAR — la única frase larga de la vista (rediseño 2026-09-02, "la
+              pantalla habla sola"): qué entró en el período y en qué terminó, con el
+              desglose que suma exacto al total. El resto es dashboard escaneable. */}
+          <p className="max-w-4xl text-xl leading-relaxed text-gray-600">
+            {rango ? etiquetaRango(rango.actual) : "Este período"}: entraron{" "}
+            <b className="text-navy">{f.total} leads</b>
+            {dTotal !== null && dTotal !== 0 && (
+              <span className={`mx-1 inline-flex items-center gap-0.5 align-middle text-sm font-semibold ${dTotal > 0 ? "text-emerald-700" : "text-red-700"}`}>
+                {dTotal > 0 ? <ArrowUp size={13} /> : <ArrowDown size={13} />}
+                {Math.abs(dTotal)} vs {vsAnterior}
+              </span>
+            )}
+            {f.total > 0 && (
+              <>
+                {" — "}
+                <b style={{ color: ESTADO_DEAL_META.ABIERTO.color }}>{f.desglose.activos} activos</b> ·{" "}
+                <b style={{ color: ESTADO_DEAL_META.GANADO.color }}>{f.desglose.ganados} ganados</b> ·{" "}
+                <b style={{ color: ESTADO_DEAL_META.PERDIDO.color }}>{f.desglose.perdidos} perdidos</b> ·{" "}
+                <b style={{ color: ESTADO_DEAL_META.SUSPENDIDO.color }}>{f.desglose.pausados} pausados</b>
+              </>
+            )}
+            .
+          </p>
+
+          {/* FILA 1 — resultados del período, cada número con su lectura */}
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+            <Scorecard
+              contra={vsAnterior} label="Tasa de cierre" value={f.tasa_cierre} suffix="%"
+              delta={prev ? deltaPts(f.tasa_cierre, prev.funnel.tasa_cierre) : null}
+              caption={f.total > 0 ? `Se ganaron ${f.ganados} de los ${f.total} que entraron.` : undefined}
+            />
+            <Scorecard
+              contra={vsAnterior} label="Ganados" value={rz.ganados} valorClase="text-emerald-700"
+              delta={prev ? deltaPct(rz.ganados, prev.resultados.ganados) : null}
+              caption={rz.ganados > 0 ? `Llevaron ${an.ganados.avg_dias} días de trabajo en promedio.` : undefined}
+            />
+            <Scorecard
+              contra={vsAnterior} label="Perdidos" value={rz.perdidos} mejorSiSube={false} valorClase="text-red-700"
+              delta={prev ? deltaPct(rz.perdidos, prev.resultados.perdidos) : null}
+              caption={topRazon ? `${topRazon.count} de ${rz.perdidos} se fueron por ${topRazon.razon}.` : undefined}
+            />
+            <Scorecard
+              contra={vsAnterior} label="Pausados" value={f.pausados_en_periodo} mejorSiSube={false} valorClase="text-blue-800"
+              delta={prev ? deltaPct(f.pausados_en_periodo, prev.funnel.pausados_en_periodo) : null}
+              caption={f.pausados_en_periodo > 0 ? "Todavía se pueden rescatar." : undefined}
+            />
           </div>
 
-          {/* NIVEL 1 — ¿cómo venimos? (resultados del período con ancla) */}
-          <div>
-            <p className="mb-2 text-xs font-medium uppercase tracking-wider text-gray-500">¿Cómo venimos?</p>
-            <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-              <Scorecard
-                contra={vsAnterior} label="Tasa de cierre" value={f.tasa_cierre} suffix="%"
-                delta={prev ? deltaPts(f.tasa_cierre, prev.funnel.tasa_cierre) : null}
-              />
-              <Scorecard
-                contra={vsAnterior} label="Ganados" value={rz.ganados}
-                delta={prev ? deltaPct(rz.ganados, prev.resultados.ganados) : null}
-              />
-              <Scorecard
-                contra={vsAnterior} label="Perdidos" value={rz.perdidos} mejorSiSube={false}
-                delta={prev ? deltaPct(rz.perdidos, prev.resultados.perdidos) : null}
-              />
-              {/* Reemplaza "Días al ganar" (pedido de Roldán 2026-09-02: no le decía nada;
-                  quería ver cuántos se pausaron en el período contra ganados/perdidos). */}
-              <Scorecard
-                contra={vsAnterior} label="Pausados" value={f.pausados_en_periodo} mejorSiSube={false}
-                delta={prev ? deltaPct(f.pausados_en_periodo, prev.funnel.pausados_en_periodo) : null}
-              />
-            </div>
+          {/* FILA 2 — el pipeline hoy (SOL-19: mismas métricas que el encabezado del
+              pipeline, calculadas en metricasPipeline) + el patrón ganador */}
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+            <Scorecard
+              contra={vsAnterior} label="Valor del pipeline" value={formatCompacto(m.valor_pipeline)}
+              delta={prev ? deltaPct(m.valor_pipeline, prev.metricas.valor_pipeline) : null}
+              caption="Lo que hay en juego ahora mismo."
+            />
+            <Scorecard
+              contra={vsAnterior} label="Deals activos" value={m.deals_activos}
+              delta={prev ? deltaPct(m.deals_activos, prev.metricas.deals_activos) : null}
+              caption={m.deals_activos > 0 ? `Promedio ${formatCompacto(m.promedio_deal)} por deal.` : undefined}
+            />
+            <Scorecard
+              contra={vsAnterior} label="Calientes" value={m.calientes} valorClase="text-orange-600"
+              delta={prev ? deltaPct(m.calientes, prev.metricas.calientes) : null}
+              caption={m.calientes > 0 ? "Los que están listos para cerrar." : "Ninguno listo para cerrar todavía."}
+            />
+            {/* Condensa la vieja sección "¿Qué llevó ganar vs perder?" en su conclusión. */}
+            <Scorecard
+              label="Toques por deal ganado" value={sumaToques(an.ganados)} delta={null}
+              caption={
+                an.ganados.count > 0 || an.perdidos.count > 0
+                  ? `vs ${sumaToques(an.perdidos)} en perdidos — más contacto, más cierre.`
+                  : "Sin deals cerrados en el período."
+              }
+            />
           </div>
 
-          {/* NIVEL 2 — ¿hacia dónde vamos? / ¿qué lo explica? (embudo + razones) */}
+          {/* Embudo + razones: los gráficos quedan, cada uno con su conclusión al pie */}
           <div>
-            <p className="mb-2 text-xs font-medium uppercase tracking-wider text-gray-500">¿Dónde se convierte y dónde se fuga?</p>
             <div className="grid gap-6 lg:grid-cols-5">
               {/* Embudo */}
               <section className="rounded-xl border border-surface-border bg-white p-5 lg:col-span-3">
@@ -363,6 +407,11 @@ export default function FunnelReportes({
                     })}
                   </div>
                 )}
+                {fuga && (
+                  <p className="mt-4 border-t border-surface-border pt-3 text-xs text-gray-500">
+                    La fuga grande está en <b className="text-red-700">{fuga.desde} → {fuga.hasta}</b>: pasa solo el {fuga.pasa}%.
+                  </p>
+                )}
               </section>
 
               {/* Razones de pérdida — dónde está la fuga */}
@@ -386,55 +435,21 @@ export default function FunnelReportes({
                     ))}
                   </div>
                 )}
+                {topRazon && rz.perdidos > 0 && (
+                  <p className="mt-4 border-t border-surface-border pt-3 text-xs text-gray-500">
+                    {topRazon.count > rz.perdidos / 2 ? (
+                      <>Más de la mitad se va por <b className="text-navy">{topRazon.razon}</b>.</>
+                    ) : (
+                      <><b className="text-navy">{topRazon.razon}</b> encabeza los motivos.</>
+                    )}
+                  </p>
+                )}
               </section>
             </div>
           </div>
-
-          {/* NIVEL 3 — ¿qué hicimos distinto? (anatomía: diverging ganado vs perdido) */}
-          <div>
-            <p className="mb-2 text-xs font-medium uppercase tracking-wider text-gray-500">¿Qué llevó ganar vs perder?</p>
-            <section className="rounded-xl border border-surface-border bg-white p-5">
-              <div className="mb-4 grid grid-cols-[8rem_1fr] items-center gap-3 text-[11px] font-semibold uppercase tracking-wide">
-                <span className="text-gray-500">Promedio / deal</span>
-                <div className="flex justify-between">
-                  <span className="text-emerald-700">← Ganados ({an.ganados.count})</span>
-                  <span className="text-red-700">Perdidos ({an.perdidos.count}) →</span>
-                </div>
-              </div>
-              {an.ganados.count === 0 && an.perdidos.count === 0 ? (
-                <p className="py-6 text-center text-sm text-gray-500">Sin deals cerrados en el periodo.</p>
-              ) : (
-                <div className="space-y-2.5">
-                  {[
-                    ...TIPOS.map((t) => ({ label: t.label, g: an.ganados.por_tipo[t.key] ?? 0, p: an.perdidos.por_tipo[t.key] ?? 0 })),
-                    { label: "Días al cierre", g: an.ganados.avg_dias, p: an.perdidos.avg_dias },
-                  ].map((row) => {
-                    const max = Math.max(row.g, row.p, 1);
-                    return (
-                      <div key={row.label} className="grid grid-cols-[8rem_1fr] items-center gap-3">
-                        <span className="text-xs text-gray-600">{row.label}</span>
-                        {/* barra divergente: ganados a la izquierda, perdidos a la derecha, divisor al centro */}
-                        <div className="flex items-center">
-                          <div className="flex flex-1 items-center justify-end gap-1.5">
-                            <span className="text-xs font-medium tabular-nums text-gray-700">{row.g}</span>
-                            <div className="h-3.5 rounded-l bg-emerald-500" style={{ width: `${(row.g / max) * 100}%` }} />
-                          </div>
-                          <div className="h-6 w-px shrink-0 bg-gray-300" />
-                          <div className="flex flex-1 items-center gap-1.5">
-                            <div className="h-3.5 rounded-r bg-red-400" style={{ width: `${(row.p / max) * 100}%` }} />
-                            <span className="text-xs font-medium tabular-nums text-gray-700">{row.p}</span>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-              <p className="mt-4 border-t border-surface-border pt-3 text-xs text-gray-500">
-                Más toques y más días en los ganados = el patrón que conviene repetir.
-              </p>
-            </section>
-          </div>
+          {/* La vieja sección "¿Qué llevó ganar vs perder?" (barras divergentes) se
+              condensó en la tarjeta "Toques por deal ganado": era la única conclusión
+              que el equipo le sacaba (rediseño 2026-09-02). */}
         </>
       )}
     </div>
