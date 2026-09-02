@@ -1080,6 +1080,7 @@ export default function DealDetalleClient({
             tipo_cotizacion_id: deal.tipo?.id ?? null,
             temperatura: deal.temperatura,
             moneda: deal.moneda,
+            tipo_cambio: deal.tipo_cambio,
             valor: deal.valor,
             setup: deal.setup,
             mensualidad: deal.mensualidad,

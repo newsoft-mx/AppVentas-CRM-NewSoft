@@ -7,8 +7,8 @@ import OrdenForm from "./OrdenForm";
 import StatusBadge from "./StatusBadge";
 import Toast, { ToastData } from "@/components/ui/Toast";
 import HistorialCambios from "@/components/ordenes/HistorialCambios";
-import { formatMoneda, formatMXN, formatFecha, fechaParaInput, ESTATUS_COLORS, ESTATUS_LABELS } from "@/lib/utils";
-import type { OrdenDetalle, EstatusOrden } from "@/types/ordenes";
+import { formatMoneda, formatMXN, formatFecha, fechaParaInput } from "@/lib/utils";
+import { ESTATUS_ORDEN_META, type OrdenDetalle, type EstatusOrden } from "@/types/ordenes";
 
 interface ClienteOpcion {
   id: string;
@@ -72,7 +72,7 @@ export default function OrdenDetalleClient({
     if (nuevoEstatus === "VENTA" && fechaVenta) {
       setFechaVentaInput(fechaVenta);
     }
-    setToast({ type: "success", message: `Estatus cambiado a ${ESTATUS_LABELS[nuevoEstatus]}` });
+    setToast({ type: "success", message: `Estatus cambiado a ${ESTATUS_ORDEN_META[nuevoEstatus].label}` });
   };
 
   // ── Duplicar orden ────────────────────────────────────────────
@@ -86,16 +86,21 @@ export default function OrdenDetalleClient({
       if (!res.ok) {
         const data = await res.json();
         setToast({ type: "error", message: data.error || "Error al duplicar la orden" });
+        setIsDuplicating(false);
         return;
       }
 
       const nueva = await res.json();
       setToast({ type: "success", message: `Orden duplicada: ${nueva.folio}` });
-      // Navegar al detalle de la nueva orden después de un breve momento
+      // Navegar al detalle de la nueva orden después de un breve momento (para que se alcance
+      // a leer el folio en el toast).
+      //
+      // El botón NO se rehabilita acá: esos 800 ms son 800 ms con "Duplicar" clickeable otra
+      // vez, con la copia ya creada. Un segundo clic hacía una tercera orden. Queda en
+      // "Duplicando…" hasta que la navegación desmonte la pantalla.
       setTimeout(() => router.push(`/ventas/${nueva.id}`), 800);
     } catch {
       setToast({ type: "error", message: "Error de conexión al duplicar" });
-    } finally {
       setIsDuplicating(false);
     }
   };
@@ -447,8 +452,8 @@ export default function OrdenDetalleClient({
               {/* Estatus visual */}
               <div className="mt-5 pt-4 border-t border-surface-border">
                 <p className="text-xs text-gray-400 mb-1.5">Estatus actual</p>
-                <span className={`badge text-xs font-medium ${ESTATUS_COLORS[orden.estatus]}`}>
-                  {ESTATUS_LABELS[orden.estatus]}
+                <span className={`badge text-xs font-medium ${ESTATUS_ORDEN_META[orden.estatus].chip}`}>
+                  {ESTATUS_ORDEN_META[orden.estatus].label}
                 </span>
                 {orden.estatus === "VENTA" && orden.fecha_venta && (
                   <p className="text-xs text-gray-400 mt-1.5">

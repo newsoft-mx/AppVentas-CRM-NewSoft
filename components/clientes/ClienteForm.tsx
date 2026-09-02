@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { Save } from "lucide-react";
 import ContactosCliente from "./ContactosCliente";
+import { repartirDetalles } from "@/lib/errores-formulario";
+import { errorDeWebsite, normalizarWebsite } from "@/lib/website";
 import type { ClienteConStats, ClienteInput, CondicionResumen } from "@/types/clientes";
 import { TAMANOS_EMPRESA, TAMANO_EMPRESA_LABEL, type TamanoEmpresa } from "@/types/crm";
 
@@ -17,6 +19,24 @@ interface ClienteFormProps {
 }
 
 type FormErrors = Partial<Record<keyof ClienteInput | "general", string>>;
+
+/**
+ * Los campos que este formulario sabe pintar con su propio mensaje debajo del input.
+ * El resto de lo que valida el server (`telefono`, `tamano_empresa`, `notas`) no tiene un `<p>`
+ * propio, así que su mensaje va al banner de arriba en vez de perderse. Si se agrega un campo
+ * con su error visible, se agrega también acá.
+ */
+const CAMPOS_CON_MENSAJE = new Set([
+  "nombre",
+  "rfc",
+  "contacto",
+  "ciudad",
+  "email",
+  "website",
+  "condicion_pago_id",
+]);
+
+const ubicarCampoDeCliente = (campo: string) => (CAMPOS_CON_MENSAJE.has(campo) ? campo : null);
 
 export default function ClienteForm({
   cliente,
@@ -59,6 +79,8 @@ export default function ClienteForm({
     if (form.email?.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email))
       errs.email = "Email inválido";
     if (!form.condicion_pago_id) errs.condicion_pago_id = "Selecciona una condición";
+    const errorWeb = errorDeWebsite(form.website);
+    if (errorWeb) errs.website = errorWeb;
     return errs;
   };
 
@@ -103,15 +125,15 @@ export default function ClienteForm({
       const data = await res.json();
 
       if (!res.ok) {
-        // Error con campo específico (ej: RFC duplicado)
-        if (data.campo) {
-          setErrors({ [data.campo]: data.error });
-        } else if (data.details) {
-          const fieldErrors: FormErrors = {};
-          data.details.forEach((d: { campo: string; mensaje: string }) => {
-            fieldErrors[d.campo as keyof ClienteInput] = d.mensaje;
-          });
-          setErrors(fieldErrors);
+        // El server valida campos que este formulario no pinta con su propio mensaje
+        // (`telefono`, `tamano_empresa`, `notas`). Antes el mensaje se guardaba igual bajo esa
+        // clave, y como nadie la lee, el modal se quedaba abierto sin decir nada: un teléfono
+        // de más de 20 caracteres hacía que "Guardar" no hiciera absolutamente nada.
+        const detalles = repartirDetalles(data.details, ubicarCampoDeCliente);
+        if (detalles) setErrors(detalles);
+        // Error puntual de una sola clave (ej: RFC duplicado) — mismo criterio.
+        else if (data.campo) {
+          setErrors({ [ubicarCampoDeCliente(data.campo) ?? "general"]: data.error });
         } else {
           setErrors({ general: data.error || "Error al guardar" });
         }
@@ -179,11 +201,22 @@ export default function ClienteForm({
           <label className="label">
             Website <span className="text-gray-500 font-normal">(opcional)</span>
           </label>
+          {/* Sin `type="url"`: la validación nativa del navegador exige el protocolo y
+              rechazaba "empresa.com" — exactamente lo que sugiere este placeholder y lo que el
+              server acepta y normaliza. `inputMode="url"` deja el teclado cómodo en el
+              teléfono sin bloquear nada. */}
           <input
-            type="url"
+            type="text"
+            inputMode="url"
             className={`input ${errors.website ? "border-red-400 focus:ring-red-400" : ""}`}
             value={form.website ?? ""}
             onChange={(e) => set("website", e.target.value)}
+            onBlur={(e) => {
+              // Al salir del campo se muestra cómo va a quedar guardado. Que lo que se ve sea
+              // lo que se guarda evita la sorpresa de abrir la ficha y encontrar otra cosa.
+              const normalizado = normalizarWebsite(e.target.value);
+              if (normalizado !== (form.website || null)) set("website", normalizado ?? "");
+            }}
             placeholder="empresa.com"
           />
           {errors.website && <p className="mt-1 text-xs text-red-500">{errors.website}</p>}

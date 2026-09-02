@@ -12,6 +12,7 @@ import { EXTRACTORES_USUARIO, type CampoUsuario } from "@/lib/configuracion-orde
 import { ROLE_LABEL, type UserRole } from "@/lib/session";
 import type { Usuario } from "@/types/configuracion";
 import { TH_CONFIG } from "./estilos-tabla";
+import { mensajeDeError } from "@/lib/errores-formulario";
 
 interface TabUsuariosProps {
   initialUsuarios: Usuario[];
@@ -115,10 +116,7 @@ export default function TabUsuarios({ initialUsuarios, vendedores }: TabUsuarios
 
     const data = await res.json();
     if (!res.ok) {
-      const details = Array.isArray(data.details)
-        ? data.details.map((d: { mensaje: string }) => d.mensaje).join(". ")
-        : "";
-      throw new Error(details || data.error || "Error al guardar");
+      throw new Error(mensajeDeError(data, "Error al guardar"));
     }
     return data as Usuario;
   };

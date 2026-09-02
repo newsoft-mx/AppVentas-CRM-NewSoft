@@ -11,6 +11,7 @@ import {
 import { EXTRACTORES_TIPO, type CampoTipo } from "@/lib/configuracion-orden";
 import type { TipoCotizacion } from "@/types/configuracion";
 import { TH_CONFIG } from "./estilos-tabla";
+import { mensajeDeError } from "@/lib/errores-formulario";
 
 interface TabTiposProps {
   initialTipos: TipoCotizacion[];
@@ -154,10 +155,7 @@ export default function TabTipos({ initialTipos }: TabTiposProps) {
       const data = await res.json();
 
       if (!res.ok) {
-        const details = Array.isArray(data.details)
-          ? data.details.map((d: { campo: string; mensaje: string }) => d.mensaje).join(". ")
-          : "";
-        setFormError(details || data.error || "Error al guardar");
+        setFormError(mensajeDeError(data, "Error al guardar"));
         return;
       }
 

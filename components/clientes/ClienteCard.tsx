@@ -3,7 +3,8 @@
 import { MapPin, Mail, Phone, User, Briefcase, Pencil, PowerOff } from "lucide-react";
 import { formatMXN, formatUSD } from "@/lib/utils";
 import { getCondicionBadgeClasses, getAvatarClasses, getInitials } from "@/lib/ui-helpers";
-import { ESTATUS_CLIENTE_META, type ClienteConStats } from "@/types/clientes";
+import type { ClienteConStats } from "@/types/clientes";
+import { ESTATUS_CLIENTE_META } from "@/types/crm";
 
 interface ClienteCardProps {
   cliente: ClienteConStats;

@@ -9,8 +9,7 @@ import {
 import Modal from "@/components/ui/Modal";
 import SearchableSelect from "@/components/ui/SearchableSelect";
 import Toast, { ToastData } from "@/components/ui/Toast";
-import { ESTATUS_CLIENTE_META } from "@/types/clientes";
-import { ROL_CONTACTO_LABEL, ROLES_CONTACTO, type EstatusCliente, type RolContacto } from "@/types/crm";
+import { ESTATUS_CLIENTE_META, ROL_CONTACTO_LABEL, ROLES_CONTACTO, type EstatusCliente, type RolContacto } from "@/types/crm";
 import { TIPO_ACTIVIDAD_META } from "@/lib/actividad-tipos";
 import ThOrdenable from "@/components/ui/ThOrdenable";
 import {

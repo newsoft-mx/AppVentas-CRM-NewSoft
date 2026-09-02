@@ -77,8 +77,28 @@ export default function ContactosCliente({ clienteId, canWrite, onPrincipalChang
   }
 
   const inputCls = "w-full rounded border border-surface-border px-2 py-1 text-xs";
-  const formFields = (
-    <div className="flex flex-col gap-1.5">
+
+  /**
+   * Qué hace Enter mientras se carga un contacto.
+   *
+   * Este mini-formulario vive DENTRO del `<form>` del cliente (`ClienteForm` lo renderiza en
+   * modo edición), así que Enter en cualquiera de estos campos disparaba el envío implícito
+   * del formulario de arriba: se guardaba el CLIENTE, el modal se cerraba, y el contacto a
+   * medio escribir se perdía sin ningún aviso. Verificado: la tecla dispara
+   * `PUT /api/clientes/:id`, no el POST del contacto.
+   *
+   * Ahora Enter guarda el contacto —lo que el usuario está haciendo— y corta el evento para
+   * que el formulario de afuera ni se entere. Mismo contrato que el buscador de clientes.
+   */
+  const enterGuardaElContacto = (contactoId: string | null) => (e: React.KeyboardEvent) => {
+    if (e.key !== "Enter") return;
+    e.preventDefault();
+    e.stopPropagation();
+    if (!busy) guardar(contactoId);
+  };
+
+  const formFields = (contactoId: string | null) => (
+    <div className="flex flex-col gap-1.5" onKeyDown={enterGuardaElContacto(contactoId)}>
       <input className={inputCls} placeholder="Nombre *" value={form.nombre} onChange={(e) => setForm({ ...form, nombre: e.target.value })} />
       <div className="grid grid-cols-2 gap-1.5">
         <input className={inputCls} placeholder="Cargo" value={form.cargo} onChange={(e) => setForm({ ...form, cargo: e.target.value })} />
@@ -107,7 +127,7 @@ export default function ContactosCliente({ clienteId, canWrite, onPrincipalChang
         {contactos.map((c) =>
           editId === c.id ? (
             <div key={c.id} className="rounded border border-surface-border bg-white p-2">
-              {formFields}
+              {formFields(c.id)}
               <div className="mt-1.5 flex gap-1.5">
                 <button type="button" disabled={busy} onClick={() => guardar(c.id)} className="flex items-center gap-1 rounded bg-navy px-2 py-1 text-[11px] font-semibold text-white disabled:opacity-50"><Check size={11} /> Guardar</button>
                 <button type="button" onClick={() => setEditId(null)} className="flex items-center gap-1 rounded border border-surface-border px-2 py-1 text-[11px]"><X size={11} /> Cancelar</button>
@@ -144,7 +164,7 @@ export default function ContactosCliente({ clienteId, canWrite, onPrincipalChang
 
       {agregando && (
         <div className="mt-2 rounded border border-surface-border bg-white p-2">
-          {formFields}
+          {formFields(null)}
           <div className="mt-1.5 flex gap-1.5">
             <button type="button" disabled={busy} onClick={() => guardar(null)} className="flex items-center gap-1 rounded bg-navy px-2 py-1 text-[11px] font-semibold text-white disabled:opacity-50"><Check size={11} /> Agregar</button>
             <button type="button" onClick={() => setAgregando(false)} className="flex items-center gap-1 rounded border border-surface-border px-2 py-1 text-[11px]"><X size={11} /> Cancelar</button>

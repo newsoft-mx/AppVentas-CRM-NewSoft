@@ -5,7 +5,7 @@ import type { VentasMensualesData, MesVenta } from "@/types/reportes";
 import { requireAuth, type SessionPayload } from "@/lib/session";
 import { scopeOrdenWhere } from "@/lib/access-control";
 import { netAmountMxn } from "@/lib/net-amounts";
-import { buildDateOrFilters, getAllParam, parseNumberList, selectedMonths } from "@/lib/filter-utils";
+import { getAllParam, parseNumberList, selectedMonths, wherePeriodoOrden } from "@/lib/filter-utils";
 
 const MESES = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
 
@@ -13,7 +13,7 @@ async function getVentasPorMes(filtros: { ano: number[]; q: number[]; mes: numbe
   const ordenes = await prisma.ordenVenta.findMany({
     where: scopeOrdenWhere(session, {
       estatus: "VENTA",
-      OR: buildDateOrFilters(filtros).map((range) => ({ fecha_venta: range })),
+      OR: wherePeriodoOrden(filtros, "venta_cerrada"),
     }),
     select: { fecha_venta: true, moneda: true, tipo_cambio: true, subtotal_con_descuento: true },
   });
