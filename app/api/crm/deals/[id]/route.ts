@@ -78,6 +78,9 @@ export async function PATCH(
     }
   }
   if (b.moneda !== undefined) data.moneda = b.moneda === "USD" ? "USD" : "MXN";
+  // Tipo de cambio USD→MXN: opcional y nullable. Vacío = el deal no se puede expresar en
+  // pesos y queda declarado fuera del total del pipeline, en vez de sumarse uno a uno.
+  num("tipo_cambio", true);
   // Canal/Origen → FK al catálogo (CatalogoDeal). Vacío → null.
   if (b.canal_id !== undefined) data.canal_id = typeof b.canal_id === "string" && b.canal_id ? b.canal_id : null;
   if (b.origen_id !== undefined) data.origen_id = typeof b.origen_id === "string" && b.origen_id ? b.origen_id : null;
