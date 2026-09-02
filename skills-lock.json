@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "skills": {
+    "don-norman-principles-audit": {
+      "source": "mastepanoski/claude-skills",
+      "sourceType": "github",
+      "skillPath": "skills/don-norman-principles-audit/SKILL.md",
+      "computedHash": "5ad79f9dd9f491019c12b9cc2848954eb02740a61ddb94d592504f90822724a4"
+    }
+  }
+}
