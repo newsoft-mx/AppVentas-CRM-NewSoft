@@ -89,6 +89,25 @@ body {
            disabled:opacity-50 disabled:cursor-not-allowed;
   }
 
+  /* Variante chica — se combina: `btn-primary btn-sm`.
+     Va DESPUÉS de las cuatro variantes a propósito: misma especificidad, así que gana la
+     que se define última y pisa el `px-4 py-2 text-sm`.
+
+     Las medidas no son inventadas: salen de los botones chicos que ya existían escritos a
+     mano (px-2/px-2.5, py-1, 11px, ~26-30px de alto). Lo único que se corre es el tamaño de
+     letra, de 11px a 12px, para volver a la escala de Tailwind: un `text-[11px]` suelto
+     dentro de un kit compartido es exactamente la clase de excepción que el kit viene a
+     eliminar.
+
+     El peso NO cambia entre variantes. La app tenía siete combinaciones de tamaño × peso
+     entre veinte botones (text-sm semibold, text-sm medium, text-xs medium, text-xs sin
+     peso, 11px semibold…). El kit ya dice `font-medium` y lo usan 48 botones; los sueltos
+     en `font-semibold` son 5. Se alinea la minoría a la mayoría — mover el kit habría
+     cambiado 48 botones para acomodar 5. */
+  .btn-sm {
+    @apply gap-1.5 px-2.5 py-1 rounded-md text-xs;
+  }
+
   /* Campo de input */
   .input {
     @apply block w-full rounded-lg border border-surface-border bg-white

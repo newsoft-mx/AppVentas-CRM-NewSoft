@@ -189,10 +189,10 @@ export default function NuevoDealModal({
       size="lg"
       footer={
         <div className="flex justify-end gap-2">
-          <button onClick={onClose} className="rounded-lg border border-surface-border px-4 py-2 text-sm font-semibold text-gray-600 hover:bg-surface">
+          <button onClick={onClose} className="btn-secondary">
             Cancelar
           </button>
-          <button onClick={guardar} disabled={guardando} className="rounded-lg bg-orange px-4 py-2 text-sm font-semibold text-white hover:bg-orange/90 disabled:opacity-50">
+          <button onClick={guardar} disabled={guardando} className="btn-accent">
             {guardando ? (editando ? "Guardando…" : "Creando…") : editando ? "Guardar cambios" : "Crear deal"}
           </button>
         </div>
