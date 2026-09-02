@@ -11,7 +11,6 @@ import {
 } from "@/lib/rangos-reporte";
 import { hoyEnTZ } from "@/lib/tz";
 import { textoSobre } from "@/lib/contraste";
-import { ESTADO_DEAL_META } from "@/types/crm";
 
 interface Vendedor {
   id: string;
@@ -283,53 +282,22 @@ export default function FunnelReportes({
         <p className="py-16 text-center text-sm text-gray-500">Cargando reportes…</p>
       ) : (
         <>
-          {/* TITULAR — qué entró en el período (rediseño 2026-09-02, "la pantalla habla
-              sola"), con el desglose por estado como RECUADROS indicadores, no prosa:
-              la frase corrida no se escaneaba. La suma de los recuadros = el total. */}
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-3">
-            {/* La fecha NO se repite acá: vive una sola vez en el subtítulo, pegada a los
-                botones que la controlan (mapping). "En el período" apunta a ese control. */}
-            <div
-              className="flex items-baseline gap-2"
-              title="Deals cuya fecha de ingreso al pipeline cae dentro del período seleccionado arriba"
-            >
-              <span className="text-xl text-gray-600">Entraron</span>
-              <span className="text-3xl font-bold tracking-tight text-navy">{f.total}</span>
-              <span className="text-xl text-gray-600">leads en el período</span>
-              {dTotal !== null && dTotal !== 0 && (
-                <span className={`inline-flex items-center gap-0.5 text-sm font-semibold ${dTotal > 0 ? "text-emerald-700" : "text-red-700"}`}>
-                  {dTotal > 0 ? <ArrowUp size={13} /> : <ArrowDown size={13} />}
-                  {Math.abs(dTotal)} vs {vsAnterior}
-                </span>
-              )}
-            </div>
-            {f.total > 0 && (
-              <div className="flex flex-wrap items-center gap-2">
-                {/* Conector explícito: los recuadros son ESOS MISMOS leads, clasificados
-                    por el estado en que están hoy (modelo de cohorte, dicho en palabras). */}
-                <span className="text-sm text-gray-500">De esos, hoy están así:</span>
-                {(
-                  [
-                    ["ABIERTO", f.desglose.activos, "activos"],
-                    ["GANADO", f.desglose.ganados, "ganados"],
-                    ["PERDIDO", f.desglose.perdidos, "perdidos"],
-                    ["SUSPENDIDO", f.desglose.pausados, "pausados"],
-                  ] as const
-                ).map(([est, n, label]) => {
-                  const meta = ESTADO_DEAL_META[est];
-                  return (
-                    <span
-                      key={est}
-                      className="inline-flex items-baseline gap-1.5 rounded-lg border px-3 py-1.5"
-                      style={{ borderColor: `${meta.color}55`, background: `${meta.color}0D` }}
-                      title={`De los ${f.total} leads que ingresaron en el período, ${n} ${n === 1 ? "está" : "están"} hoy en estado ${meta.label}`}
-                    >
-                      <span className="text-lg font-bold tracking-tight" style={{ color: meta.color }}>{n}</span>
-                      <span className="text-xs font-medium text-gray-600">{label}</span>
-                    </span>
-                  );
-                })}
-              </div>
+          {/* TITULAR — una sola idea, un solo corte (rediseño 2026-09-02): cuántos leads
+              ingresaron en el período y cómo viene contra el período anterior. El desglose
+              por estado (cohorte) vive SOLO en el encabezado del embudo, que es donde ese
+              corte tiene sentido; acá competía con las tarjetas, que cuentan otra cosa. */}
+          <div
+            className="flex items-baseline gap-2"
+            title="Deals cuya fecha de ingreso al pipeline cae dentro del período seleccionado arriba"
+          >
+            <span className="text-xl text-gray-600">Entraron</span>
+            <span className="text-3xl font-bold tracking-tight text-navy">{f.total}</span>
+            <span className="text-xl text-gray-600">leads en el período</span>
+            {dTotal !== null && dTotal !== 0 && (
+              <span className={`inline-flex items-center gap-0.5 text-sm font-semibold ${dTotal > 0 ? "text-emerald-700" : "text-red-700"}`}>
+                {dTotal > 0 ? <ArrowUp size={13} /> : <ArrowDown size={13} />}
+                {Math.abs(dTotal)} vs {vsAnterior}
+              </span>
             )}
           </div>
 
