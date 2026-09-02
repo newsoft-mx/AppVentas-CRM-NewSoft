@@ -424,7 +424,7 @@ export default function TablaOrdenes({
                       return (
                         <tr key={orden.id} className="transition-colors hover:bg-gray-50/50">
                           <td className="px-5 py-3">
-                            <span className="rounded bg-navy/5 px-2 py-0.5 font-mono text-xs font-semibold text-navy">
+                            <span className="rounded bg-navy/5 px-2 py-0.5 font-mono font-semibold text-navy">
                               {orden.folio}
                             </span>
                           </td>
@@ -443,10 +443,10 @@ export default function TablaOrdenes({
                               onError={onError}
                             />
                           </td>
-                          <td className="px-3 py-3 text-xs text-gray-500">{orden.tipo_cotizacion.nombre}</td>
-                          <td className="px-3 py-3 text-xs text-gray-500">{orden.condicion_pago.nombre}</td>
+                          <td className="px-3 py-3 text-gray-500">{orden.tipo_cotizacion.nombre}</td>
+                          <td className="px-3 py-3 text-gray-500">{orden.condicion_pago.nombre}</td>
                           <td className="px-3 py-3 text-right">
-                            <span className="text-xs font-medium text-gray-800">
+                            <span className="font-medium text-gray-800">
                               {formatMoneda(netAmount(orden), orden.moneda)}{" "}
                               <span className="font-normal text-gray-400">{orden.moneda}</span>
                             </span>
@@ -466,7 +466,7 @@ export default function TablaOrdenes({
                               onChanged={(nuevoEstatus, fechaVenta) => onEstatusChanged(orden.id, nuevoEstatus, fechaVenta)}
                             />
                           </td>
-                          <td className="whitespace-nowrap px-3 py-3 text-xs text-gray-500">
+                          <td className="whitespace-nowrap px-3 py-3 text-gray-500">
                             {formatFecha(orden.fecha_venta ?? orden.created_at)}
                           </td>
                           <td className="px-5 py-3">
