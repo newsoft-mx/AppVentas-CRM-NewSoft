@@ -6,6 +6,7 @@
 import Decimal from "decimal.js";
 import { TZ_NEGOCIO } from "@/lib/tz";
 import type { DealResultado } from "@/types/crm";
+import type { EstatusOrden } from "@/types/ordenes";
 
 // ── Configuración de Decimal.js ──────────────────────────────
 Decimal.set({ precision: 20, rounding: Decimal.ROUND_HALF_UP });
@@ -226,22 +227,17 @@ export function fechaParaInput(fecha: Date | string | null | undefined): string 
   return d.toISOString().split("T")[0];
 }
 
-// ── Labels de estatus ────────────────────────────────────────
+// ── Máquina de estados de la orden ───────────────────────────
+//
+// La etiqueta y el color de cada estatus salen de `ESTATUS_ORDEN_META` (types/ordenes.ts).
+// Acá vivía una segunda copia escrita a mano.
 
-export const ESTATUS_LABELS: Record<string, string> = {
-  BORRADOR: "Borrador",
-  COTIZADO: "Cotizado",
-  VENTA: "Venta",
-};
-
-export const ESTATUS_COLORS: Record<string, string> = {
-  BORRADOR: "bg-gray-100 text-gray-700",
-  COTIZADO: "bg-blue-100 text-blue-700",
-  VENTA: "bg-green-100 text-green-700",
-};
-
-// Transiciones de estatus permitidas según el documento funcional
-export const TRANSICIONES_PERMITIDAS: Record<string, string[]> = {
+// Transiciones permitidas según el documento funcional.
+// Tipado contra `EstatusOrden`: si mañana se agrega un estatus al SSOT, este mapa deja de
+// compilar hasta que alguien decida desde y hacia dónde se puede mover. Antes era
+// `Record<string, string[]>` y un estatus nuevo simplemente quedaba sin transiciones, en
+// silencio: la pastilla dejaba de ofrecer opciones y nadie se enteraba.
+export const TRANSICIONES_PERMITIDAS: Record<EstatusOrden, EstatusOrden[]> = {
   BORRADOR: ["COTIZADO", "VENTA"],
   COTIZADO: ["VENTA", "BORRADOR"],
   VENTA: ["COTIZADO"],
@@ -251,7 +247,8 @@ export const TRANSICIONES_PERMITIDAS: Record<string, string[]> = {
 // La usan tanto PATCH /ordenes/:id/estatus como el PUT general, para que ninguna
 // ruta pueda evitar la máquina. Un no-op (desde === hacia) es válido.
 export function transicionOrdenPermitida(desde: string, hacia: string): boolean {
-  return desde === hacia || (TRANSICIONES_PERMITIDAS[desde] ?? []).includes(hacia);
+  const salidas: string[] = TRANSICIONES_PERMITIDAS[desde as EstatusOrden] ?? [];
+  return desde === hacia || salidas.includes(hacia);
 }
 
 /**

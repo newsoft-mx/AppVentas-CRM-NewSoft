@@ -3,8 +3,8 @@
 import { useState, useRef, useEffect, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
 import { ChevronDown, Loader2 } from "lucide-react";
-import { ESTATUS_LABELS, ESTATUS_COLORS, TRANSICIONES_PERMITIDAS } from "@/lib/utils";
-import type { EstatusOrden } from "@/types/ordenes";
+import { TRANSICIONES_PERMITIDAS } from "@/lib/utils";
+import { ESTATUS_ORDEN_META, type EstatusOrden } from "@/types/ordenes";
 
 interface StatusBadgeProps {
   ordenId: string;
@@ -99,9 +99,9 @@ export default function StatusBadge({ ordenId, estatus, onChanged, readOnly = fa
 
   if (isLoading) {
     return (
-      <span className={`badge text-xs font-medium flex items-center gap-1 ${ESTATUS_COLORS[estatus]}`}>
+      <span className={`badge text-xs font-medium flex items-center gap-1 ${ESTATUS_ORDEN_META[estatus].chip}`}>
         <Loader2 size={11} className="animate-spin" />
-        {ESTATUS_LABELS[estatus]}
+        {ESTATUS_ORDEN_META[estatus].label}
       </span>
     );
   }
@@ -113,10 +113,10 @@ export default function StatusBadge({ ordenId, estatus, onChanged, readOnly = fa
         type="button"
         onClick={() => transiciones.length > 0 && setIsOpen((o) => !o)}
         className={`badge text-xs font-medium flex items-center gap-1 transition-opacity
-          ${ESTATUS_COLORS[estatus]}
+          ${ESTATUS_ORDEN_META[estatus].chip}
           ${transiciones.length > 0 ? "cursor-pointer hover:opacity-80" : "cursor-default"}`}
       >
-        {ESTATUS_LABELS[estatus]}
+        {ESTATUS_ORDEN_META[estatus].label}
         {transiciones.length > 0 && (
           <ChevronDown size={11} className={`transition-transform ${isOpen ? "rotate-180" : ""}`} />
         )}
@@ -138,8 +138,8 @@ export default function StatusBadge({ ordenId, estatus, onChanged, readOnly = fa
                 onClick={() => handleOptionClick(sig as EstatusOrden)}
                 className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs hover:bg-gray-50"
               >
-                <span className={`badge text-xs font-medium ${ESTATUS_COLORS[sig]}`}>
-                  {ESTATUS_LABELS[sig]}
+                <span className={`badge text-xs font-medium ${ESTATUS_ORDEN_META[sig].chip}`}>
+                  {ESTATUS_ORDEN_META[sig].label}
                 </span>
               </button>
             ))}

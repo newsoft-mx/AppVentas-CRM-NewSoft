@@ -5,7 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/session";
 import { scopeOrdenWhere } from "@/lib/access-control";
 import { netAmountMxn } from "@/lib/net-amounts";
-import { buildDateOrFilters, getAllParam, parseNumberList } from "@/lib/filter-utils";
+import { getAllParam, parseNumberList, wherePeriodoOrden } from "@/lib/filter-utils";
 import type { VentasTipoItem } from "@/types/reportes";
 
 export async function GET(req: NextRequest) {
@@ -21,7 +21,7 @@ export async function GET(req: NextRequest) {
     const ordenes = await prisma.ordenVenta.findMany({
       where: scopeOrdenWhere(session, {
         estatus: "VENTA",
-        OR: buildDateOrFilters({ ano, q, mes }).map((range) => ({ fecha_venta: range })),
+        OR: wherePeriodoOrden({ ano, q, mes }, "venta_cerrada"),
       }),
       select: {
         moneda: true,
