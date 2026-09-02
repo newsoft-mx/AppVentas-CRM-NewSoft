@@ -1,5 +1,5 @@
 import type { OrdenResumen } from "@/types/ordenes";
-import { ESTATUS_LABELS } from "@/lib/utils";
+import { ESTATUS_ORDEN_META } from "@/types/ordenes";
 import { netAmount, netAmountMxn } from "@/lib/net-amounts";
 import { fechaFiltroOrden } from "@/lib/filter-utils";
 
@@ -49,7 +49,7 @@ export function filaDeOrden(o: OrdenResumen): string[] {
     o.tipo_cotizacion.nombre,
     o.condicion_pago.nombre,
     o.vendedor?.nombre ?? "",
-    ESTATUS_LABELS[o.estatus],
+    ESTATUS_ORDEN_META[o.estatus].label,
     o.moneda,
     o.tipo_cambio != null ? String(o.tipo_cambio) : "",
     String(netAmount(o)),
