@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { canWrite, requireAuth } from "@/lib/session";
-import { scopeDealWhere } from "@/lib/access-control";
+import { scopeClienteWhere, scopeDealWhere } from "@/lib/access-control";
 import { logger } from "@/lib/logger";
 import { TAMANOS_EMPRESA, type TamanoEmpresa } from "@/types/crm";
 import { clasificarBorrado, fechaIngresoAInstante, puedeBorrarDeals, puedeForzarDestruccion } from "@/lib/deals";
@@ -78,6 +78,9 @@ export async function PATCH(
     }
   }
   if (b.moneda !== undefined) data.moneda = b.moneda === "USD" ? "USD" : "MXN";
+  // Tipo de cambio USD→MXN: opcional y nullable. Vacío = el deal no se puede expresar en
+  // pesos y queda declarado fuera del total del pipeline, en vez de sumarse uno a uno.
+  num("tipo_cambio", true);
   // Canal/Origen → FK al catálogo (CatalogoDeal). Vacío → null.
   if (b.canal_id !== undefined) data.canal_id = typeof b.canal_id === "string" && b.canal_id ? b.canal_id : null;
   if (b.origen_id !== undefined) data.origen_id = typeof b.origen_id === "string" && b.origen_id ? b.origen_id : null;
@@ -151,6 +154,26 @@ export async function PATCH(
       }
     }
 
+    // El cliente destino se resuelve CON EL SCOPE, igual que el deal unas líneas más arriba.
+    //
+    // Sin esto, `cliente_id` llegaba del body sin ninguna comprobación de alcance y se usaba
+    // para dos cosas: apuntar el deal a ese cliente y —peor— hacerle `cliente.update` encima.
+    // Un VENDEDOR con el UUID de un cliente ajeno podía escribirle los datos de empresa; y al
+    // quedar su propio deal colgando de ese cliente, `scopeClienteWhere` (que da acceso al
+    // cliente donde tenés ALGÚN deal) empezaba a incluirlo: se ampliaba su propia lectura.
+    // Escalada de alcance, no solo escritura indebida.
+    let clienteDestino = deal.cliente_id;
+    if (typeof data.cliente_id === "string") {
+      const permitido = await prisma.cliente.findFirst({
+        where: scopeClienteWhere(session, { id: data.cliente_id, activo: true }),
+        select: { id: true },
+      });
+      if (!permitido) {
+        return NextResponse.json({ error: "cliente_id inválido", campo: "cliente_id" }, { status: 422 });
+      }
+      clienteDestino = permitido.id;
+    }
+
     // Bloque E: si esta edición mueve el deal de etapa, hay que registrar el
     // DealStageEvent igual que /stage. El funnel reconstruye la etapa alcanzada
     // desde ese historial; un cambio de stage_id sin evento lo hace divergir del
@@ -159,7 +182,7 @@ export async function PATCH(
     // se aplican al cliente vinculado (nuevo si cambió, o el actual) en la misma tx.
     const cambiaStage = typeof data.stage_id === "string" && data.stage_id !== deal.stage_id;
     if (cambiaStage) data.fecha_entrada_stage = new Date();
-    const targetClienteId = (data.cliente_id as string) || deal.cliente_id;
+    const targetClienteId = clienteDestino;
 
     const ops: Prisma.PrismaPromise<unknown>[] = [];
     if (hayDeal) ops.push(prisma.deal.update({ where: { id }, data: data as Prisma.DealUpdateInput }));

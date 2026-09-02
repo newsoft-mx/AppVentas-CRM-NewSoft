@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { serializeOrden } from "@/lib/serializers";
 import { EstatusUpdateSchema } from "@/lib/validations/ordenes";
-import { transicionOrdenPermitida, TRANSICIONES_PERMITIDAS } from "@/lib/utils";
+import { transicionOrdenPermitida, TRANSICIONES_PERMITIDAS, ventaSinFecha, MSG_VENTA_SIN_FECHA } from "@/lib/utils";
 import { canWrite, requireAuth } from "@/lib/session";
 import { canMutateOrden } from "@/lib/access-control";
 
@@ -59,12 +59,11 @@ export async function PATCH(
       );
     }
 
-    // Si se marca como VENTA, requerir fecha_venta
-    if (nuevoEstatus === "VENTA" && !fecha_venta) {
-      return NextResponse.json(
-        { error: "Se requiere la fecha de venta al confirmar como VENTA", campo: "fecha_venta" },
-        { status: 422 }
-      );
+    // Invariante compartido (lib/utils): una VENTA siempre tiene fecha. Acá la fecha final es
+    // la que llega en el body — si ya tenía una y no la mandan, esta ruta no la conserva:
+    // el update de abajo solo escribe fecha_venta cuando viene, así que pedirla es correcto.
+    if (ventaSinFecha(nuevoEstatus, fecha_venta)) {
+      return NextResponse.json({ error: MSG_VENTA_SIN_FECHA, campo: "fecha_venta" }, { status: 422 });
     }
 
     const actualizada = await prisma.ordenVenta.update({

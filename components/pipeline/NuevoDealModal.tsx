@@ -21,6 +21,7 @@ export interface DealEditInitial {
   temperatura: Temperatura;
   valor: number;
   moneda: string;
+  tipo_cambio: number | null;
   setup: number | null;
   mensualidad: number | null;
   meses: number | null;
@@ -63,6 +64,7 @@ export default function NuevoDealModal({
     tipo_cotizacion_id: deal?.tipo_cotizacion_id ?? "",
     temperatura: deal?.temperatura ?? ("TIBIO" as Temperatura),
     moneda: deal?.moneda ?? "MXN",
+    tipo_cambio: deal?.tipo_cambio != null ? String(deal.tipo_cambio) : "",
     valor: deal?.valor != null ? String(deal.valor) : "",
     setup: deal?.setup != null ? String(deal.setup) : "",
     mensualidad: deal?.mensualidad != null ? String(deal.mensualidad) : "",
@@ -107,6 +109,7 @@ export default function NuevoDealModal({
             tipo_cotizacion_id: form.tipo_cotizacion_id || null,
             temperatura: form.temperatura,
             moneda: form.moneda,
+            tipo_cambio: form.tipo_cambio,
             valor: form.valor,
             setup: form.setup,
             mensualidad: form.mensualidad,
@@ -270,6 +273,23 @@ export default function NuevoDealModal({
             <option value="USD">USD</option>
           </select>
         </Campo>
+        {/* El tipo de cambio solo aparece cuando hace falta: en MXN no significa nada. Sin él,
+            un deal en dólares queda fuera del total del pipeline —declarado, no inventado— así
+            que el texto de ayuda dice qué pasa si se deja vacío, en vez de solo pedirlo. */}
+        {form.moneda === "USD" && (
+          <Campo label="Tipo de cambio (USD → MXN)">
+            <input
+              className={inputCls}
+              inputMode="decimal"
+              value={form.tipo_cambio}
+              onChange={(e) => set("tipo_cambio", e.target.value)}
+              placeholder="Ej. 17.50"
+            />
+            <p className="mt-1 text-[11px] text-gray-500">
+              Sin este dato, el deal no suma al valor del pipeline (se cuenta aparte).
+            </p>
+          </Campo>
+        )}
         <Campo label={`Valor total (${form.moneda})`}>
           <input type="number" min={0} className={inputCls} value={form.valor} onChange={(e) => set("valor", e.target.value)} placeholder="0" />
         </Campo>

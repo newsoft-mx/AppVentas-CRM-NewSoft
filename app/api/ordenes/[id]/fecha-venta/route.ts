@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { ventaSinFecha, MSG_VENTA_SIN_FECHA } from "@/lib/utils";
 import { serializeOrden } from "@/lib/serializers";
 import { z } from "zod";
 import { canWrite, requireAuth } from "@/lib/session";
@@ -47,7 +48,10 @@ export async function PATCH(
   try {
     const orden = await prisma.ordenVenta.findUnique({
       where: { id },
-      select: { id: true, vendedor_id: true },
+      // `estatus` entra al select para poder aplicar el invariante: sin él, esta ruta no sabía
+      // sobre qué tipo de orden estaba escribiendo y dejaba una VENTA sin fecha — que se cae
+      // de los tres reportes de ingreso mientras sigue contando en los KPIs por estatus.
+      select: { id: true, vendedor_id: true, estatus: true },
     });
 
     if (!orden) {
@@ -55,6 +59,9 @@ export async function PATCH(
     }
     if (!canMutateOrden(session, orden)) {
       return NextResponse.json({ error: "Sin permisos" }, { status: 403 });
+    }
+    if (ventaSinFecha(orden.estatus, fecha_venta)) {
+      return NextResponse.json({ error: MSG_VENTA_SIN_FECHA, campo: "fecha_venta" }, { status: 422 });
     }
 
     const actualizada = await prisma.ordenVenta.update({
