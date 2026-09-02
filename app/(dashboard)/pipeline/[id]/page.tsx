@@ -115,6 +115,7 @@ export default async function DealDetallePage({
     id: deal.id,
     nombre: deal.nombre,
     moneda: deal.moneda,
+    tipo_cambio: deal.tipo_cambio ? Number(deal.tipo_cambio) : null,
     valor: Number(deal.valor),
     setup: deal.setup != null ? Number(deal.setup) : null,
     mensualidad: deal.mensualidad != null ? Number(deal.mensualidad) : null,

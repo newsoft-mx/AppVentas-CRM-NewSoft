@@ -5,7 +5,7 @@ import { requireAuth } from "@/lib/session";
 import { scopeOrdenWhere } from "@/lib/access-control";
 import { netAmountMxn } from "@/lib/net-amounts";
 import type { VentasVendedorItem } from "@/types/reportes";
-import { buildDateOrFilters, getAllParam, parseNumberList } from "@/lib/filter-utils";
+import { getAllParam, parseNumberList, wherePeriodoOrden } from "@/lib/filter-utils";
 
 export async function GET(req: NextRequest) {
   const session = await requireAuth(req);
@@ -18,7 +18,7 @@ export async function GET(req: NextRequest) {
 
   const where = scopeOrdenWhere(session, {
     estatus: "VENTA" as const,
-    OR: buildDateOrFilters({ ano, q, mes }).map((range) => ({ fecha_venta: range })),
+    OR: wherePeriodoOrden({ ano, q, mes }, "venta_cerrada"),
   });
 
   try {

@@ -296,6 +296,17 @@ export default function PipelineKanban({
         <div className="flex items-baseline gap-1.5">
           <span className="text-xl font-bold tracking-tight text-green-600">{formatCompacto(kpis.valor_pipeline)}</span>
           <span className="text-[11px] font-medium text-gray-400">MXN en pipeline</span>
+          {/* Un total incompleto y ANUNCIADO es honesto; uno que miente por omisión no. Es el
+              mismo patrón del pie de la tabla de ventas (TablaOrdenes), que ya declara cuántas
+              órdenes en USD sin tipo de cambio quedan fuera de su suma. */}
+          {kpis.sin_tipo_cambio > 0 && (
+            <span
+              className="text-[11px] font-medium text-orange-700"
+              title="Un deal en dólares sin tipo de cambio no se puede expresar en pesos, así que queda fuera del total en vez de sumarse uno a uno."
+            >
+              · {kpis.sin_tipo_cambio} en USD sin tipo de cambio, fuera del total
+            </span>
+          )}
         </div>
         <MiniKpi value={String(kpis.deals_activos)} label="activos" />
         <MiniKpi value={String(kpis.calientes)} label="calientes" icon={<Flame size={11} className="text-orange" />} />
