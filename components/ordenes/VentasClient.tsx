@@ -353,7 +353,7 @@ export default function VentasClient({
         onDuplicated={handleDuplicated}
         onDescripcionChanged={handleDescripcionChanged}
         onError={(mensaje) => setToast({ type: "error", message: mensaje })}
-        hayFiltros={hayFiltrosDeOrdenes(filtros) && ordenes.length > 0}
+        hayFiltros={hayFiltrosDeOrdenes(filtros)}
         onLimpiarFiltros={() => setFiltros(limpiarFiltrosDeOrdenes(filtros))}
       />
 
