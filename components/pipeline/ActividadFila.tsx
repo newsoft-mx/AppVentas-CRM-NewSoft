@@ -7,6 +7,7 @@
 // su meta trae deal/monto/vendedor); en la bitácora ya estás dentro de uno (por eso trae
 // autor/desenlace). Eso viaja por props; el layout vive acá una sola vez.
 import type { ReactNode } from "react";
+import { oscurecerHasta } from "@/lib/contraste";
 
 interface Props {
   /** Check si es tarea; espaciador si es un registro (mantiene la alineación). */
@@ -63,7 +64,14 @@ export function ControlVacio() {
  */
 export function TipoMovimiento({ nombre, color }: { nombre: string; color: string }) {
   return (
-    <span className="flex shrink-0 items-center gap-1.5 font-semibold" style={{ color }}>
+    // El color lo elige un administrador en Configuración, así que no se garantiza desde acá:
+    // el verde del catálogo (#1D9E75) da 3.39:1 como texto sobre blanco. El PUNTO se queda con
+    // el color tal cual —es señal gráfica, le alcanza 3:1— y el NOMBRE se oscurece lo justo.
+    // Mismo criterio que el chip de temperatura del tablero.
+    <span
+      className="flex shrink-0 items-center gap-1.5 font-semibold"
+      style={{ color: oscurecerHasta(color, "#FFFFFF") }}
+    >
       <span className="h-1.5 w-1.5 rounded-full" style={{ background: color }} />
       {nombre}
     </span>

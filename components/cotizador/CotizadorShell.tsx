@@ -77,14 +77,14 @@ export function CotizadorHeader({
 }) {
   return (
     <div className="flex items-start gap-3">
-      {icono && <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-orange text-white">{icono}</div>}
+      {icono && <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-orange text-navy">{icono}</div>}
       <div className="flex-1">
-        <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-orange">{eyebrow}</p>
+        <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-orange-700">{eyebrow}</p>
         <h1 className="text-2xl font-bold text-navy">{titulo}</h1>
         {descripcion && <p className="mt-0.5 text-sm text-gray-500">{descripcion}</p>}
       </div>
       {dealNombre && (
-        <span className="flex shrink-0 items-center gap-1 rounded-full bg-orange/10 px-2.5 py-1 text-[11px] font-semibold text-orange">
+        <span className="flex shrink-0 items-center gap-1 rounded-full bg-orange/10 px-2.5 py-1 text-[11px] font-semibold text-orange-700">
           <Link2 size={12} /> {dealNombre}
         </span>
       )}
@@ -126,7 +126,7 @@ export function CotizadorToolbar({ casos, acciones, onNuevo }: {
         <div className="flex flex-wrap gap-1.5">
           {casos.casos.map((c) => (
             <span key={c.id} className="flex items-center gap-1.5 rounded-full border border-surface-border bg-white px-2.5 py-1 text-[11px] text-gray-600">
-              <button onClick={() => casos.cargar(c.id)} className="font-medium text-navy hover:text-orange">{c.nombre}</button>
+              <button onClick={() => casos.cargar(c.id)} className="font-medium text-navy hover:text-orange-700">{c.nombre}</button>
               <button onClick={() => casos.borrar(c.id, c.nombre)} title="Eliminar" className="text-gray-500 hover:text-red-500"><Trash2 size={11} /></button>
             </span>
           ))}

@@ -245,7 +245,7 @@ export default function ContactosClient({ initialContactos, organizaciones, canW
                 <td className="px-3 py-2.5" onClick={(e) => e.stopPropagation()}>
                   {c.email ? (
                     <div className="flex items-center gap-1.5">
-                      <a href={`mailto:${c.email}`} className="text-navy hover:text-orange hover:underline">{c.email}</a>
+                      <a href={`mailto:${c.email}`} className="text-navy hover:text-orange-700 hover:underline">{c.email}</a>
                       <button onClick={() => copiar(c.email as string, c.id, "Correo copiado")} title="Copiar correo"
                         className="text-gray-500 hover:text-navy">
                         {copiado === c.id ? <Check size={13} /> : <Copy size={13} />}
@@ -256,7 +256,7 @@ export default function ContactosClient({ initialContactos, organizaciones, canW
                 <td className="px-3 py-2.5" onClick={(e) => e.stopPropagation()}>
                   <div className="flex flex-col gap-0.5">
                     {c.telefono && (
-                      <a href={`tel:${soloDigitos(c.telefono)}`} className="flex items-center gap-1 text-gray-600 hover:text-orange">
+                      <a href={`tel:${soloDigitos(c.telefono)}`} className="flex items-center gap-1 text-gray-600 hover:text-orange-700">
                         <Phone size={11} className="text-gray-500" /> {c.telefono}
                       </a>
                     )}
@@ -490,7 +490,7 @@ function DetalleDrawer({
             {contacto.email && (
               <div className="flex items-center gap-2 text-sm">
                 <Mail size={13} className="text-gray-500" />
-                <a href={`mailto:${contacto.email}`} className="text-navy hover:text-orange hover:underline">{contacto.email}</a>
+                <a href={`mailto:${contacto.email}`} className="text-navy hover:text-orange-700 hover:underline">{contacto.email}</a>
                 <button onClick={() => onCopiar(contacto.email as string, `d-${contacto.id}`, "Correo copiado")}
                   className="text-gray-500 hover:text-navy" title="Copiar">
                   {copiado === `d-${contacto.id}` ? <Check size={12} /> : <Copy size={12} />}
@@ -498,7 +498,7 @@ function DetalleDrawer({
               </div>
             )}
             {contacto.telefono && (
-              <a href={`tel:${soloDigitos(contacto.telefono)}`} className="flex items-center gap-2 text-sm text-gray-600 hover:text-orange">
+              <a href={`tel:${soloDigitos(contacto.telefono)}`} className="flex items-center gap-2 text-sm text-gray-600 hover:text-orange-700">
                 <Phone size={13} className="text-gray-500" /> {contacto.telefono}
               </a>
             )}
@@ -526,14 +526,14 @@ function DetalleDrawer({
                     {data.deals.map((d) => (
                       <div key={d.deal_id} className="rounded-lg border border-surface-border p-2.5">
                         <div className="flex items-center justify-between gap-2">
-                          <Link href={`/pipeline/${d.id}`} className="flex items-center gap-1 text-sm font-medium text-navy hover:text-orange hover:underline">
+                          <Link href={`/pipeline/${d.id}`} className="flex items-center gap-1 text-sm font-medium text-navy hover:text-orange-700 hover:underline">
                             {d.nombre} <ExternalLink size={12} className="shrink-0" />
                           </Link>
                           <span className="shrink-0 text-[11px] text-gray-500">{ROL_CONTACTO_LABEL[d.rol]}</span>
                         </div>
                         <div className="mt-1 flex items-center justify-between">
                           <span className="text-[11px] text-gray-500">{d.stage ?? d.resultado}</span>
-                          <Link href={`/pipeline/${d.id}`} className="flex items-center gap-1 text-[11px] font-semibold text-orange hover:underline">
+                          <Link href={`/pipeline/${d.id}`} className="flex items-center gap-1 text-[11px] font-semibold text-orange-700 hover:underline">
                             <CalendarClock size={11} /> Registrar actividad
                           </Link>
                         </div>

@@ -39,6 +39,43 @@ export function textoSobre(fondo: string): string {
 }
 
 /**
+ * Mezcla `color` sobre `fondo` con opacidad `alfa`. Es lo que hace el navegador cuando se
+ * pinta un `#RRGGBB` + dos dígitos de alfa: el resultado ya es opaco, y es CONTRA ESE
+ * resultado que hay que medir el contraste. Medir contra el color sin mezclar da un número
+ * inventado — es el error que tuve al principio y daba 1.00 en cualquier chip translúcido.
+ */
+export function mezclar(color: string, fondo: string, alfa: number): string {
+  const canal = (hex: string, i: number) => parseInt(hex.replace("#", "").slice(i * 2, i * 2 + 2), 16);
+  const salida = [0, 1, 2].map((i) => Math.round(canal(color, i) * alfa + canal(fondo, i) * (1 - alfa)));
+  return "#" + salida.map((v) => v.toString(16).padStart(2, "0")).join("");
+}
+
+/**
+ * El mismo color, oscurecido lo justo para leerse sobre `fondo`.
+ *
+ * El chip de temperatura del tablero se pinta con el color del nivel al 10% de fondo y el
+ * MISMO color como texto. Medido, cuatro de los cinco reprueban: "Tibio" (#F5A623) da 1.89:1,
+ * "Caliente" 2.50, "Frío" 3.01. Se ven como una mancha de color, no como una palabra.
+ *
+ * Bajar el color a mano en `TEMPERATURA_META` rompería el punto y el borde, que SÍ quieren el
+ * color vivo. Y ponerle un segundo color a cada nivel duplica la fuente de verdad: alguien
+ * cambia uno y se olvida del otro. Así que el color de texto se DERIVA, igual que `textoSobre`.
+ *
+ * Oscurece en pasos del 4% hacia el negro, que conserva el tono (no vira a marrón como haría
+ * bajar la saturación). Devuelve el primero que llega al mínimo; si ni el negro alcanza
+ * —imposible sobre un fondo claro, pero el tipo no lo sabe— devuelve negro.
+ */
+export function oscurecerHasta(color: string, fondo: string, minimo = 4.5): string {
+  const canal = (hex: string, i: number) => parseInt(hex.replace("#", "").slice(i * 2, i * 2 + 2), 16);
+  const base = [0, 1, 2].map((i) => canal(color, i));
+  for (let k = 100; k >= 0; k -= 4) {
+    const c = "#" + base.map((v) => Math.round((v * k) / 100).toString(16).padStart(2, "0")).join("");
+    if (contraste(c, fondo) >= minimo) return c;
+  }
+  return "#000000";
+}
+
+/**
  * La escala de gris para texto, y por qué no alcanza con memorizar un número.
  *
  * `text-gray-500` (#6B7280) da 4.83:1 sobre blanco — pasa AA con lo justo. Pero el margen es

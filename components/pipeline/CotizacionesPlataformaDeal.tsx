@@ -53,7 +53,7 @@ export default function CotizacionesPlataformaDeal({ dealId }: { dealId: string 
       ))}
       <Link
         href={`/calculadora?deal=${dealId}`}
-        className="flex items-center gap-1.5 pt-0.5 text-[11px] font-semibold text-orange hover:underline"
+        className="flex items-center gap-1.5 pt-0.5 text-[11px] font-semibold text-orange-700 hover:underline"
       >
         <Plus size={13} /> Nueva cotización para este deal
       </Link>

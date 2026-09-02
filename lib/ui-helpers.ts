@@ -14,15 +14,24 @@ const BADGE_PALETTES = [
   { bg: "bg-amber-100", text: "text-amber-700" },
 ];
 
+/**
+ * Fondos de avatar. TODOS tienen que dar >= 4.5:1 contra el blanco de las iniciales — medido,
+ * no elegido a ojo: teal-600 (3.74), orange-500 (3.00), green-600 (3.30) y amber-500 (3.19)
+ * reprobaban, y las iniciales sobre esos cuatro se leían como un manchón. Se bajó cada uno al
+ * escalón que sí pasa; los otros cuatro ya pasaban y no se tocan.
+ *
+ * Si mañana se agrega un color, la regla es la misma y `contraste()` de `lib/contraste` la
+ * verifica: el test de esta paleta la corre sobre los ocho.
+ */
 const AVATAR_PALETTES = [
-  { bg: "bg-blue-600", text: "text-white" },
-  { bg: "bg-purple-600", text: "text-white" },
-  { bg: "bg-teal-600", text: "text-white" },
-  { bg: "bg-orange-500", text: "text-white" },
-  { bg: "bg-rose-600", text: "text-white" },
-  { bg: "bg-indigo-600", text: "text-white" },
-  { bg: "bg-green-600", text: "text-white" },
-  { bg: "bg-amber-500", text: "text-white" },
+  { bg: "bg-blue-600", text: "text-white" },    // 5.17
+  { bg: "bg-purple-600", text: "text-white" },  // 5.38
+  { bg: "bg-teal-700", text: "text-white" },    // 3.74 -> 5.47
+  { bg: "bg-orange-700", text: "text-white" },  // 3.00 -> 6.09
+  { bg: "bg-rose-600", text: "text-white" },    // 4.70
+  { bg: "bg-indigo-600", text: "text-white" },  // 6.29
+  { bg: "bg-green-700", text: "text-white" },   // 3.30 -> 5.02
+  { bg: "bg-amber-700", text: "text-white" },   // 3.19 -> 5.02
 ];
 
 /** Hash determinístico de un string → índice de paleta */

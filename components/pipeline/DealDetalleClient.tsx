@@ -469,7 +469,7 @@ export default function DealDetalleClient({
             <button
               onClick={() => setMenuOpen((o) => !o)}
               disabled={procesando}
-              className="flex items-center gap-1.5 rounded-lg bg-orange px-3.5 py-2 text-sm font-semibold text-white hover:bg-orange/90 disabled:opacity-50"
+              className="flex items-center gap-1.5 rounded-lg bg-orange px-3.5 py-2 text-sm font-semibold text-navy hover:bg-orange-400 disabled:opacity-50"
             >
               <Trophy size={15} /> {procesando ? "Procesando…" : "Cambiar estado"} <ChevronDown size={14} />
             </button>
@@ -522,7 +522,7 @@ export default function DealDetalleClient({
             {canWrite && (
               <button
                 onClick={() => setEditOpen(true)}
-                className="mt-0.5 inline-flex shrink-0 items-center gap-1 rounded-lg border border-surface-border px-2 py-1 text-xs font-medium text-gray-600 transition-colors hover:border-orange hover:text-orange"
+                className="mt-0.5 inline-flex shrink-0 items-center gap-1 rounded-lg border border-surface-border px-2 py-1 text-xs font-medium text-gray-600 transition-colors hover:border-orange hover:text-orange-700"
               >
                 <Pencil size={12} /> Editar
               </button>
@@ -539,7 +539,7 @@ export default function DealDetalleClient({
                 href={deal.cliente.website}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center gap-1 text-[11px] font-medium text-orange hover:underline"
+                className="flex items-center gap-1 text-[11px] font-medium text-orange-700 hover:underline"
               >
                 <Globe size={12} /> {deal.cliente.website.replace(/^https?:\/\//, "")}
               </a>
@@ -938,8 +938,8 @@ export default function DealDetalleClient({
                     if (ok) setModalReabrir(false);
                   }}
                   disabled={procesando || (reapertura.pideMotivo && !motivoReapertura.trim())}
-                  className="rounded-lg bg-orange px-4 py-2 text-sm font-semibold text-white
-                             hover:bg-orange/90 disabled:opacity-50"
+                  className="rounded-lg bg-orange px-4 py-2 text-sm font-semibold text-navy
+                             hover:bg-orange-400 disabled:opacity-50"
                 >
                   Reabrir deal
                 </button>
@@ -1100,7 +1100,7 @@ export default function DealDetalleClient({
 }
 
 function KpiCard({ label, value, accent }: { label: string; value: string; accent?: "orange" | "green" }) {
-  const color = accent === "orange" ? "text-orange" : accent === "green" ? "text-green-600" : "text-navy";
+  const color = accent === "orange" ? "text-orange-700" : accent === "green" ? "text-green-600" : "text-navy";
   return (
     <div className="rounded-lg bg-surface px-3 py-2">
       <div className="text-[10px] uppercase tracking-wide text-gray-500">{label}</div>
@@ -1138,7 +1138,7 @@ function Field({ label, value, tag, green }: { label: string; value: string; tag
     <div className="mb-1.5 flex items-start justify-between gap-2">
       <span className="text-[11px] text-gray-500">{label}</span>
       {tag ? (
-        <span className="rounded bg-orange-50 px-1.5 py-0.5 text-[10px] font-medium text-orange">{value}</span>
+        <span className="rounded bg-orange-50 px-1.5 py-0.5 text-[10px] font-medium text-orange-700">{value}</span>
       ) : (
         <span className={`text-right text-[11px] font-medium ${green ? "text-green-600" : "text-navy"}`}>{value}</span>
       )}

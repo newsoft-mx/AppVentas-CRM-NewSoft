@@ -300,7 +300,7 @@ export default function TabEmpresa({ empresa }: TabEmpresaProps) {
           </div>
           <p className="text-xs text-gray-500 mb-3">
             Aparece en el pie de cada PDF. Usa{" "}
-            <code className="bg-gray-100 px-1 rounded text-xs font-mono text-orange">
+            <code className="bg-gray-100 px-1 rounded text-xs font-mono text-orange-700">
               {"{vigencia}"}
             </code>{" "}
             para insertar la fecha de vigencia automáticamente.

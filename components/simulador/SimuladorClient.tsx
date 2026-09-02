@@ -127,7 +127,7 @@ export default function SimuladorClient({ casoInicial, dealId }: { casoInicial: 
         </Panel>
 
         <Panel className="border-t-4 border-t-orange">
-          <p className="mb-4 flex items-center gap-2 font-semibold text-orange">
+          <p className="mb-4 flex items-center gap-2 font-semibold text-orange-700">
             <span className="h-2.5 w-2.5 rounded-full bg-orange" /> Con Mejora Implementada
           </p>
           {st.mode === "absolute" ? (
@@ -209,7 +209,7 @@ export default function SimuladorClient({ casoInicial, dealId }: { casoInicial: 
               {tabla.map(([label, a, m, kind, d], i) => {
                 const delta = m - a;
                 const dPct = a !== 0 ? (delta / Math.abs(a)) * 100 : NaN;
-                const cls = delta > 0 ? "text-emerald-600" : delta < 0 ? "text-red-500" : "text-gray-500";
+                const cls = delta > 0 ? "text-emerald-700" : delta < 0 ? "text-red-700" : "text-gray-500";
                 const total = i === tabla.length - 1;
                 return (
                   <tr key={label} className={`border-b border-gray-100 ${total ? "bg-surface font-semibold" : ""}`}>

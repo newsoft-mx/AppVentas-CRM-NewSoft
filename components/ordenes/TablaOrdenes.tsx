@@ -388,7 +388,7 @@ export default function TablaOrdenes({
                         </a>
                         {canWrite && (
                           <>
-                            <button type="button" onClick={() => handleDuplicar(orden)} disabled={isDuplicating} className="rounded-lg p-2 text-gray-500 transition-colors hover:bg-orange/5 hover:text-orange disabled:opacity-50" title="Duplicar orden">
+                            <button type="button" onClick={() => handleDuplicar(orden)} disabled={isDuplicating} className="rounded-lg p-2 text-gray-500 transition-colors hover:bg-orange/5 hover:text-orange-700 disabled:opacity-50" title="Duplicar orden">
                               {isDuplicating ? <Loader2 size={16} className="animate-spin" /> : <Copy size={16} />}
                             </button>
                             <button type="button" onClick={() => onDeleteRequest(orden)} className="rounded-lg p-2 text-gray-500 transition-colors hover:bg-red-50 hover:text-red-500" title="Eliminar orden">
@@ -479,7 +479,7 @@ export default function TablaOrdenes({
                               </a>
                               {canWrite && (
                                 <>
-                                  <button type="button" onClick={() => handleDuplicar(orden)} disabled={isDuplicating} className="rounded-lg p-1.5 text-gray-500 transition-colors hover:bg-orange/5 hover:text-orange disabled:opacity-50" title="Duplicar orden">
+                                  <button type="button" onClick={() => handleDuplicar(orden)} disabled={isDuplicating} className="rounded-lg p-1.5 text-gray-500 transition-colors hover:bg-orange/5 hover:text-orange-700 disabled:opacity-50" title="Duplicar orden">
                                     {isDuplicating ? <Loader2 size={14} className="animate-spin" /> : <Copy size={14} />}
                                   </button>
                                   <button type="button" onClick={() => onDeleteRequest(orden)} className="rounded-lg p-1.5 text-gray-500 transition-colors hover:bg-red-50 hover:text-red-500" title="Eliminar orden">
@@ -514,7 +514,7 @@ export default function TablaOrdenes({
           </p>
         )}
         <p className="text-sm font-semibold text-navy">
-          Total general (MXN): <span className="text-orange">{formatMXN(grandTotal)}</span>
+          Total general (MXN): <span className="text-orange-700">{formatMXN(grandTotal)}</span>
         </p>
       </div>
     </div>
