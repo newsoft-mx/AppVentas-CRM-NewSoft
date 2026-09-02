@@ -168,7 +168,7 @@ export default function Modal({
                 <button
                   type="button"
                   onClick={onClose}
-                  className="flex-1 justify-center rounded-lg bg-red-600 px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-red-700"
+                  className="btn-danger flex-1 justify-center"
                 >
                   Descartar
                 </button>

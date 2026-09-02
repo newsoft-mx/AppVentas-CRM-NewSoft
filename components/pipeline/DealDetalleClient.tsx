@@ -595,7 +595,7 @@ export default function DealDetalleClient({
                 />
                 <div className="flex justify-end gap-2">
                   <button onClick={() => { setNotas(deal.notas ?? ""); setEditandoNotas(false); }} className="text-[11px] font-semibold text-gray-500 hover:text-navy">Cancelar</button>
-                  <button onClick={guardarNotas} className="rounded bg-navy px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-navy-700">Guardar</button>
+                  <button onClick={guardarNotas} className="btn-primary btn-sm">Guardar</button>
                 </div>
               </div>
             ) : (
@@ -1015,8 +1015,7 @@ export default function DealDetalleClient({
                   <button
                     onClick={borrarLead}
                     disabled={!motivoBorrar.trim() || procesando}
-                    className="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white
-                               hover:bg-red-700 disabled:opacity-50"
+                    className="btn-danger"
                   >
                     {procesando ? "Borrando…" : "Borrar lead"}
                   </button>

@@ -132,7 +132,7 @@ export default function ContactosDeal({ dealId, clienteId, contactos, canWrite, 
                   <input className={inputCls} placeholder="Teléfono" value={form.telefono} onChange={(e) => setForm({ ...form, telefono: e.target.value })} />
                   <input className={inputCls} placeholder="WhatsApp" value={form.whatsapp} onChange={(e) => setForm({ ...form, whatsapp: e.target.value })} />
                   <div className="flex gap-1.5">
-                    <button disabled={busy} onClick={() => guardarEdicion(c.contacto_id)} className="flex items-center gap-1 rounded bg-navy px-2 py-1 text-[11px] font-semibold text-white disabled:opacity-50">
+                    <button disabled={busy} onClick={() => guardarEdicion(c.contacto_id)} className="btn-primary btn-sm">
                       <Check size={11} /> Guardar
                     </button>
                     <button onClick={() => setEditId(null)} className="flex items-center gap-1 rounded border border-surface-border px-2 py-1 text-[11px]">

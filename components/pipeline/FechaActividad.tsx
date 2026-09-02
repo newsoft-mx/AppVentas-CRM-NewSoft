@@ -85,7 +85,7 @@ export default function FechaActividad({
         <button
           onClick={guardar}
           disabled={!fecha}
-          className="rounded bg-navy px-2 py-1 text-[11px] font-semibold text-white disabled:opacity-40"
+          className="btn-primary btn-sm"
         >
           Guardar
         </button>
