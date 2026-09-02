@@ -78,7 +78,7 @@ le imputaría cero pesos a las omitidas, que es inventar un monto.
 
 ## Dónde se muestra NETO vs. desglose con IVA
 
-- **Neto (sin IVA)** — tablas, dashboard, reportes: `TablaOrdenes.tsx` (celda de Total, subtotal por grupo y pie de tabla), `VentasClient.tsx` (tarjeta "Total órdenes"), `ClienteCard.tsx`, `lib/kpis.ts`, `lib/clientes-stats.ts`, `app/api/ordenes/kpis/route.ts`, `app/api/reportes/*`. Todos agregan con `sumaNetaMxn` (o `netAmount` cuando el monto va en su moneda original). Las superficies que muestran un total convertido —pie de tabla y header de grupo en Órdenes, `ClienteCard`— avisan cuántas órdenes quedaron fuera por no tener tipo de cambio.
+- **Neto (sin IVA)** — tablas, dashboard, reportes: `TablaOrdenes.tsx` (celda de Total, subtotal por grupo y pie de tabla), `VentasClient.tsx` (tarjeta "Total órdenes"), `ClienteCard.tsx`, `lib/kpis.ts`, `lib/clientes-stats.ts`, `app/api/reportes/*`. Todos agregan con `sumaNetaMxn` (o `netAmount` cuando el monto va en su moneda original). Las superficies que muestran un total convertido —pie de tabla y header de grupo en Órdenes, `ClienteCard`— avisan cuántas órdenes quedaron fuera por no tener tipo de cambio.
 - **Desglose completo con IVA** (`Subtotal → Descuento → Subtotal c/desc → IVA → Total → Equivalente MXN`) — solo en el preview del formulario (`OrdenForm.tsx:705-744`) y en los dos generadores de PDF: react-pdf (`CotizacionPDF.tsx:707-768`) y HTML/Puppeteer (`app/api/pdf/[id]/route.ts:329-340`, este último es el invocado por `GET /api/pdf/:id`). Los PDF leen los montos ya persistidos, no recalculan.
 
 ## Validaciones relevantes (`lib/validations/ordenes.ts`)

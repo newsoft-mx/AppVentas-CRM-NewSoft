@@ -1,4 +1,4 @@
-import type { EstatusOrden, FiltroOrdenes, OrdenResumen } from "@/types/ordenes";
+import { ESTATUS_ORDEN, type EstatusOrden, type FiltroOrdenes, type OrdenResumen } from "@/types/ordenes";
 import { MODO_VISTA_DEFAULT } from "@/lib/ventas-vista";
 import type { FiltroReportes } from "@/types/reportes";
 
@@ -40,7 +40,7 @@ export function parseStringList(values: unknown): string[] {
 }
 
 export function parseEstatusList(values: unknown): EstatusOrden[] {
-  const allowed = new Set(["BORRADOR", "COTIZADO", "VENTA"]);
+  const allowed = new Set<string>(ESTATUS_ORDEN);
   return parseStringList(values).filter((value): value is EstatusOrden => allowed.has(value));
 }
 
@@ -115,6 +115,71 @@ export function buildDateOrFilters(filtros: Pick<FiltroOrdenes | FiltroReportes,
   });
 
   return ranges;
+}
+
+// ── ¿En qué período cae una orden? ───────────────────────────
+//
+// `buildDateOrFilters` da el RANGO. Esto de acá decide sobre QUÉ FECHA se aplica, que es la
+// parte que estaba escrita a mano en once lugares —con tres significados distintos— y por eso
+// dos pantallas que dicen medir lo mismo daban números que no cuadraban.
+//
+// Las tres semánticas conviven A PROPÓSITO. La diferencia no es un descuido; el descuido era
+// que estuviera implícita en un `flatMap` copiado y pegado, donde nadie la veía al leer.
+
+type RangoFecha = { gte: Date; lt: Date };
+
+/** Cómo se decide que una orden pertenece al período. */
+export type AlcancePeriodo =
+  /**
+   * La VENTA se cerró en el período (`fecha_venta` dentro del rango). Es la única semántica
+   * válida para plata: un reporte de ingresos cuenta lo que se cerró, no lo que se capturó.
+   * Los call-sites la combinan con `estatus: "VENTA"`.
+   */
+  | "venta_cerrada"
+  /**
+   * La orden es del período por su fecha efectiva: `fecha_venta` si la tiene, si no
+   * `created_at`. Es la vista de trabajo (la lista de Ventas), donde un borrador de este mes
+   * tiene que aparecer aunque nunca se cierre.
+   */
+  | "fecha_efectiva"
+  /**
+   * Igual que `fecha_efectiva`, pero una orden marcada VENTA **sin** fecha de venta NO se
+   * fecha por su creación: queda afuera.
+   *
+   * Es lo que usan los reportes, y es la razón por la que /ventas y /reportes pueden mostrar
+   * conteos distintos sobre el mismo período. La diferencia solo aparece con filas en un
+   * estado que no debería existir (VENTA sin fecha); PATCH /fecha-venta las podía crear.
+   * Se conserva tal cual estaba: cambiar cuál de las dos gana mueve números de plata, y esa
+   * es una decisión del negocio, no de un refactor.
+   */
+  | "fecha_efectiva_estricta";
+
+/**
+ * El `OR` que hay que ponerle al `where` para acotar al período pedido.
+ *
+ * OJO con el caso "sin filtros": hereda el default de `buildDateOrFilters`, que **no** es
+ * "todos los años" sino **el año en curso**. Por eso esta función nunca devuelve vacío y por
+ * eso los call-sites que quieren "sin restricción" tienen que decidirlo ellos, ANTES de
+ * llamar — como ya hacen /ventas y /reportes con su `if`. Hacer que devolviera `null` sin
+ * filtros parece más prolijo y es un cambio de plata: los tres reportes de ventas pasarían
+ * de mostrar el año en curso a mostrar la historia entera.
+ */
+export function wherePeriodoOrden(
+  filtros: Pick<FiltroOrdenes | FiltroReportes, "ano" | "q" | "mes">,
+  alcance: AlcancePeriodo
+): Array<Record<string, unknown>> {
+  const rangos: RangoFecha[] = buildDateOrFilters(filtros);
+
+  if (alcance === "venta_cerrada") {
+    return rangos.map((rango) => ({ fecha_venta: rango }));
+  }
+
+  return rangos.flatMap((rango) => [
+    { fecha_venta: rango },
+    alcance === "fecha_efectiva_estricta"
+      ? { estatus: { not: "VENTA" }, fecha_venta: null, created_at: rango }
+      : { fecha_venta: null, created_at: rango },
+  ]);
 }
 
 export function selectedMonths(filtros: Pick<FiltroOrdenes | FiltroReportes, "q" | "mes">) {

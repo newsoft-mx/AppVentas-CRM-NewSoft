@@ -5,7 +5,8 @@ import type { PipelineData } from "@/types/reportes";
 import { requireAuth } from "@/lib/session";
 import { scopeOrdenWhere } from "@/lib/access-control";
 import { sumaNetaMxn } from "@/lib/net-amounts";
-import { buildDateOrFilters, getAllParam, parseNumberList } from "@/lib/filter-utils";
+import { getAllParam, parseNumberList, wherePeriodoOrden } from "@/lib/filter-utils";
+import { calcularPipeline } from "@/lib/kpis";
 
 // ── GET /api/reportes/pipeline ────────────────────────────────
 
@@ -22,10 +23,7 @@ export async function GET(req: NextRequest) {
   const where: any = {};
 
   if (ano.length || q.length || mes.length) {
-    where.OR = buildDateOrFilters({ ano, q, mes }).flatMap((range) => [
-      { fecha_venta: range },
-      { estatus: { not: "VENTA" }, fecha_venta: null, created_at: range },
-    ]);
+    where.OR = wherePeriodoOrden({ ano, q, mes }, "fecha_efectiva_estricta");
   }
 
   try {
@@ -34,22 +32,7 @@ export async function GET(req: NextRequest) {
       select: { estatus: true, moneda: true, tipo_cambio: true, subtotal_con_descuento: true },
     });
 
-    const borradores_count = ordenes.filter((o) => o.estatus === "BORRADOR").length;
-    const cotizaciones_count = ordenes.filter((o) => o.estatus === "COTIZADO").length;
-    const ventas_count = ordenes.filter((o) => o.estatus === "VENTA").length;
-
-    const cotizaciones_mxn = sumaNetaMxn(ordenes.filter((o) => o.estatus === "COTIZADO")).mxn;
-
-    const ventas_mxn = sumaNetaMxn(ordenes.filter((o) => o.estatus === "VENTA")).mxn;
-
-    const result: PipelineData = {
-      borradores_count,
-      cotizaciones_count,
-      ventas_count,
-      cotizaciones_mxn,
-      ventas_mxn,
-      total_ordenes: ordenes.length,
-    };
+    const result: PipelineData = calcularPipeline(ordenes);
 
     return NextResponse.json(result);
   } catch {
