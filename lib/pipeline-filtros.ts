@@ -19,6 +19,18 @@ export const ORDENES_PIPELINE: OrdenPipeline[] = [
   "none", "valor", "temperatura", "probabilidad", "actividad", "seguimiento",
 ];
 
+// Orden por columna en la vista LISTA (pedido de Roldán 2026-09-02: "enséñamelos por
+// orden"). Es un eje aparte de `orden` (que ordena las tarjetas del tablero): acá se
+// clickea el encabezado y se elige dirección. SSOT de qué columnas son ordenables.
+export type ColOrdenLista =
+  | "nombre" | "cliente" | "estado" | "etapa" | "temperatura" | "probabilidad"
+  | "dias" | "actividad" | "valor" | "dueno" | "ingreso";
+export const COLS_ORDEN_LISTA: ColOrdenLista[] = [
+  "nombre", "cliente", "estado", "etapa", "temperatura", "probabilidad",
+  "dias", "actividad", "valor", "dueno", "ingreso",
+];
+export type DirOrden = "asc" | "desc";
+
 const ESTADOS_VALIDOS: DealResultado[] = ["ABIERTO", "SUSPENDIDO", "GANADO", "PERDIDO"];
 // Vista por defecto del pipeline: solo los estados activos (SOL-18).
 export const ESTADOS_DEFAULT: DealResultado[] = ["ABIERTO", "SUSPENDIDO"];
@@ -27,13 +39,19 @@ export interface PipelineFiltros {
   q: string;
   estados: DealResultado[];
   orden: OrdenPipeline;
+  /** Columna de orden de la vista lista ("" = orden por defecto / el de `orden`). */
+  sort: ColOrdenLista | "";
+  dir: DirOrden;
   vendedor: string; // "todos" | id
   tipo: string; // "todos" | id
   vista: "tablero" | "lista";
 }
 
 export function emptyPipelineFiltros(): PipelineFiltros {
-  return { q: "", estados: [...ESTADOS_DEFAULT], orden: "none", vendedor: "todos", tipo: "todos", vista: "tablero" };
+  return {
+    q: "", estados: [...ESTADOS_DEFAULT], orden: "none", sort: "", dir: "asc",
+    vendedor: "todos", tipo: "todos", vista: "tablero",
+  };
 }
 
 function esDefaultEstados(estados: DealResultado[]): boolean {
@@ -47,6 +65,10 @@ export function serializePipelineFiltros(f: PipelineFiltros): string {
   if (f.q) p.set("q", f.q);
   if (!esDefaultEstados(f.estados)) f.estados.forEach((e) => p.append("estado", e));
   if (f.orden !== "none") p.set("orden", f.orden);
+  if (f.sort) {
+    p.set("sort", f.sort);
+    if (f.dir !== "asc") p.set("dir", f.dir);
+  }
   if (f.vendedor !== "todos") p.set("vendedor", f.vendedor);
   if (f.tipo !== "todos") p.set("tipo", f.tipo);
   if (f.vista !== "tablero") p.set("vista", f.vista);
@@ -67,10 +89,13 @@ export function parsePipelineFiltros(sp: ParamMap): PipelineFiltros {
     )
   );
   const orden = one(sp.orden) as OrdenPipeline;
+  const sort = one(sp.sort) as ColOrdenLista;
   return {
     q: one(sp.q),
     estados: estados.length ? estados : [...ESTADOS_DEFAULT],
     orden: ORDENES_PIPELINE.includes(orden) ? orden : "none",
+    sort: COLS_ORDEN_LISTA.includes(sort) ? sort : "",
+    dir: one(sp.dir) === "desc" ? "desc" : "asc",
     vendedor: one(sp.vendedor) || "todos",
     tipo: one(sp.tipo) || "todos",
     vista: one(sp.vista) === "lista" ? "lista" : "tablero",
@@ -78,7 +103,7 @@ export function parsePipelineFiltros(sp: ParamMap): PipelineFiltros {
 }
 
 /** Claves que esta pantalla reconoce en la URL. Si se agrega un filtro, va acá también. */
-export const CLAVES_PIPELINE = ["q", "estado", "orden", "vendedor", "tipo", "vista"] as const;
+export const CLAVES_PIPELINE = ["q", "estado", "orden", "sort", "dir", "vendedor", "tipo", "vista"] as const;
 
 /**
  * Qué se recuerda entre visitas. `q` (la búsqueda) NO: es texto transitorio, y recordarlo

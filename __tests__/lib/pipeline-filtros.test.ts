@@ -31,11 +31,19 @@ describe("pipeline-filtros", () => {
       q: "acme",
       estados: ["GANADO", "PERDIDO"],
       orden: "valor",
+      sort: "ingreso",
+      dir: "desc",
       vendedor: "v-1",
       tipo: "t-2",
       vista: "lista",
     };
     expect(parsePipelineFiltros(toParamMap(serializePipelineFiltros(f)))).toEqual(f);
+  });
+
+  it("descarta sort/dir inválidos cayendo al default", () => {
+    const r = parsePipelineFiltros({ sort: "hackeado", dir: "diagonal" });
+    expect(r.sort).toBe("");
+    expect(r.dir).toBe("asc");
   });
 
   it("descarta valores inválidos (orden y estado) cayendo al default", () => {

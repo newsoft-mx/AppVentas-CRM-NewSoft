@@ -8,7 +8,7 @@ import { getScoringContext, dealScoreView } from "@/lib/deal-score";
 import PipelineKanban from "@/components/pipeline/PipelineKanban";
 import { PIPELINE_FILTROS } from "@/lib/pipeline-filtros";
 import { filtrosIniciales } from "@/lib/filtros-servidor";
-import { hoyEnTZ, limiteDiaNegocio } from "@/lib/tz";
+import { hoyEnTZ, limiteDiaNegocio, TZ_NEGOCIO } from "@/lib/tz";
 import { rangoDePreset, type PresetRango } from "@/lib/rangos-reporte";
 import type { Metadata } from "next";
 import type { DealResumen, StageResumen } from "@/types/crm";
@@ -82,24 +82,19 @@ export default async function PipelinePage({
   const canales = catalogoDeal.filter((c) => c.tipo === "CANAL").map(({ id, nombre }) => ({ id, nombre }));
   const origenes = catalogoDeal.filter((c) => c.tipo === "ORIGEN").map(({ id, nombre }) => ({ id, nombre }));
 
-  // KPIs de altas por período (REQ-04): leads ingresados hoy / últimos 7 días / mes en curso.
-  //
-  // Los tres bordes salen del MISMO motor que los reportes (lib/rangos-reporte + lib/tz), no de
-  // aritmética con el reloj del proceso. `new Date(y, m, d)` daba medianoche en la TZ del server
-  // —UTC en Vercel—, o sea las 18:00 del día anterior en México: desde esa hora "hoy" ya contaba
-  // el día siguiente. Y "semana" acá era lunes-a-hoy mientras el reporte mostraba últimos 7 días,
-  // así que las dos pantallas respondían distinto a la misma pregunta.
+  // Resumen del MES EN CURSO (rediseño 2026-09-02): reemplaza a "hoy · sem · mes", que
+  // mezclaba cortes (7 días rodantes vs mes calendario) y confundía al reportar. El borde
+  // sale del MISMO motor que los reportes (lib/rangos-reporte + lib/tz), no de aritmética
+  // con el reloj del proceso — en Vercel (UTC) la medianoche local caía en el día anterior.
   const ahora = new Date();
   const hoy = hoyEnTZ(ahora);
   const desdeDe = (preset: PresetRango) =>
     limiteDiaNegocio(rangoDePreset(preset, hoy)!.actual.desde, "inicio") ?? ahora;
-  const inicioDia = desdeDe("hoy");
-  const inicioSemana = desdeDe("semana");
   const inicioMes = desdeDe("mes");
 
   // Última actividad por deal — acotada a los deals cargados; + config + conteos por período
   const dealIds = deals.map((d) => d.id);
-  const [actsScore, ctx, nuevosHoy, nuevosSemana, nuevosMes] = await Promise.all([
+  const [actsScore, ctx, nuevosMes, ganadosMes, perdidosMes, pausadosMes] = await Promise.all([
     // Actividades de todos los deals visibles en UNA query (para el score, sin N+1)
     prisma.dealActividad.findMany({
       where: { deal_id: { in: dealIds }, eliminada: false },
@@ -107,9 +102,10 @@ export default async function PipelinePage({
       select: { deal_id: true, tipo_accion_id: true, resultado_id: true, created_at: true },
     }),
     getScoringContext(),
-    prisma.deal.count({ where: scopeDealWhere(session, { fecha_ingreso: { gte: inicioDia } }) }),
-    prisma.deal.count({ where: scopeDealWhere(session, { fecha_ingreso: { gte: inicioSemana } }) }),
     prisma.deal.count({ where: scopeDealWhere(session, { fecha_ingreso: { gte: inicioMes } }) }),
+    prisma.deal.count({ where: scopeDealWhere(session, { resultado: "GANADO", fecha_cierre_real: { gte: inicioMes } }) }),
+    prisma.deal.count({ where: scopeDealWhere(session, { resultado: "PERDIDO", fecha_cierre_real: { gte: inicioMes } }) }),
+    prisma.deal.count({ where: scopeDealWhere(session, { resultado: "SUSPENDIDO", fecha_suspension: { gte: inicioMes } }) }),
   ]);
   // Agrupa por deal: actividades (para el score) + última fecha (para atención). asc → última gana.
   const actsByDeal = new Map<string, { tipo_accion_id: string | null; resultado_id: string | null; created_at: Date }[]>();
@@ -179,7 +175,15 @@ export default async function PipelinePage({
       origenes={origenes}
       canWrite={canWrite(session)}
       esAdmin={isAdmin(session)}
-      altas={{ hoy: nuevosHoy, semana: nuevosSemana, mes: nuevosMes }}
+      resumenMes={{
+        // El nombre del mes se resuelve en el server (misma TZ de negocio que el corte);
+        // calcularlo en el cliente podría divergir cerca de la medianoche.
+        etiqueta: new Intl.DateTimeFormat("es-MX", { month: "long", timeZone: TZ_NEGOCIO }).format(ahora),
+        nuevos: nuevosMes,
+        ganados: ganadosMes,
+        perdidos: perdidosMes,
+        pausados: pausadosMes,
+      }}
     />
   );
 }

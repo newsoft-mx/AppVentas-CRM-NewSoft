@@ -46,7 +46,8 @@ export async function POST(
     await prisma.$transaction([
       prisma.deal.update({
         where: { id },
-        data: { resultado: "GANADO", fecha_cierre_real: new Date() },
+        // fecha_suspension se limpia: un SUSPENDIDO puede ganarse directo y deja de estar en pausa.
+        data: { resultado: "GANADO", fecha_cierre_real: new Date(), fecha_suspension: null },
       }),
       prisma.dealActividad.create({
         data: {

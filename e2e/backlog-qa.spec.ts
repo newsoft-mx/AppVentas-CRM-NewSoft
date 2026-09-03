@@ -1,6 +1,6 @@
 import { test, expect, type APIRequestContext } from "@playwright/test";
 import { db, catalogo, stageDeOrden, limpiarDatosDeTest, type Catalogo } from "./helpers/db";
-import { crearDealAPI, hoyNegocio } from "./helpers/api";
+import { crearDealAPI, hoyNegocio, rangoHoy } from "./helpers/api";
 
 // QA del lote 2026-07-10 (SOL-14 a SOL-20). Verifica que cada cambio quedó
 // aplicado, contra el server local. Se auto-limpia (deals con prefijo E2E).
@@ -92,16 +92,15 @@ test.describe("QA lote SOL-14..20", () => {
     await db.deal.update({ where: { id: perdido.id }, data: { resultado: "PERDIDO", razon_perdida: "Precio" } });
 
     await page.goto("/pipeline");
-    // Los filtros de estado viven en el popover "Filtros" (rediseño): abrirlo primero.
-    await page.getByRole("button", { name: /^Filtros/ }).click();
-    // Los 4 chips existen con conteo
+    // Los chips de estado viven VISIBLES en la franja de contexto (rediseño 2026-09-02),
+    // ya no dentro del popover "Filtros".
     for (const est of ["Activo", "Pausado", "Ganado", "Perdido"]) {
       await expect(page.getByRole("button", { name: new RegExp(`^${est} \\(\\d+\\)`) })).toBeVisible();
     }
-    // Activar Perdido → aparece columna sintética "Perdidos" + strip de motivos
+    // Activar Perdido → aparece la columna sintética "Perdidos" con el deal.
+    // (El strip de motivos se retiró: el desglose por motivo vive en Reportes.)
     await page.getByRole("button", { name: /^Perdido \(\d+\)/ }).click();
     await expect(page.getByText("Perdidos", { exact: true }).first()).toBeVisible();
-    await expect(page.getByText("Motivos de pérdida")).toBeVisible();
     await expect(page.getByText(perdido.nombre).first()).toBeVisible();
   });
 
@@ -121,7 +120,9 @@ test.describe("QA lote SOL-14..20", () => {
     // El reporte de funnel (Año) muestra la fila de métricas del pipeline
     await page.goto("/pipeline/reportes");
     await page.getByRole("button", { name: "Año" }).click();
-    await expect(page.getByText("Pipeline (activos en el período)")).toBeVisible();
+    // La fila de métricas del pipeline vive ahora como tarjetas (rediseño 2026-09-02).
+    await expect(page.getByText("Valor del pipeline")).toBeVisible();
+    await expect(page.getByText("Deals activos")).toBeVisible();
   });
 
   test("SOL-14 · PDF de cotización genera un PDF válido (200 application/pdf)", async ({ request }) => {
@@ -245,6 +246,77 @@ test.describe("QA lote SOL-14..20", () => {
     });
     expect(dealDb?.razon_perdida).toBe(motivo!.nombre); // etiqueta denormalizada
     expect(dealDb?.motivo_perdida_id).toBe(motivo!.id); // FK al catálogo
+  });
+
+  test("Lote 09-02 · pausar estampa fecha_suspension y alimenta el funnel (desglose + pausados)", async ({ request }) => {
+    const deal = await crearDealAPI(request, {
+      nombre: `E2E Pausa ${Date.now()}`,
+      cliente_id: cat.clienteActivo!.id,
+      stage_id: stageDeOrden(cat, 1).id,
+    });
+    const res = await request.post(`/api/crm/deals/${deal.id}/resultado`, { data: { resultado: "SUSPENDIDO" } });
+    expect(res.status()).toBe(200);
+    const enDb = await db.deal.findUnique({ where: { id: deal.id }, select: { fecha_suspension: true } });
+    expect(enDb?.fecha_suspension).not.toBeNull();
+
+    const { desde, hasta } = rangoHoy();
+    const f = await request.get(`/api/reportes/funnel?desde=${desde}&hasta=${hasta}`).then((r) => r.json());
+    // El desglose por estado suma exactamente el total (el "31 que no cuadraba").
+    expect(f.desglose.activos + f.desglose.ganados + f.desglose.perdidos + f.desglose.pausados).toBe(f.total);
+    expect(f.pausados_en_periodo).toBeGreaterThanOrEqual(1);
+
+    // Reabrir limpia la fecha: deja de contar como pausado.
+    await request.post(`/api/crm/deals/${deal.id}/resultado`, { data: { resultado: "ABIERTO" } });
+    const reabierto = await db.deal.findUnique({ where: { id: deal.id }, select: { fecha_suspension: true } });
+    expect(reabierto?.fecha_suspension).toBeNull();
+  });
+
+  test("Lote 09-02 · la vista lista ordena por columna al clickear el encabezado", async ({ page, request }) => {
+    await crearDealAPI(request, {
+      nombre: `E2E Sort ${Date.now()}`,
+      cliente_id: cat.clienteActivo!.id,
+      stage_id: stageDeOrden(cat, 1).id,
+    });
+    await page.goto("/pipeline?vista=lista");
+    const th = page.locator("th").getByRole("button", { name: /^Valor$/i });
+    await th.click();
+    await expect(page).toHaveURL(/sort=valor/);
+    await th.click(); // segundo clic invierte
+    await expect(page).toHaveURL(/sort=valor.*dir=desc|dir=desc.*sort=valor/);
+    // La flecha de dirección aparece en la columna activa
+    await expect(th.locator("svg")).toBeVisible();
+  });
+
+  test("S2 · PERDIDO con motivo \"Otro\": el comentario es obligatorio (API y modal)", async ({ page, request }) => {
+    const deal = await crearDealAPI(request, {
+      nombre: `E2E Sotro ${Date.now()}`,
+      cliente_id: cat.clienteActivo!.id,
+      stage_id: stageDeOrden(cat, 1).id,
+    });
+
+    // API: "Otro" sin comentario → 422; con comentario → 200.
+    const sinComentario = await request.post(`/api/crm/deals/${deal.id}/resultado`, {
+      data: { resultado: "PERDIDO", razon_perdida: "Otro" },
+    });
+    expect(sinComentario.status()).toBe(422);
+
+    // Modal: elegir "Otro" deshabilita el confirmar hasta escribir el comentario.
+    await page.goto(`/pipeline/${deal.id}`);
+    await page.getByRole("button", { name: "Cambiar estado" }).click();
+    await page.getByRole("button", { name: "Perdido", exact: true }).click();
+    const modal = page.getByRole("dialog");
+    const confirmar = modal.getByRole("button", { name: "Marcar perdido" });
+    await modal.locator("select").selectOption("Otro");
+    await expect(confirmar).toBeDisabled();
+    await modal.locator("textarea").fill("Motivo atípico E2E");
+    await expect(confirmar).toBeEnabled();
+    await confirmar.click();
+    await expect
+      .poll(async () => {
+        const d = await db.deal.findUnique({ where: { id: deal.id }, select: { resultado: true, comentario_perdida: true } });
+        return d && `${d.resultado}|${d.comentario_perdida}`;
+      })
+      .toBe("PERDIDO|Motivo atípico E2E");
   });
 
   test("C · editar el contacto principal se refleja en la ficha del cliente (invariante)", async ({ request }) => {

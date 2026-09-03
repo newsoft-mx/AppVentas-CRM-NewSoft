@@ -20,12 +20,19 @@ export async function GET(req: NextRequest) {
   if (!session) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
 
   const sp = req.nextUrl.searchParams;
+  const rango = rangoFechas(sp, new Date());
   const where = dealWhereReporte(session, sp.get("vendedor"), {
-    fecha_ingreso: filtroRango(rangoFechas(sp, new Date())),
+    fecha_ingreso: filtroRango(rango),
+  });
+  // Pausados EN el período: corta por cuándo se pausó (fecha_suspension), no por cuándo
+  // ingresó el lead — es la pregunta "¿cuántos pausamos este mes?" (reunión 2026-09-02).
+  const wherePausados = dealWhereReporte(session, sp.get("vendedor"), {
+    resultado: "SUSPENDIDO",
+    fecha_suspension: filtroRango(rango),
   });
 
   try {
-    const [stages, deals] = await Promise.all([
+    const [stages, deals, pausados_en_periodo] = await Promise.all([
       prisma.pipelineStage.findMany({
         where: { activo: true },
         orderBy: { orden: "asc" },
@@ -41,6 +48,7 @@ export async function GET(req: NextRequest) {
           stage_events: { select: { to_stage_id: true } },
         },
       }),
+      prisma.deal.count({ where: wherePausados as Prisma.DealWhereInput }),
     ]);
 
     const ordenDe = new Map(stages.map((s) => [s.id, s.orden]));
@@ -62,6 +70,15 @@ export async function GET(req: NextRequest) {
     const total = deals.length;
     const ganados = deals.filter((d) => d.resultado === "GANADO").length;
     const perdidos = deals.filter((d) => d.resultado === "PERDIDO").length;
+    // Desglose del total por estado ACTUAL: la suma da exactamente `total`, así el
+    // encabezado del embudo explica de dónde sale el número (antes 14+13 ≠ 31 y nadie
+    // sabía dónde estaban los otros — eran los pausados/ganados sin desglosar).
+    const desglose = {
+      activos: deals.filter((d) => d.resultado === "ABIERTO").length,
+      ganados,
+      perdidos,
+      pausados: deals.filter((d) => d.resultado === "SUSPENDIDO").length,
+    };
     const valor_total = deals.reduce((s, d) => s + Number(d.valor), 0);
 
     const etapas = stages.map((s, i) => {
@@ -80,6 +97,8 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({
       total,
+      desglose,
+      pausados_en_periodo,
       etapas,
       ganados,
       perdidos,

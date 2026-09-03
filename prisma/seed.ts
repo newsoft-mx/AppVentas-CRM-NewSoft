@@ -853,6 +853,23 @@ async function main() {
   );
   } // fin demo CRM (deals/bitácora/tareas)
 
+  // 7. ORÍGENES BASE DEL DEAL — config production-safe, ADITIVO (pedido de Gaby
+  // 2026-09-02: leads que nos encuentran buscándonos en Google o preguntándole a una IA).
+  // Va al FINAL y por-nombre (no con el guard de "catálogo vacío") para no pisar el
+  // sembrado del catálogo demo ni duplicar lo que Configuración ya tenga cargado.
+  const ORIGENES_BASE = ["Búsqueda en Google", "IA (ChatGPT u otros)"];
+  for (const nombre of ORIGENES_BASE) {
+    const ya = await prisma.catalogoDeal.findFirst({
+      where: { tipo: "ORIGEN", nombre: { equals: nombre, mode: "insensitive" } },
+      select: { id: true },
+    });
+    if (!ya) {
+      const max = await prisma.catalogoDeal.aggregate({ where: { tipo: "ORIGEN" }, _max: { orden: true } });
+      await prisma.catalogoDeal.create({ data: { tipo: "ORIGEN", nombre, orden: (max._max.orden ?? 0) + 1 } });
+    }
+  }
+  console.log(`   ✓ orígenes base (${ORIGENES_BASE.join(", ")})`);
+
   console.log("✅ Seed completado exitosamente!\n");
   console.log("📊 Resumen (config):");
   console.log(`   - 2 usuarios (roldan@newsoft.mx, elva@newsoft.mx)`);

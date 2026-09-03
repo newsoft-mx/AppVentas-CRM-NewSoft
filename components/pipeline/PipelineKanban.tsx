@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   Plus, Filter, Building2, Clock, LayoutGrid, List, Flame, CalendarClock, Search,
-  SlidersHorizontal, ChevronDown, X, Trash2, Users,
+  SlidersHorizontal, ChevronDown, X, Trash2, Users, ArrowUp, ArrowDown,
 } from "lucide-react";
 import {
   TEMPERATURA_META,
@@ -28,6 +28,7 @@ import {
   etiquetaDelTablero,
   type PipelineFiltros,
   type OrdenPipeline,
+  type ColOrdenLista,
 } from "@/lib/pipeline-filtros";
 import Toast, { ToastData } from "@/components/ui/Toast";
 
@@ -48,7 +49,8 @@ interface Props {
   canWrite: boolean;
   /** ADMIN ve el acceso a "Leads eliminados" (restaurar). */
   esAdmin?: boolean;
-  altas: { hoy: number; semana: number; mes: number };
+  /** Resultados del mes calendario en curso (rediseño 2026-09-02). */
+  resumenMes: { etiqueta: string; nuevos: number; ganados: number; perdidos: number; pausados: number };
 }
 
 // Estados en orden de aparición (columnas sintéticas / chips). ABIERTO se
@@ -56,7 +58,7 @@ interface Props {
 const ESTADOS_ORDEN: DealResultado[] = ["ABIERTO", "SUSPENDIDO", "GANADO", "PERDIDO"];
 
 export default function PipelineKanban({
-  initialFiltros, stages, deals, vendedores, clientes, tipos, canales, origenes, canWrite, esAdmin = false, altas,
+  initialFiltros, stages, deals, vendedores, clientes, tipos, canales, origenes, canWrite, esAdmin = false, resumenMes,
 }: Props) {
   const router = useRouter();
   const [items, setItems] = useState<DealResumen[]>(deals);
@@ -65,7 +67,7 @@ export default function PipelineKanban({
   // controles viven en un solo objeto; los alias de lectura y los setters con el
   // mismo nombre mantienen el resto del componente intacto.
   const [filtros, setFiltros] = useUrlFilters(initialFiltros, PIPELINE_FILTROS);
-  const { q: busqueda, orden, vendedor: vendedorFiltro, tipo: tipoFiltro, vista } = filtros;
+  const { q: busqueda, orden, sort, dir, vendedor: vendedorFiltro, tipo: tipoFiltro, vista } = filtros;
   const estadosSel = useMemo(() => new Set(filtros.estados), [filtros.estados]);
   const setBusqueda = (v: string) => setFiltros((f) => ({ ...f, q: v }));
   const setVendedorFiltro = (v: string) => setFiltros((f) => ({ ...f, vendedor: v }));
@@ -181,6 +183,34 @@ export default function PipelineKanban({
     return copy;
   }
 
+  // Orden por columna de la vista LISTA (clic en el encabezado): eje aparte de `orden`
+  // (que ordena tarjetas del tablero). Mismo clic invierte la dirección.
+  function toggleSort(col: ColOrdenLista) {
+    setFiltros((f) =>
+      f.sort === col ? { ...f, dir: f.dir === "asc" ? "desc" : "asc" } : { ...f, sort: col, dir: "asc" }
+    );
+  }
+  const ordenStage = useMemo(() => new Map(stages.map((s) => [s.id, s.orden])), [stages]);
+  const rankEstado = (r: DealResultado) => ESTADOS_ORDEN.indexOf(r);
+  function sortLista(arr: DealResumen[]): DealResumen[] {
+    if (!sort) return sortDeals(arr); // sin columna elegida, manda el orden del popover
+    const cmp: Record<ColOrdenLista, (a: DealResumen, b: DealResumen) => number> = {
+      nombre: (a, b) => a.nombre.localeCompare(b.nombre, "es"),
+      cliente: (a, b) => (a.cliente?.nombre ?? "").localeCompare(b.cliente?.nombre ?? "", "es"),
+      estado: (a, b) => rankEstado(a.resultado) - rankEstado(b.resultado),
+      etapa: (a, b) => (ordenStage.get(a.stage_id) ?? 0) - (ordenStage.get(b.stage_id) ?? 0),
+      temperatura: (a, b) => TEMPERATURA_RANK[a.temperatura] - TEMPERATURA_RANK[b.temperatura],
+      probabilidad: (a, b) => (a.probabilidad ?? 0) - (b.probabilidad ?? 0),
+      dias: (a, b) => a.dias_en_etapa - b.dias_en_etapa,
+      actividad: (a, b) => a.actividades_count - b.actividades_count,
+      valor: (a, b) => a.valor - b.valor,
+      dueno: (a, b) => (a.vendedor?.nombre ?? "").localeCompare(b.vendedor?.nombre ?? "", "es"),
+      ingreso: (a, b) => a.fecha_ingreso.localeCompare(b.fecha_ingreso), // ISO: orden lexicográfico = cronológico
+    };
+    const copy = [...arr].sort(cmp[sort]);
+    return dir === "desc" ? copy.reverse() : copy;
+  }
+
   // KPIs de salud del pipeline (SOL-19): SIEMPRE sobre el pipeline activo,
   // independiente de los chips de estado, y con el MISMO cálculo que el reporte
   // de funnel (metricasPipeline, SSOT).
@@ -191,15 +221,6 @@ export default function PipelineKanban({
   const dealsByStage = (stageId: string) => sortDeals(activos.filter((d) => d.stage_id === stageId));
   // Deals de un estado no-abierto → columna sintética.
   const dealsDeEstado = (est: DealResultado) => sortDeals(filtered.filter((d) => d.resultado === est));
-  // Motivos de perdidos en el set filtrado (SOL-06 preservado como strip).
-  const perdidosFiltrados = filtered.filter((d) => d.resultado === "PERDIDO");
-  const motivosPerdida = Object.entries(
-    perdidosFiltrados.reduce((acc, p) => {
-      const k = p.razon_perdida ?? "Sin motivo";
-      acc[k] = (acc[k] ?? 0) + 1;
-      return acc;
-    }, {} as Record<string, number>)
-  ).sort((a, b) => b[1] - a[1]);
   // Estados no-abiertos a mostrar como columnas sintéticas (según selección).
   const estadosSinteticos = (["SUSPENDIDO", "GANADO", "PERDIDO"] as DealResultado[]).filter(
     (est) => estadosSel.has(est) && filtered.some((d) => d.resultado === est)
@@ -224,10 +245,16 @@ export default function PipelineKanban({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ stage_id: nuevoStageId }),
       });
-      if (!res.ok) throw new Error("fallo");
-    } catch {
+      if (!res.ok) {
+        // El motivo REAL del rechazo (validación de avance, permisos…): sin esto la
+        // tarjeta "se regresaba sola" y nadie sabía por qué (reunión 2026-09-02).
+        const motivo = await res.json().then((j) => j?.error as string | undefined).catch(() => undefined);
+        throw new Error(motivo || "");
+      }
+    } catch (err) {
       setItems(prev); // revertir
-      setToast({ type: "error", message: "No se pudo mover el deal. Intenta de nuevo." });
+      const detalle = err instanceof Error && err.message ? ` ${err.message}` : " Intenta de nuevo.";
+      setToast({ type: "error", message: `No se pudo mover el deal.${detalle}` });
     }
   }
 
@@ -326,17 +353,46 @@ export default function PipelineKanban({
         <MiniKpi value={String(kpis.calientes)} label="calientes" icon={<Flame size={11} className="text-orange" />} />
         <MiniKpi value={formatCompacto(kpis.promedio_deal)} label="promedio" />
         <span className="h-6 w-px bg-borde" />
-        {/* Altas por período — secundario (REQ-04) */}
+        {/* Resultados del MES calendario en curso (rediseño 2026-09-02): reemplaza al
+            "hoy · sem · mes" que mezclaba cortes y confundía al reportar. Mismos cortes
+            que el reporte de funnel (mes calendario, TZ de negocio). */}
         <span
           className="text-xs text-gray-500"
-          title="Leads por fecha de registro — hoy · últimos 7 días · mes en curso"
+          title="Mes calendario en curso: leads ingresados, y cuántos se ganaron / perdieron / pausaron en el mes"
         >
-          Nuevos: <b className="text-gray-600">{altas.hoy}</b> hoy · <b className="text-gray-600">{altas.semana}</b> sem ·{" "}
-          <b className="text-gray-600">{altas.mes}</b> mes
+          <b className="capitalize text-gray-600">{resumenMes.etiqueta}</b>:{" "}
+          <b className="text-gray-600">{resumenMes.nuevos}</b> nuevos ·{" "}
+          <b style={{ color: ESTADO_DEAL_META.GANADO.color }}>{resumenMes.ganados}</b> ganados ·{" "}
+          <b style={{ color: ESTADO_DEAL_META.PERDIDO.color }}>{resumenMes.perdidos}</b> perdidos ·{" "}
+          <b style={{ color: ESTADO_DEAL_META.SUSPENDIDO.color }}>{resumenMes.pausados}</b> pausados
         </span>
 
+        {/* Chips de estado SIEMPRE visibles (antes enterrados en el popover): filtrar por
+            pausados/perdidos es operación diaria, no configuración (reunión 2026-09-02). */}
+        <div className="ml-auto flex flex-wrap gap-1.5">
+          {ESTADOS_ORDEN.map((est) => {
+            const meta = ESTADO_DEAL_META[est];
+            const on = estadosSel.has(est);
+            return (
+              <button
+                key={est}
+                onClick={() => toggleEstado(est)}
+                className="flex items-center gap-1 rounded-lg border px-2 py-1 text-xs font-semibold transition-colors"
+                style={
+                  on
+                    ? { borderColor: meta.color, color: meta.color, background: `${meta.color}14` }
+                    : { borderColor: "var(--surface-border, #E5E7EB)", color: "#9CA3AF" }
+                }
+              >
+                <span className="h-1.5 w-1.5 rounded-full" style={{ background: meta.color }} />
+                {meta.label} ({countPorEstado[est]})
+              </button>
+            );
+          })}
+        </div>
+
         {/* Filtros consolidados (SOL-17/18 rediseño): un solo popable */}
-        <div className="relative ml-auto" ref={popRef}>
+        <div className="relative" ref={popRef}>
           <button
             onClick={() => setFiltrosOpen((o) => !o)}
             className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors ${
@@ -351,30 +407,7 @@ export default function PipelineKanban({
           </button>
           {filtrosOpen && (
             <div className="absolute right-0 z-20 mt-1.5 w-72 rounded-xl border border-surface-border bg-white p-3 shadow-lg">
-              {/* Estado (multi-selección, unión — SOL-18) */}
-              <div className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-gray-500">Estado</div>
-              <div className="mb-3 flex flex-wrap gap-1.5">
-                {ESTADOS_ORDEN.map((est) => {
-                  const meta = ESTADO_DEAL_META[est];
-                  const on = estadosSel.has(est);
-                  return (
-                    <button
-                      key={est}
-                      onClick={() => toggleEstado(est)}
-                      className="flex items-center gap-1 rounded-lg border px-2 py-1 text-xs font-semibold transition-colors"
-                      style={
-                        on
-                          ? { borderColor: meta.color, color: meta.color, background: `${meta.color}14` }
-                          : { borderColor: "var(--surface-border, #E5E7EB)", color: "#9CA3AF" }
-                      }
-                    >
-                      <span className="h-1.5 w-1.5 rounded-full" style={{ background: meta.color }} />
-                      {meta.label} ({countPorEstado[est]})
-                    </button>
-                  );
-                })}
-              </div>
-              {/* Tipo */}
+              {/* Tipo (el filtro de Estado vive como chips visibles en la franja) */}
               <label className="mb-2 block">
                 <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">Tipo de proyecto</span>
                 <select
@@ -433,17 +466,8 @@ export default function PipelineKanban({
         </div>
       </div>
 
-      {/* Strip de motivos de pérdida (SOL-06): visible cuando hay perdidos en el filtro */}
-      {perdidosFiltrados.length > 0 && (
-        <div className="flex flex-wrap items-center gap-2 border-b border-surface-border bg-white px-6 py-2.5">
-          <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">Motivos de pérdida</span>
-          {motivosPerdida.map(([razon, n]) => (
-            <span key={razon} className="inline-flex items-center gap-1.5 rounded-full border border-red-200 bg-red-50 px-2.5 py-0.5 text-xs font-medium text-red-700">
-              {razon} <span className="rounded-full bg-red-100 px-1.5">{n}</span>
-            </span>
-          ))}
-        </div>
-      )}
+      {/* El strip de motivos de pérdida se retiró (2026-09-02): Roldán no lo usaba y el
+          desglose por motivo vive en Reportes → "Por qué se pierden". */}
 
       {/* Tablero Kanban.
           Las columnas son CARRILES, no cajas: `items-stretch` (era `items-start`) las estira
@@ -578,21 +602,21 @@ export default function PipelineKanban({
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-surface-border bg-gray-50 text-left text-[11px] uppercase tracking-wide text-gray-500">
-                  <th className="px-4 py-3 font-semibold">Deal</th>
-                  <th className="px-4 py-3 font-semibold">Cliente</th>
-                  <th className="px-4 py-3 font-semibold">Estado</th>
-                  <th className="px-4 py-3 font-semibold">Etapa</th>
-                  <th className="px-4 py-3 text-center font-semibold">Temp.</th>
-                  <th className="px-4 py-3 text-center font-semibold">Prob.</th>
-                  <th className="px-4 py-3 text-center font-semibold">Días</th>
-                  <th className="px-4 py-3 text-center font-semibold">Act.</th>
-                  <th className="px-4 py-3 text-right font-semibold">Valor</th>
-                  <th className="px-4 py-3 font-semibold">Dueño</th>
-                  <th className="px-4 py-3 font-semibold">Ingreso</th>
+                  <ThOrdenable col="nombre" sort={sort} dir={dir} onSort={toggleSort}>Deal</ThOrdenable>
+                  <ThOrdenable col="cliente" sort={sort} dir={dir} onSort={toggleSort}>Cliente</ThOrdenable>
+                  <ThOrdenable col="estado" sort={sort} dir={dir} onSort={toggleSort}>Estado</ThOrdenable>
+                  <ThOrdenable col="etapa" sort={sort} dir={dir} onSort={toggleSort}>Etapa</ThOrdenable>
+                  <ThOrdenable col="temperatura" sort={sort} dir={dir} onSort={toggleSort} align="center">Temp.</ThOrdenable>
+                  <ThOrdenable col="probabilidad" sort={sort} dir={dir} onSort={toggleSort} align="center">Prob.</ThOrdenable>
+                  <ThOrdenable col="dias" sort={sort} dir={dir} onSort={toggleSort} align="center">Días</ThOrdenable>
+                  <ThOrdenable col="actividad" sort={sort} dir={dir} onSort={toggleSort} align="center">Act.</ThOrdenable>
+                  <ThOrdenable col="valor" sort={sort} dir={dir} onSort={toggleSort} align="right">Valor</ThOrdenable>
+                  <ThOrdenable col="dueno" sort={sort} dir={dir} onSort={toggleSort}>Dueño</ThOrdenable>
+                  <ThOrdenable col="ingreso" sort={sort} dir={dir} onSort={toggleSort}>Ingreso</ThOrdenable>
                 </tr>
               </thead>
               <tbody className="divide-y divide-surface-border">
-                {sortDeals(filtered).map((d) => {
+                {sortLista(filtered).map((d) => {
                   const t = TEMPERATURA_META[d.temperatura];
                   const est = ESTADO_DEAL_META[d.resultado];
                   return (
@@ -686,6 +710,36 @@ export default function PipelineKanban({
         />
       )}
     </div>
+  );
+}
+
+// Encabezado ordenable de la vista lista: clic ordena, segundo clic invierte. La flecha
+// solo aparece en la columna activa — el estado del orden se lee de un vistazo.
+function ThOrdenable({
+  col, sort, dir, onSort, align = "left", children,
+}: {
+  col: ColOrdenLista;
+  sort: ColOrdenLista | "";
+  dir: "asc" | "desc";
+  onSort: (col: ColOrdenLista) => void;
+  align?: "left" | "center" | "right";
+  children: React.ReactNode;
+}) {
+  const activo = sort === col;
+  const alignCls = align === "center" ? "justify-center" : align === "right" ? "justify-end" : "";
+  return (
+    <th className={`px-4 py-3 font-semibold ${align === "center" ? "text-center" : align === "right" ? "text-right" : ""}`}>
+      <button
+        onClick={() => onSort(col)}
+        className={`inline-flex w-full items-center gap-0.5 uppercase tracking-wide ${alignCls} ${
+          activo ? "text-navy" : "hover:text-navy"
+        }`}
+        title={`Ordenar por ${typeof children === "string" ? children : col}`}
+      >
+        {children}
+        {activo && (dir === "asc" ? <ArrowUp size={11} /> : <ArrowDown size={11} />)}
+      </button>
+    </th>
   );
 }
 

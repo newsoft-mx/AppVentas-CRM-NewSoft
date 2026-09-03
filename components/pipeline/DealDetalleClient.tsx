@@ -31,7 +31,7 @@ import { TIPO_ACTIVIDAD_META, tipoMovimiento } from "@/lib/actividad-tipos";
 import { esTareaPendiente, estaVencida, estadoTarea } from "@/lib/tareas";
 import {
   TEMPERATURA_META, ATENCION_META, ESTADO_DEAL_META, RESULTADOS_CERRADOS,
-  EFECTO_META, TAMANO_EMPRESA_LABEL,
+  EFECTO_META, TAMANO_EMPRESA_LABEL, MOTIVO_PERDIDA_OTRO, esMotivoOtro,
   type DealDetalle, type DealActividadItem, type StageResumen, type TipoActividad,
   type Temperatura, type DealResultado, type ClaseBorrado, type ClaseReapertura,
 } from "@/types/crm";
@@ -122,7 +122,9 @@ export default function DealDetalleClient({
   const router = useRouter();
   // Motivos del catálogo (SOL-10); si viene vacío, fallback a la lista base.
   // Los motivos vienen del catálogo MotivoPerdida (SSOT). Sin fallback hardcodeado.
-  const razonesPerdida = motivos;
+  // "Otro" es la válvula de escape: se garantiza aunque el catálogo de la BD no lo tenga,
+  // para que un motivo atípico no se disfrace de otro y ensucie la estadística.
+  const razonesPerdida = motivos.some(esMotivoOtro) ? motivos : [...motivos, MOTIVO_PERDIDA_OTRO];
   const [temperatura, setTemperatura] = useState<Temperatura>(deal.temperatura);
   const temp = TEMPERATURA_META[temperatura];
   const [actividades, setActividades] = useState<DealActividadItem[]>(deal.actividades);
@@ -149,6 +151,9 @@ export default function DealDetalleClient({
   const [modalPerdida, setModalPerdida] = useState(false);
   const [razon, setRazon] = useState("");
   const [comentarioP, setComentarioP] = useState("");
+  // Con "Otro" el comentario es obligatorio: sin él, el reporte por motivo pierde el dato.
+  const esRazonOtro = esMotivoOtro(razon);
+  const puedeMarcarPerdido = Boolean(razon) && (!esRazonOtro || comentarioP.trim().length > 0);
   // Borrar lead: modal con motivo obligatorio + (solo ADMIN) forzar destrucción.
   const [modalBorrar, setModalBorrar] = useState(false);
   const [motivoBorrar, setMotivoBorrar] = useState("");
@@ -872,14 +877,25 @@ export default function DealDetalleClient({
               </select>
             </div>
             <div>
-              <label className="label">Comentarios <span className="font-normal text-gray-500">(opcional)</span></label>
-              <textarea className="input" rows={3} value={comentarioP} onChange={(e) => setComentarioP(e.target.value)} placeholder="Detalle de por qué se perdió…" />
+              <label className="label">
+                Comentarios{" "}
+                {esRazonOtro
+                  ? <span className="font-normal text-red-600">* obligatorio con &quot;Otro&quot;</span>
+                  : <span className="font-normal text-gray-500">(opcional)</span>}
+              </label>
+              <textarea
+                className="input"
+                rows={3}
+                value={comentarioP}
+                onChange={(e) => setComentarioP(e.target.value)}
+                placeholder={esRazonOtro ? "¿Cuál fue el motivo? Esto queda en la estadística…" : "Detalle de por qué se perdió…"}
+              />
             </div>
             <div className="flex justify-end gap-2 border-t border-surface-border pt-4">
               <button onClick={() => setModalPerdida(false)} className="btn-secondary justify-center">Cancelar</button>
               <button
-                onClick={() => { if (!razon) return; setModalPerdida(false); cambiarResultado("PERDIDO", { razon_perdida: razon, comentario_perdida: comentarioP }); }}
-                disabled={!razon}
+                onClick={() => { if (!puedeMarcarPerdido) return; setModalPerdida(false); cambiarResultado("PERDIDO", { razon_perdida: razon, comentario_perdida: comentarioP }); }}
+                disabled={!puedeMarcarPerdido}
                 className="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-50"
               >
                 Marcar perdido
