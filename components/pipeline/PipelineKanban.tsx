@@ -784,7 +784,7 @@ function DealCard({
       draggable={draggable}
       onDragStart={onDragStart}
       onDragEnd={onDragEnd}
-      className="group relative block cursor-pointer overflow-hidden rounded-lg border border-surface-border bg-white p-3 transition-shadow hover:shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-navy"
+      className="group relative block shrink-0 cursor-pointer overflow-hidden rounded-lg border border-surface-border bg-white p-3 transition-shadow hover:shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-navy"
     >
       <span
         className="absolute inset-y-0 left-0 w-[3px]"
