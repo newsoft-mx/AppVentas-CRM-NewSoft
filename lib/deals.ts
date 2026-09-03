@@ -60,6 +60,38 @@ export interface CrearDealInput {
   notas?: string | null;
 }
 
+// Alta de un cliente PROSPECTO (a correr DENTRO de una transacción `tx`), SSOT compartido
+// entre el alta de deal y la reasignación de cliente al editar un deal. La ficha de contacto
+// es opcional: al reasignar no hay contacto en mano, y la ficha incompleta queda declarada
+// (el form de cliente marca qué falta al editarla).
+export async function crearProspectoTx(
+  tx: Prisma.TransactionClient,
+  prospecto: NonNullable<CrearDealInput["prospecto"]>,
+  ficha?: { nombre?: string; email?: string | null; telefono?: string | null }
+): Promise<string> {
+  const cond = await tx.condicionComercial.findFirst({
+    where: { activo: true },
+    orderBy: { dias_credito: "asc" },
+    select: { id: true },
+  });
+  if (!cond) throw new HttpError(422, "No hay condiciones de pago configuradas");
+  const creado = await tx.cliente.create({
+    data: {
+      nombre: prospecto.nombre,
+      contacto: ficha?.nombre ?? "",
+      ciudad: "",
+      email: ficha?.email ?? null,
+      telefono: ficha?.telefono ?? null,
+      website: prospecto.website ?? null,
+      tamano_empresa: prospecto.tamano_empresa ?? null,
+      condicion_pago_id: cond.id,
+      estatus: "PROSPECTO",
+    },
+    select: { id: true },
+  });
+  return creado.id;
+}
+
 // Alta atómica de un deal (a correr DENTRO de una transacción `tx`): crea el prospecto si
 // no hay cliente existente + su contacto principal + el deal + el link al contacto + el
 // evento de entrada a la primera etapa. Devuelve el deal con includes para el resumen.
@@ -67,27 +99,7 @@ export async function crearDealTx(tx: Prisma.TransactionClient, input: CrearDeal
   let clienteId = input.cliente_id ?? "";
 
   if (!clienteId && input.prospecto?.nombre) {
-    const cond = await tx.condicionComercial.findFirst({
-      where: { activo: true },
-      orderBy: { dias_credito: "asc" },
-      select: { id: true },
-    });
-    if (!cond) throw new HttpError(422, "No hay condiciones de pago configuradas");
-    const prospecto = await tx.cliente.create({
-      data: {
-        nombre: input.prospecto.nombre,
-        contacto: input.contacto.nombre,
-        ciudad: "",
-        email: input.contacto.email ?? null,
-        telefono: input.contacto.telefono ?? null,
-        website: input.prospecto.website ?? null,
-        tamano_empresa: input.prospecto.tamano_empresa ?? null,
-        condicion_pago_id: cond.id,
-        estatus: "PROSPECTO",
-      },
-      select: { id: true },
-    });
-    clienteId = prospecto.id;
+    clienteId = await crearProspectoTx(tx, input.prospecto, input.contacto);
   }
 
   const cliente = await tx.cliente.findFirst({ where: { id: clienteId, activo: true }, select: { id: true } });

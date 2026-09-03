@@ -287,6 +287,29 @@ test.describe("QA lote SOL-14..20", () => {
     await expect(th.locator("svg")).toBeVisible();
   });
 
+  test("Lote 09-03 · editar deal reasignándolo a un prospecto NUEVO (cliente_nuevo)", async ({ request }) => {
+    const deal = await crearDealAPI(request, {
+      nombre: `E2E Reasignar ${Date.now()}`,
+      cliente_id: cat.clienteActivo!.id,
+      stage_id: stageDeOrden(cat, 1).id,
+    });
+    const nombreProspecto = `E2E Prospecto ${Date.now()}`;
+    const res = await request.patch(`/api/crm/deals/${deal.id}`, {
+      data: { cliente_nuevo: { nombre: nombreProspecto, website: "solaris.mx" } },
+    });
+    expect(res.status()).toBe(200);
+    const enDb = await db.deal.findUnique({
+      where: { id: deal.id },
+      select: { cliente: { select: { nombre: true, estatus: true, website: true } } },
+    });
+    expect(enDb?.cliente.nombre).toBe(nombreProspecto);
+    expect(enDb?.cliente.estatus).toBe("PROSPECTO");
+    expect(enDb?.cliente.website).toBe("https://solaris.mx");
+    // Limpieza del prospecto creado (no lleva prefijo en clientes que limpie el helper).
+    await db.deal.update({ where: { id: deal.id }, data: { cliente_id: cat.clienteActivo!.id } });
+    await db.cliente.deleteMany({ where: { nombre: nombreProspecto } });
+  });
+
   test("S2 · PERDIDO con motivo \"Otro\": el comentario es obligatorio (API y modal)", async ({ page, request }) => {
     const deal = await crearDealAPI(request, {
       nombre: `E2E Sotro ${Date.now()}`,

@@ -51,7 +51,9 @@ export default function NuevoDealModal({
   stages, vendedores, clientes, tipos, canales, origenes, onClose, onCreated, deal, onSaved,
 }: Props) {
   const editando = !!deal;
-  // Modo de cliente: existente o nuevo prospecto (REQ-02). En edición: siempre existente.
+  // Modo de cliente: existente o nuevo prospecto (REQ-02). También al EDITAR: si el
+  // cliente correcto todavía no está registrado, se crea como prospecto y el deal se
+  // reasigna (pedido de Gaby 2026-09-03 — antes solo aceptaba existentes).
   const [modoCliente, setModoCliente] = useState<"existente" | "prospecto">("existente");
   const [form, setForm] = useState({
     nombre: deal?.nombre ?? "",
@@ -91,19 +93,32 @@ export default function NuevoDealModal({
   async function guardar() {
     // ── Modo edición (SOL-01): PATCH de los campos del deal, sin contacto ──
     if (editando && deal) {
-      if (!form.nombre.trim() || !form.cliente_id || !form.stage_id) {
-        setError("Nombre del proyecto, cliente y etapa son obligatorios.");
+      const esProspecto = modoCliente === "prospecto";
+      const clienteOkEdit = esProspecto ? form.prospecto_nombre.trim() : form.cliente_id;
+      if (!form.nombre.trim() || !clienteOkEdit || !form.stage_id) {
+        setError("Nombre del proyecto, cliente/prospecto y etapa son obligatorios.");
         return;
       }
       setGuardando(true);
       setError(null);
       try {
+        // Reasignación: cliente existente por id, o prospecto nuevo (el server lo crea
+        // y apunta el deal en la misma transacción).
+        const destinoCliente = esProspecto
+          ? {
+              cliente_nuevo: {
+                nombre: form.prospecto_nombre.trim(),
+                website: form.prospecto_website || null,
+                tamano_empresa: form.prospecto_tamano || null,
+              },
+            }
+          : { cliente_id: form.cliente_id };
         const res = await fetch(`/api/crm/deals/${deal.id}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             nombre: form.nombre,
-            cliente_id: form.cliente_id,
+            ...destinoCliente,
             vendedor_id: form.vendedor_id || null,
             stage_id: form.stage_id,
             tipo_cotizacion_id: form.tipo_cotizacion_id || null,
@@ -118,8 +133,9 @@ export default function NuevoDealModal({
             origen_id: form.origen_id || null,
             fecha_cierre_estimada: form.fecha_cierre_estimada,
             fecha_ingreso: form.fecha_ingreso,
-            website: form.edit_website,
-            tamano_empresa: form.edit_tamano || null,
+            // Los datos de empresa del bloque de edición son del cliente ACTUAL: con un
+            // prospecto nuevo se omiten (sus datos viajan dentro de cliente_nuevo).
+            ...(esProspecto ? {} : { website: form.edit_website, tamano_empresa: form.edit_tamano || null }),
           }),
         });
         const data = await res.json();
@@ -207,12 +223,10 @@ export default function NuevoDealModal({
         <div className="sm:col-span-2">
           <div className="mb-1.5 flex items-center gap-2">
             <label className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">Cliente *</label>
-            {!editando && (
-              <div className="flex overflow-hidden rounded-md border border-surface-border text-[11px] font-semibold">
-                <button type="button" onClick={() => setModoCliente("existente")} className={`px-2.5 py-1 ${modoCliente === "existente" ? "bg-navy text-white" : "text-gray-500"}`}>Existente</button>
-                <button type="button" onClick={() => setModoCliente("prospecto")} className={`px-2.5 py-1 ${modoCliente === "prospecto" ? "bg-orange text-navy" : "text-gray-500"}`}>Nuevo prospecto</button>
-              </div>
-            )}
+            <div className="flex overflow-hidden rounded-md border border-surface-border text-[11px] font-semibold">
+              <button type="button" onClick={() => setModoCliente("existente")} className={`px-2.5 py-1 ${modoCliente === "existente" ? "bg-navy text-white" : "text-gray-500"}`}>Existente</button>
+              <button type="button" onClick={() => setModoCliente("prospecto")} className={`px-2.5 py-1 ${modoCliente === "prospecto" ? "bg-orange text-navy" : "text-gray-500"}`}>Nuevo prospecto</button>
+            </div>
           </div>
           {modoCliente === "existente" ? (
             <SearchableSelect
@@ -351,8 +365,9 @@ export default function NuevoDealModal({
           />
         </Campo>
 
-        {/* Datos de la empresa: solo en edición (al dar de alta se piden en el bloque de cliente). */}
-        {editando && (
+        {/* Datos de la empresa: solo en edición y con cliente EXISTENTE (con prospecto
+            nuevo, sus datos viajan en el bloque de prospecto; estos son del cliente viejo). */}
+        {editando && modoCliente === "existente" && (
           <>
             <Campo label="Website de la empresa">
               <input
