@@ -5,7 +5,7 @@ import { canWrite, requireAuth } from "@/lib/session";
 import { scopeClienteWhere, scopeDealWhere } from "@/lib/access-control";
 import { logger } from "@/lib/logger";
 import { TAMANOS_EMPRESA, type TamanoEmpresa } from "@/types/crm";
-import { clasificarBorrado, fechaIngresoAInstante, puedeBorrarDeals, puedeForzarDestruccion } from "@/lib/deals";
+import { clasificarBorrado, crearProspectoTx, fechaIngresoAInstante, puedeBorrarDeals, puedeForzarDestruccion } from "@/lib/deals";
 
 export const dynamic = "force-dynamic";
 
@@ -55,6 +55,22 @@ export async function PATCH(
     if (typeof b.cliente_id === "string" && b.cliente_id) data.cliente_id = b.cliente_id;
     else errores.push("cliente_id inválido");
   }
+  // Reasignar el deal a un PROSPECTO NUEVO (pedido de Gaby 2026-09-03: el cliente correcto
+  // todavía no estaba registrado y la edición solo aceptaba existentes). Mismo shape y
+  // normalización que el alta (POST /deals); tiene prioridad sobre cliente_id.
+  const cn = (b.cliente_nuevo ?? null) as Record<string, unknown> | null;
+  const prospectoNombre = cn && typeof cn.nombre === "string" ? cn.nombre.trim() : "";
+  if (cn && !prospectoNombre) errores.push("El nombre del prospecto es obligatorio");
+  if (prospectoNombre.length > 200) errores.push("El nombre del prospecto es demasiado largo (máx. 200)");
+  const rawWebPros = cn && typeof cn.website === "string" ? cn.website.trim() : "";
+  const prospectoWebsite = rawWebPros
+    ? (/^https?:\/\//i.test(rawWebPros) ? rawWebPros : `https://${rawWebPros}`).slice(0, 255)
+    : null;
+  const tamanoProsRaw = cn && typeof cn.tamano_empresa === "string" ? cn.tamano_empresa : "";
+  const prospectoTamano = TAMANOS_EMPRESA.includes(tamanoProsRaw as TamanoEmpresa)
+    ? (tamanoProsRaw as TamanoEmpresa)
+    : null;
+  if (prospectoNombre) delete data.cliente_id;
   if (b.stage_id !== undefined) {
     if (typeof b.stage_id === "string" && b.stage_id) data.stage_id = b.stage_id;
     else errores.push("stage_id inválido");
@@ -123,7 +139,7 @@ export async function PATCH(
   }
 
   if (errores.length) return NextResponse.json({ error: errores.join("; ") }, { status: 422 });
-  const hayDeal = Object.keys(data).length > 0;
+  const hayDeal = Object.keys(data).length > 0 || Boolean(prospectoNombre);
   const hayCliente = Object.keys(clienteData).length > 0;
   if (!hayDeal && !hayCliente) return NextResponse.json({ error: "Nada para actualizar" }, { status: 422 });
 
@@ -182,22 +198,32 @@ export async function PATCH(
     // se aplican al cliente vinculado (nuevo si cambió, o el actual) en la misma tx.
     const cambiaStage = typeof data.stage_id === "string" && data.stage_id !== deal.stage_id;
     if (cambiaStage) data.fecha_entrada_stage = new Date();
-    const targetClienteId = clienteDestino;
 
-    const ops: Prisma.PrismaPromise<unknown>[] = [];
-    if (hayDeal) ops.push(prisma.deal.update({ where: { id }, data: data as Prisma.DealUpdateInput }));
-    if (cambiaStage) {
-      ops.push(prisma.dealStageEvent.create({
-        data: { deal_id: id, from_stage_id: deal.stage_id, to_stage_id: data.stage_id as string },
-      }));
-    }
-    if (hayCliente && targetClienteId) {
-      ops.push(prisma.cliente.update({
-        where: { id: targetClienteId },
-        data: clienteData as Prisma.ClienteUpdateInput,
-      }));
-    }
-    await prisma.$transaction(ops);
+    // Interactiva (no batch): si viene un prospecto nuevo, su id recién existe DENTRO de
+    // la transacción y el update del deal depende de él.
+    await prisma.$transaction(async (tx) => {
+      let targetClienteId = clienteDestino;
+      if (prospectoNombre) {
+        targetClienteId = await crearProspectoTx(tx, {
+          nombre: prospectoNombre,
+          website: prospectoWebsite,
+          tamano_empresa: prospectoTamano,
+        });
+        data.cliente_id = targetClienteId;
+      }
+      if (hayDeal) await tx.deal.update({ where: { id }, data: data as Prisma.DealUpdateInput });
+      if (cambiaStage) {
+        await tx.dealStageEvent.create({
+          data: { deal_id: id, from_stage_id: deal.stage_id, to_stage_id: data.stage_id as string },
+        });
+      }
+      if (hayCliente && targetClienteId) {
+        await tx.cliente.update({
+          where: { id: targetClienteId },
+          data: clienteData as Prisma.ClienteUpdateInput,
+        });
+      }
+    });
     return NextResponse.json({ ok: true });
   } catch (err) {
     logger.error("Error al actualizar el deal", "PATCH /api/crm/deals/:id", err);
