@@ -171,7 +171,10 @@ export default function AccionesInbox({
   ];
 
   return (
-    <div className="flex h-full flex-col">
+    // Lista: la pantalla FLUYE y scrollea entera en <main> (con el compositor abierto en
+    // ventanas bajas, encajonar la lista en el alto restante la dejaba asomando ~1 fila).
+    // Calendario: sí se ancla al alto de la ventana — su grilla scrollea adentro.
+    <div className={`flex flex-col ${vista === "calendario" ? "h-full" : "min-h-full"}`}>
       {toast && <Toast {...toast} onClose={() => setToast(null)} />}
       <header className="flex flex-wrap items-center justify-between gap-3 border-b border-surface-border bg-white px-6 py-4">
         <div>
@@ -282,7 +285,7 @@ export default function AccionesInbox({
           />
         </div>
       ) : (
-      <div className="flex-1 overflow-y-auto bg-surface px-6 py-5">
+      <div className="flex-1 bg-surface px-6 py-5">
         {filtered.length === 0 && (
           // "Todo al día" era una afirmación FALSA el día 1: sin ninguna acción cargada, la
           // pantalla felicitaba al usuario por estar al día con un trabajo que nunca empezó.
