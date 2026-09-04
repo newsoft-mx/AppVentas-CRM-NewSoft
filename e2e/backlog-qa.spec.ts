@@ -278,13 +278,16 @@ test.describe("QA lote SOL-14..20", () => {
       stage_id: stageDeOrden(cat, 1).id,
     });
     await page.goto("/pipeline?vista=lista");
-    const th = page.locator("th").getByRole("button", { name: /^Valor$/i });
+    // Cimiento común (ui/ThOrdenable): ciclo asc → desc → sin orden, con glifo ↑/↓/↕.
+    const th = page.locator("th").getByRole("button", { name: /^Valor/ });
     await th.click();
     await expect(page).toHaveURL(/sort=valor/);
+    await expect(th).toContainText("↑");
     await th.click(); // segundo clic invierte
     await expect(page).toHaveURL(/sort=valor.*dir=desc|dir=desc.*sort=valor/);
-    // La flecha de dirección aparece en la columna activa
-    await expect(th.locator("svg")).toBeVisible();
+    await expect(th).toContainText("↓");
+    await th.click(); // tercer clic quita el orden
+    await expect(page).not.toHaveURL(/sort=valor/);
   });
 
   test("Lote 09-03 · editar deal reasignándolo a un prospecto NUEVO (cliente_nuevo)", async ({ request }) => {

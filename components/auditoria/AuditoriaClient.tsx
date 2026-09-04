@@ -4,6 +4,11 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { ScrollText, Search, ExternalLink } from "lucide-react";
 import type { CambioCampo, EntidadAuditable } from "@/lib/auditoria";
+import ThOrdenable from "@/components/ui/ThOrdenable";
+import {
+  ordenarFilas, propsOrdenables, siguienteOrden,
+  type ExtractoresOrden, type OrdenTabla,
+} from "@/lib/tabla-orden";
 
 // Vista global de la bitácora (solo ADMIN): qué se tocó, quién y cuándo, en todos los
 // módulos auditados. Solo lectura — la bitácora es append-only, así que no hay acciones.
@@ -35,6 +40,16 @@ const ACCION_CHIP: Record<string, string> = {
 const fecha = (iso: string) =>
   new Date(iso).toLocaleString("es-MX", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
 
+// Ley de tablas: toda tabla de datos ordena por encabezado (cimiento lib/tabla-orden).
+// "Qué cambió" queda afuera: es prosa, no un valor comparable.
+type ColAuditoria = "cuando" | "quien" | "modulo" | "registro";
+const EXTRACTORES: ExtractoresOrden<AuditoriaItem, ColAuditoria> = {
+  cuando: (i) => new Date(i.created_at),
+  quien: (i) => i.autor,
+  modulo: (i) => MODULO[i.entidad]?.label ?? i.entidad,
+  registro: (i) => i.etiqueta,
+};
+
 export default function AuditoriaClient({ initial }: { initial: AuditoriaItem[] }) {
   const [q, setQ] = useState("");
   const [modulo, setModulo] = useState<"" | EntidadAuditable>("");
@@ -42,6 +57,9 @@ export default function AuditoriaClient({ initial }: { initial: AuditoriaItem[] 
   // Autores presentes, para filtrar por persona sin pedir un catálogo aparte.
   const autores = useMemo(() => [...new Set(initial.map((i) => i.autor))].sort(), [initial]);
   const [autor, setAutor] = useState("");
+  // Sin orden elegido, manda el del server (cronológico descendente — es un log).
+  const [orden, setOrden] = useState<OrdenTabla<ColAuditoria>>({ campo: null, sentido: "asc" });
+  const th = propsOrdenables(orden, (campo) => setOrden((o) => siguienteOrden(o, campo)));
 
   const filtrados = useMemo(() => {
     const t = q.trim().toLowerCase();
@@ -96,10 +114,10 @@ export default function AuditoriaClient({ initial }: { initial: AuditoriaItem[] 
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-surface-border bg-gray-50 text-left text-[11px] font-semibold uppercase tracking-wide text-gray-500">
-              <th className="px-3 py-2.5">Cuándo</th>
-              <th className="px-3 py-2.5">Quién</th>
-              <th className="px-3 py-2.5">Módulo</th>
-              <th className="px-3 py-2.5">Registro</th>
+              <ThOrdenable {...th("cuando")} className="px-3 py-2.5">Cuándo</ThOrdenable>
+              <ThOrdenable {...th("quien")} className="px-3 py-2.5">Quién</ThOrdenable>
+              <ThOrdenable {...th("modulo")} className="px-3 py-2.5">Módulo</ThOrdenable>
+              <ThOrdenable {...th("registro")} className="px-3 py-2.5">Registro</ThOrdenable>
               <th className="px-3 py-2.5">Qué cambió</th>
             </tr>
           </thead>
@@ -107,7 +125,7 @@ export default function AuditoriaClient({ initial }: { initial: AuditoriaItem[] 
             {filtrados.length === 0 && (
               <tr><td colSpan={5} className="px-4 py-10 text-center text-sm text-gray-500">Sin movimientos que coincidan.</td></tr>
             )}
-            {filtrados.map((i) => {
+            {ordenarFilas(filtrados, orden, EXTRACTORES).map((i) => {
               const mod = MODULO[i.entidad] ?? { label: i.entidad };
               return (
                 <tr key={i.id} className="align-top hover:bg-surface">
