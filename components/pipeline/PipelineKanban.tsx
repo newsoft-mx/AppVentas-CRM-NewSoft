@@ -5,8 +5,13 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   Plus, Filter, Building2, Clock, LayoutGrid, List, Flame, CalendarClock, Search,
-  SlidersHorizontal, ChevronDown, X, Trash2, Users, ArrowUp, ArrowDown,
+  SlidersHorizontal, ChevronDown, X, Trash2, Users,
 } from "lucide-react";
+import ThOrdenable from "@/components/ui/ThOrdenable";
+import {
+  ordenarFilas, propsOrdenables, siguienteOrden,
+  type ExtractoresOrden, type OrdenTabla,
+} from "@/lib/tabla-orden";
 import {
   TEMPERATURA_META,
   TEMPERATURA_RANK,
@@ -183,33 +188,32 @@ export default function PipelineKanban({
     return copy;
   }
 
-  // Orden por columna de la vista LISTA (clic en el encabezado): eje aparte de `orden`
-  // (que ordena tarjetas del tablero). Mismo clic invierte la dirección.
-  function toggleSort(col: ColOrdenLista) {
-    setFiltros((f) =>
-      f.sort === col ? { ...f, dir: f.dir === "asc" ? "desc" : "asc" } : { ...f, sort: col, dir: "asc" }
-    );
-  }
+  // Orden por columna de la vista LISTA: usa el cimiento común de tablas
+  // (lib/tabla-orden + ui/ThOrdenable — ciclo asc → desc → sin orden, aria-sort), con el
+  // estado persistido en la URL vía el contrato de filtros del pipeline (sort/dir).
+  const ordenLista: OrdenTabla<ColOrdenLista> = { campo: sort || null, sentido: dir };
+  const toggleSort = (campo: ColOrdenLista) => {
+    const nx = siguienteOrden(ordenLista, campo);
+    setFiltros((f) => ({ ...f, sort: nx.campo ?? "", dir: nx.sentido }));
+  };
+  const th = propsOrdenables(ordenLista, toggleSort);
   const ordenStage = useMemo(() => new Map(stages.map((s) => [s.id, s.orden])), [stages]);
-  const rankEstado = (r: DealResultado) => ESTADOS_ORDEN.indexOf(r);
-  function sortLista(arr: DealResumen[]): DealResumen[] {
-    if (!sort) return sortDeals(arr); // sin columna elegida, manda el orden del popover
-    const cmp: Record<ColOrdenLista, (a: DealResumen, b: DealResumen) => number> = {
-      nombre: (a, b) => a.nombre.localeCompare(b.nombre, "es"),
-      cliente: (a, b) => (a.cliente?.nombre ?? "").localeCompare(b.cliente?.nombre ?? "", "es"),
-      estado: (a, b) => rankEstado(a.resultado) - rankEstado(b.resultado),
-      etapa: (a, b) => (ordenStage.get(a.stage_id) ?? 0) - (ordenStage.get(b.stage_id) ?? 0),
-      temperatura: (a, b) => TEMPERATURA_RANK[a.temperatura] - TEMPERATURA_RANK[b.temperatura],
-      probabilidad: (a, b) => (a.probabilidad ?? 0) - (b.probabilidad ?? 0),
-      dias: (a, b) => a.dias_en_etapa - b.dias_en_etapa,
-      actividad: (a, b) => a.actividades_count - b.actividades_count,
-      valor: (a, b) => a.valor - b.valor,
-      dueno: (a, b) => (a.vendedor?.nombre ?? "").localeCompare(b.vendedor?.nombre ?? "", "es"),
-      ingreso: (a, b) => a.fecha_ingreso.localeCompare(b.fecha_ingreso), // ISO: orden lexicográfico = cronológico
-    };
-    const copy = [...arr].sort(cmp[sort]);
-    return dir === "desc" ? copy.reverse() : copy;
-  }
+  const EXTRACTORES: ExtractoresOrden<DealResumen, ColOrdenLista> = {
+    nombre: (d) => d.nombre,
+    cliente: (d) => d.cliente?.nombre,
+    estado: (d) => ESTADOS_ORDEN.indexOf(d.resultado),
+    etapa: (d) => ordenStage.get(d.stage_id),
+    temperatura: (d) => TEMPERATURA_RANK[d.temperatura],
+    probabilidad: (d) => d.probabilidad ?? 0,
+    dias: (d) => d.dias_en_etapa,
+    actividad: (d) => d.actividades_count,
+    valor: (d) => d.valor,
+    dueno: (d) => d.vendedor?.nombre,
+    ingreso: (d) => new Date(d.fecha_ingreso),
+  };
+  // Sin columna elegida, manda el orden del popover (el mismo que ordena el tablero).
+  const sortLista = (arr: DealResumen[]) =>
+    ordenLista.campo ? ordenarFilas(arr, ordenLista, EXTRACTORES) : sortDeals(arr);
 
   // KPIs de salud del pipeline (SOL-19): SIEMPRE sobre el pipeline activo,
   // independiente de los chips de estado, y con el MISMO cálculo que el reporte
@@ -602,17 +606,17 @@ export default function PipelineKanban({
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-surface-border bg-gray-50 text-left text-[11px] uppercase tracking-wide text-gray-500">
-                  <ThOrdenable col="nombre" sort={sort} dir={dir} onSort={toggleSort}>Deal</ThOrdenable>
-                  <ThOrdenable col="cliente" sort={sort} dir={dir} onSort={toggleSort}>Cliente</ThOrdenable>
-                  <ThOrdenable col="estado" sort={sort} dir={dir} onSort={toggleSort}>Estado</ThOrdenable>
-                  <ThOrdenable col="etapa" sort={sort} dir={dir} onSort={toggleSort}>Etapa</ThOrdenable>
-                  <ThOrdenable col="temperatura" sort={sort} dir={dir} onSort={toggleSort} align="center">Temp.</ThOrdenable>
-                  <ThOrdenable col="probabilidad" sort={sort} dir={dir} onSort={toggleSort} align="center">Prob.</ThOrdenable>
-                  <ThOrdenable col="dias" sort={sort} dir={dir} onSort={toggleSort} align="center">Días</ThOrdenable>
-                  <ThOrdenable col="actividad" sort={sort} dir={dir} onSort={toggleSort} align="center">Act.</ThOrdenable>
-                  <ThOrdenable col="valor" sort={sort} dir={dir} onSort={toggleSort} align="right">Valor</ThOrdenable>
-                  <ThOrdenable col="dueno" sort={sort} dir={dir} onSort={toggleSort}>Dueño</ThOrdenable>
-                  <ThOrdenable col="ingreso" sort={sort} dir={dir} onSort={toggleSort}>Ingreso</ThOrdenable>
+                  <ThOrdenable {...th("nombre")} className="px-4 py-3 font-semibold">Deal</ThOrdenable>
+                  <ThOrdenable {...th("cliente")} className="px-4 py-3 font-semibold">Cliente</ThOrdenable>
+                  <ThOrdenable {...th("estado")} className="px-4 py-3 font-semibold">Estado</ThOrdenable>
+                  <ThOrdenable {...th("etapa")} className="px-4 py-3 font-semibold">Etapa</ThOrdenable>
+                  <ThOrdenable {...th("temperatura")} align="center" className="px-4 py-3 font-semibold">Temp.</ThOrdenable>
+                  <ThOrdenable {...th("probabilidad")} align="center" className="px-4 py-3 font-semibold">Prob.</ThOrdenable>
+                  <ThOrdenable {...th("dias")} align="center" className="px-4 py-3 font-semibold">Días</ThOrdenable>
+                  <ThOrdenable {...th("actividad")} align="center" className="px-4 py-3 font-semibold">Act.</ThOrdenable>
+                  <ThOrdenable {...th("valor")} align="right" className="px-4 py-3 font-semibold">Valor</ThOrdenable>
+                  <ThOrdenable {...th("dueno")} className="px-4 py-3 font-semibold">Dueño</ThOrdenable>
+                  <ThOrdenable {...th("ingreso")} className="px-4 py-3 font-semibold">Ingreso</ThOrdenable>
                 </tr>
               </thead>
               <tbody className="divide-y divide-surface-border">
@@ -710,36 +714,6 @@ export default function PipelineKanban({
         />
       )}
     </div>
-  );
-}
-
-// Encabezado ordenable de la vista lista: clic ordena, segundo clic invierte. La flecha
-// solo aparece en la columna activa — el estado del orden se lee de un vistazo.
-function ThOrdenable({
-  col, sort, dir, onSort, align = "left", children,
-}: {
-  col: ColOrdenLista;
-  sort: ColOrdenLista | "";
-  dir: "asc" | "desc";
-  onSort: (col: ColOrdenLista) => void;
-  align?: "left" | "center" | "right";
-  children: React.ReactNode;
-}) {
-  const activo = sort === col;
-  const alignCls = align === "center" ? "justify-center" : align === "right" ? "justify-end" : "";
-  return (
-    <th className={`px-4 py-3 font-semibold ${align === "center" ? "text-center" : align === "right" ? "text-right" : ""}`}>
-      <button
-        onClick={() => onSort(col)}
-        className={`inline-flex w-full items-center gap-0.5 uppercase tracking-wide ${alignCls} ${
-          activo ? "text-navy" : "hover:text-navy"
-        }`}
-        title={`Ordenar por ${typeof children === "string" ? children : col}`}
-      >
-        {children}
-        {activo && (dir === "asc" ? <ArrowUp size={11} /> : <ArrowDown size={11} />)}
-      </button>
-    </th>
   );
 }
 

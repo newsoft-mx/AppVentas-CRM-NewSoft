@@ -58,6 +58,19 @@ sobre todo no atrapa que la pantalla haga lo que promete — no saltear pasos.
   agregadas = **netos sin IVA** (`subtotal_con_descuento`). Ver `docs/FLUJO-GIT.md`.
 - **Quality gate (SonarCloud, corre en el PR)**: duplicación ≤3%, líneas ≤120. Autorevisar el
   diff antes de pushear.
+- **Layouts anclados al alto de la ventana: probar con data abundante y ventana chica.**
+  La primera semana de uso real (sep-2026) destapó dos bugs con la misma causa: un contenedor
+  `flex flex-col` con `overflow-y-auto` ENCOGE a sus hijos antes de scrollear si no llevan
+  `shrink-0` (kanban con 12 leads → tarjetas de 50px), y una pantalla `h-full` con un bloque
+  fijo grande deja al resto una franja inútil en ventanas bajas (Próximas Acciones con el
+  compositor abierto). Regla: hijos de un carril scrolleable llevan `shrink-0`; una pantalla
+  de formulario+lista FLUYE (`min-h-full`, scrollea `<main>`) en vez de anclarse; y toda
+  pantalla nueva se mira una vez con 30+ filas y ~750px de alto antes de darla por buena.
+  La data demo es chica a propósito — no delata estos bugs.
+- **Toda tabla de datos ordena por encabezado** (ley de Roldán, 07-ago). El cimiento es
+  `lib/tabla-orden` (puro, testeado) + `components/ui/ThOrdenable` (pintura, aria-sort):
+  extractores por columna, ciclo asc → desc → sin orden. No escribir comparadores a mano en
+  el componente ni duplicar el `<th>` — pantalla nueva con tabla = extractores + ThOrdenable.
 
 ## Flujo Git y PRs
 
